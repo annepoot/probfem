@@ -1,0 +1,12 @@
+name: rmfem
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - matplotlib=3.5.2
+  - numpy=1.23.5
+  - pytest=7.1.2
+  - pip
+  - pip:
+    - myjive==0.1.6
