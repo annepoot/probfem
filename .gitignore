@@ -1,0 +1,10 @@
+__pycache__
+*.vtu
+*.dat
+*.csv
+*.png
+*.svg
+*.pdf
+.ipynb_checkpoints/
+.idea/
+*.swp
