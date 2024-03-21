@@ -1,4 +1,4 @@
-name: rmfem
+name: rmfem-dev
 channels:
   - conda-forge
   - defaults
@@ -8,9 +8,7 @@ dependencies:
   # mandatory packages
   - matplotlib=3.5.2
   - numpy=1.23.5
-  # myjive import
-  - pip
-  - pip:
-    - myjive==0.1.7
   # support packages
+  - black
   - pytest
+  - spyder
