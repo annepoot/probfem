@@ -123,5 +123,10 @@ model =
   rm =
   {
     type = RandomMesh;
+
+    boundary =
+    {
+        groups = [ left, right ];
+    };
   };
 };

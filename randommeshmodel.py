@@ -3,7 +3,7 @@ import os
 
 from myjive.names import GlobNames as gn
 from myjive.model.model import Model
-from myjive.util.proputils import optarg
+from myjive.util.proputils import mdtlist, mdtdict
 
 
 class RandomMeshModel(Model):
@@ -19,13 +19,22 @@ class RandomMeshModel(Model):
 
     def configure(self, globdat, **props):
         # get props
-        pass
+        bprops = mdtdict(self, props, "boundary", ["groups"])
+
+        self._bgroups = mdtlist(self, bprops, "groups")
+        bnodes = set()
+        for group in self._bgroups:
+            ngroup = globdat[gn.NGROUPS][group]
+            for inode in ngroup:
+                bnodes.add(inode)
+        self._bnodes = list(bnodes)
 
     def _perturb_nodes(self, nodes, globdat, rng=np.random.default_rng()):
-        for node in nodes:
-            coords = node.get_coords()
-            coords += rng.uniform(-0.05, 0.05)
-            node.set_coords(coords)
+        for inode, node in enumerate(nodes):
+            if inode not in self._bnodes:
+                coords = node.get_coords()
+                coords += rng.uniform(-0.05, 0.05)
+                node.set_coords(coords)
 
         return nodes
 
