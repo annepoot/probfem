@@ -36,6 +36,7 @@ rmfem =
   };
 
   nsample = 10;
+  seed = 0;
 
   writeMesh =
   {
@@ -122,7 +123,5 @@ model =
   rm =
   {
     type = RandomMesh;
-
-    seed = 0;
   };
 };

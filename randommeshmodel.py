@@ -7,8 +7,8 @@ from myjive.util.proputils import optarg
 
 
 class RandomMeshModel(Model):
-    def PERTURBNODES(self, nodes, globdat, **kwargs):
-        nodes = self._perturb_nodes(nodes, globdat)
+    def PERTURBNODES(self, nodes, globdat, rng=np.random.default_rng(), **kwargs):
+        nodes = self._perturb_nodes(nodes, globdat, rng=rng)
         return nodes
 
     def WRITEMESH(self, globdat, fname, ftype, **kwargs):
@@ -19,14 +19,12 @@ class RandomMeshModel(Model):
 
     def configure(self, globdat, **props):
         # get props
-        self._seed = optarg(self, props, "seed")
+        pass
 
-        self._rng = np.random.default_rng(seed=self._seed)
-
-    def _perturb_nodes(self, nodes, globdat):
+    def _perturb_nodes(self, nodes, globdat, rng=np.random.default_rng()):
         for node in nodes:
             coords = node.get_coords()
-            coords += self._rng.uniform(-0.01, 0.01)
+            coords += rng.uniform(-0.05, 0.05)
             node.set_coords(coords)
 
         return nodes
