@@ -25,19 +25,3 @@ props = pu.parse_file("tapered.pro")
 
 extra_declares = [declarex, declareloc]
 globdat = main.jive(props, extra_declares=extra_declares)
-
-K = globdat["matrix0"]
-u = globdat["state0"]
-f = globdat["extForce"]
-c = globdat["constraints"]
-
-conman = Constrainer(c, K)
-Kc = conman.get_output_matrix()
-fc = conman.get_rhs(f)
-
-xf = np.linspace(0, 1, len(u))
-
-plt.figure()
-plt.plot(xf, u, label="solution")
-plt.legend()
-plt.show()

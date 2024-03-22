@@ -44,6 +44,29 @@ rmfem =
   };
 };
 
+rmplot =
+{
+  type = RMPlot;
+
+  title = "Plot";
+
+  figure =
+  {
+
+  };
+
+  reference =
+  {
+    color = C0;
+  };
+
+  perturbed =
+  {
+    color = grey;
+    alpha = 0.3;
+  };
+};
+
 model =
 {
   type = Multi;
@@ -99,5 +122,7 @@ model =
   rm =
   {
     type = RandomMesh;
+
+    seed = 0;
   };
 };
