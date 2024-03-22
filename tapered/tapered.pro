@@ -36,6 +36,12 @@ rmfem =
   };
 
   nsample = 10;
+
+  writeMesh =
+  {
+    type = manual;
+    file = meshes/2nodebar-p{}.mesh;
+  };
 };
 
 model =

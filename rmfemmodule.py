@@ -1,18 +1,21 @@
 from myjive.names import GlobNames as gn
 from myjive.app import Module
-from myjive.util.proputils import mandatory_dict, mandatory_argument, optional_argument
+from myjive.util.proputils import mdtarg, mdtdict, optarg
 from copy import deepcopy
 
 
 class RMFemModule(Module):
-
     def init(self, globdat, **props):
-
         # Get props
-        solvemoduleprops = mandatory_dict(
-            self, props, "solveModule", mandatory_keys=["type"]
-        )
-        self._nsample = mandatory_argument(self, props, "nsample")
+        solvemoduleprops = mdtdict(self, props, "solveModule", ["type"])
+        self._nsample = mdtarg(self, props, "nsample", dtype=int)
+        writemeshprops = optarg(self, props, "writeMesh", dtype=dict)
+
+        if "file" in writemeshprops and "type" in writemeshprops:
+            self._writemeshfile = writemeshprops["file"]
+            self._writemeshtype = writemeshprops["type"]
+        else:
+            self._writemeshfile = None
 
         modulefac = globdat[gn.MODULEFACTORY]
         solvemoduletype = solvemoduleprops["type"]
@@ -22,7 +25,6 @@ class RMFemModule(Module):
         self._models = globdat[gn.MODELS]
 
     def run(self, globdat):
-
         # Perform unperturbed solve
         self._solvemodule.solve(globdat)
 
@@ -40,6 +42,12 @@ class RMFemModule(Module):
             self._solvemodule.solve(pglobdat)
 
             perturbed_solves.append(pglobdat)
+
+            # Write the mesh to a file
+            if self._writemeshfile is not None:
+                for model in self.get_relevant_models("WRITEMESH", self._models):
+                    fname, ftype = self._writemeshfile.format(i), self._writemeshtype
+                    model.WRITEMESH(pglobdat, fname=fname, ftype=ftype)
 
         # Store the perturbed solutions in globdat
         globdat["perturbedSolves"] = perturbed_solves
