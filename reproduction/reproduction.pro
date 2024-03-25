@@ -87,7 +87,7 @@ model =
       rank = 1;
       anmodel = bar;
 
-      E = 1.0 - 0.99 * x;
+      E = 1 + x**3;
     };
 
     shape =
@@ -104,7 +104,16 @@ model =
     elements = all;
 
     dofs   = [ dx ];
-    values = [ 3. ];
+
+    // forcing term yields u(x) = (x**3) * sin(a*pi*x) * exp(-b*(x-0.5)**2)
+    // if kappa = 1 + x**3
+    values = [ - exp(-b*(x-0.5)**2) * ( (1+x**3)*x**2*(-a**2*pi**2*x*sin(a*pi*x) + (-4*b*x+b) * sin(a*pi*x) + a*pi*(3-b*x*(2*x-1))*cos(a*pi*x) + a*pi*cos(a*pi*x)) + (3*x**4 + 2 * (x**3+1) * x - 2 * b * (x-0.5)*(1+x**3) * x**2) * ((3 - b * x * (2*x-1))*sin(a*pi*x) + a*pi*x * cos(a*pi*x)) ) ];
+
+    params =
+    {
+      a = 15;
+      b = 50;
+    };
 
     shape =
     {
@@ -119,7 +128,7 @@ model =
 
     groups = [ left, right ];
     dofs   = [ dx, dx ];
-    values = [ 0.0, 1.0 ];
+    values = [ 0.0, 0.0 ];
   };
 
   rm =
