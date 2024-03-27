@@ -5,7 +5,7 @@ init =
   mesh =
   {
     type = manual;
-    file = 2nodebar.mesh;
+    file = fig2.mesh;
   };
 
   nodeGroups = [ left, right ];

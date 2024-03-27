@@ -28,10 +28,10 @@ globdat = main.jive(props, extra_declares=extra_declares)
 
 a = 15
 b = 50
-xc = np.linspace(0,1,len(globdat["state0"]))
-xf = np.linspace(0,1,1000)
-yf = xf**3 * np.sin(a*np.pi*xf) * np.exp(-b*(xf-0.5)**2)
+xc = np.linspace(0, 1, len(globdat["state0"]))
+xf = np.linspace(0, 1, 1000)
+yf = xf**3 * np.sin(a * np.pi * xf) * np.exp(-b * (xf - 0.5) ** 2)
 plt.figure()
 plt.plot(xc, globdat["state0"])
-plt.plot(xf,yf, color="gray")
+plt.plot(xf, yf, color="gray")
 plt.show()

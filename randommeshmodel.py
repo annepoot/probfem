@@ -7,7 +7,9 @@ from myjive.util.proputils import mdtlist, mdtdict, mdtarg
 
 
 class RandomMeshModel(Model):
-    def PERTURBNODES(self, nodes, globdat, meshsize, rng=np.random.default_rng(), **kwargs):
+    def PERTURBNODES(
+        self, nodes, globdat, meshsize, rng=np.random.default_rng(), **kwargs
+    ):
         nodes = self._perturb_nodes(nodes, globdat, meshsize, rng=rng)
         return nodes
 
@@ -36,9 +38,9 @@ class RandomMeshModel(Model):
         for inode, node in enumerate(nodes):
             if inode not in self._bnodes:
                 alpha_i_bar = rng.uniform(-0.5, 0.5)
-                ielem = inode-1
-                h_i_bar = min(meshsize[""][ielem], meshsize[""][ielem+1])
-                alpha_i = (h_i_bar / h)**self._p * alpha_i_bar
+                ielem = inode - 1
+                h_i_bar = min(meshsize[""][ielem], meshsize[""][ielem + 1])
+                alpha_i = (h_i_bar / h) ** self._p * alpha_i_bar
 
                 coords = node.get_coords()
                 coords += h**self._p * alpha_i
