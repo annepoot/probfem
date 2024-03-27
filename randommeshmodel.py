@@ -3,12 +3,12 @@ import os
 
 from myjive.names import GlobNames as gn
 from myjive.model.model import Model
-from myjive.util.proputils import mdtlist, mdtdict
+from myjive.util.proputils import mdtlist, mdtdict, mdtarg
 
 
 class RandomMeshModel(Model):
-    def PERTURBNODES(self, nodes, globdat, rng=np.random.default_rng(), **kwargs):
-        nodes = self._perturb_nodes(nodes, globdat, rng=rng)
+    def PERTURBNODES(self, nodes, globdat, meshsize, rng=np.random.default_rng(), **kwargs):
+        nodes = self._perturb_nodes(nodes, globdat, meshsize, rng=rng)
         return nodes
 
     def WRITEMESH(self, globdat, fname, ftype, **kwargs):
@@ -19,6 +19,7 @@ class RandomMeshModel(Model):
 
     def configure(self, globdat, **props):
         # get props
+        self._p = mdtarg(self, props, "p", dtype=float)
         bprops = mdtdict(self, props, "boundary", ["groups"])
 
         self._bgroups = mdtlist(self, bprops, "groups")
@@ -29,11 +30,19 @@ class RandomMeshModel(Model):
                 bnodes.add(inode)
         self._bnodes = list(bnodes)
 
-    def _perturb_nodes(self, nodes, globdat, rng=np.random.default_rng()):
+    def _perturb_nodes(self, nodes, globdat, meshsize, rng=np.random.default_rng()):
+        h = np.max(meshsize[""])
+
         for inode, node in enumerate(nodes):
             if inode not in self._bnodes:
+                alpha_i_bar = rng.uniform(-0.5, 0.5)
+                ielem = inode-1
+                h_i_bar = min(meshsize[""][ielem], meshsize[""][ielem+1])
+                alpha_i = (h_i_bar / h)**self._p * alpha_i_bar
+
                 coords = node.get_coords()
-                coords += rng.uniform(-0.05, 0.05)
+                coords += h**self._p * alpha_i
+
                 node.set_coords(coords)
 
         return nodes
