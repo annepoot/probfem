@@ -38,24 +38,20 @@ rmfem =
   nsample = 10;
   seed = 0;
 
-/*
   writeMesh =
   {
     type = manual;
     file = meshes/2nodebar-p{}.mesh;
   };
-*/
 };
 
 rmplot =
 {
   type = RMPlot;
 
-  title = "Plot";
-
   figure =
   {
-
+    title = Hello, this is a title;
   };
 
   reference =
@@ -134,6 +130,8 @@ model =
   rm =
   {
     type = RandomMesh;
+
+    p = 3;
 
     boundary =
     {

@@ -3,6 +3,7 @@ import numpy as np
 from myjive.names import GlobNames as gn
 from myjive.app import Module
 from myjive.util.proputils import mdtarg, mdtdict, optarg
+from myjive.util import Table
 from copy import deepcopy
 
 
@@ -48,12 +49,17 @@ class RMFemModule(Module):
         # Perform unperturbed solve
         self._solvemodule.solve(globdat)
 
+        # Get element size table
+        meshsize = Table(size=len(globdat[gn.ESET]))
+        for model in self.get_relevant_models("GETELEMTABLE", globdat[gn.MODELS]):
+            meshsize = model.GETELEMTABLE("size", meshsize, globdat)
+
         for i, pglobdat in enumerate(globdat["perturbedSolves"]):
             nodes = pglobdat[gn.NSET]
             models = pglobdat[gn.MODELS]
 
             for model in self.get_relevant_models("PERTURBNODES", models):
-                nodes = model.PERTURBNODES(nodes, pglobdat, rng=self._rng)
+                nodes = model.PERTURBNODES(nodes, pglobdat, meshsize=meshsize, rng=self._rng)
 
             # Perform the solve
             self._solvemodule.solve(pglobdat)
