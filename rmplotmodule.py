@@ -31,9 +31,10 @@ class RMPlotModule(Module):
 
         # Plot both in a single figure
         fig, ax = plt.subplots(1, 1)
-        ax.plot(x, u, **self._refprops)
         for xp, up in zip(x_pert, u_pert):
             ax.plot(xp, up, **self._pertprops)
+        ax.plot(x, u, **self._refprops)
+        ax.set(**self._figprops)
         plt.show()
 
         return "ok"
