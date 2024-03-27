@@ -59,7 +59,9 @@ class RMFemModule(Module):
             models = pglobdat[gn.MODELS]
 
             for model in self.get_relevant_models("PERTURBNODES", models):
-                nodes = model.PERTURBNODES(nodes, pglobdat, meshsize=meshsize, rng=self._rng)
+                nodes = model.PERTURBNODES(
+                    nodes, pglobdat, meshsize=meshsize, rng=self._rng
+                )
 
             # Perform the solve
             self._solvemodule.solve(pglobdat)

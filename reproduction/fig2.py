@@ -24,4 +24,10 @@ def mesher_lin(L, n, fname="2nodebar"):
 props = pu.parse_file("fig2.pro")
 
 extra_declares = [declarex, declareloc]
-globdat = main.jive(props, extra_declares=extra_declares)
+
+for p in [1, 2]:
+    for N in [5, 10, 20]:
+        mesher_lin(1, N, fname="fig2")
+        props["model"]["rm"]["p"] = p
+        props["rmplot"]["figure"]["title"] = "p = {}, N = {}".format(p, N)
+        globdat = main.jive(props, extra_declares=extra_declares)
