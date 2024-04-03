@@ -13,6 +13,10 @@ class RandomMeshModel(Model):
         nodes = self._perturb_nodes(nodes, globdat, meshsize, rng=rng)
         return nodes
 
+    def COMPUTEESTIMATOR(self, globdat, **kwargs):
+        eps, eta = self._compute_estimator(globdat)
+        return eps, eta
+
     def WRITEMESH(self, globdat, fname, ftype, **kwargs):
         if "manual" in ftype:
             self._write_mesh(globdat, fname)
@@ -48,6 +52,24 @@ class RandomMeshModel(Model):
                 node.set_coords(coords)
 
         return nodes
+
+    def _compute_estimator(self, globdat):
+        eps_h = globdat["elemTables"]["strain"]["xx"]
+        h = globdat["elemTables"]["size"][""]
+        expectation = np.zeros_like(eps_h)
+
+        for pglobdat in globdat["perturbedSolves"]:
+            eps_p = pglobdat["elemTables"]["strain"]["xx"]
+            norm = (eps_h - eps_p) ** 2
+            expectation += norm
+
+        expectation /= len(globdat["perturbedSolves"])
+
+        eta_2 = h ** -(2 * self._p - 2) * h * expectation
+        eta = np.sqrt(eta_2)
+        eps = np.sqrt(np.sum(eta_2))
+
+        return eps, eta
 
     def _write_mesh(self, globdat, fname):
         nodes = globdat[gn.NSET]

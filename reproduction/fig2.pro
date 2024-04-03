@@ -28,6 +28,8 @@ rmfem =
   solveModule =
   {
     type = Linsolve;
+
+    elemTables = [ strain, size ];
   };
 
   nsample = 50;
@@ -81,7 +83,7 @@ model =
     shape =
     {
       type = Line2;
-      intScheme = Gauss2;
+      intScheme = Gauss1;
     };
   };
 

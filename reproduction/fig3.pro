@@ -5,10 +5,10 @@ init =
   mesh =
   {
     type = manual;
-    file = 2nodebar.mesh;
+    file = fig3.mesh;
   };
 
-  nodeGroups = [ left, right, mid ];
+  nodeGroups = [ left, right ];
 
   left =
   {
@@ -19,11 +19,6 @@ init =
   {
     xtype = max;
   };
-
-  mid =
-  {
-    xtype = mid;
-  };
 };
 
 rmfem =
@@ -33,26 +28,16 @@ rmfem =
   solveModule =
   {
     type = Linsolve;
+    elemTables = [ strain, size ];
   };
 
-  nsample = 10;
+  nsample = 20;
   seed = 0;
-
-  writeMesh =
-  {
-    type = manual;
-    file = meshes/2nodebar-p{}.mesh;
-  };
 };
 
 rmplot =
 {
   type = RMPlot;
-
-  figure =
-  {
-    title = Hello, this is a title;
-  };
 
   reference =
   {
@@ -114,7 +99,7 @@ model =
     shape =
     {
       type = Line2;
-      intScheme = Gauss2;
+      intScheme = Gauss4;
     };
   };
 
@@ -122,9 +107,9 @@ model =
   {
     type = Dirichlet;
 
-    groups = [ left, right ];
-    dofs   = [ dx, dx ];
-    values = [ 0.0, 0.0 ];
+    groups = [ right ];
+    dofs   = [ dx ];
+    values = [ 0.0 ];
   };
 
   rm =

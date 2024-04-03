@@ -72,6 +72,13 @@ class RMFemModule(Module):
                     fname, ftype = self._writemeshfile.format(i), self._writemeshtype
                     model.WRITEMESH(pglobdat, fname=fname, ftype=ftype)
 
+        models = self.get_relevant_models("COMPUTEESTIMATOR", globdat[gn.MODELS])
+        assert len(models) == 1
+        eps, eta = models[0].COMPUTEESTIMATOR(globdat)
+
+        globdat["epsilon"] = eps
+        globdat["eta"] = eta
+
         return "ok"
 
     def shutdown(self, globdat):
