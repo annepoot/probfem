@@ -3,37 +3,58 @@ import matplotlib.pyplot as plt
 
 from myjive.names import GlobNames as gn
 from myjive.app import Module
-from myjive.util.proputils import mdtarg, mdtdict, optarg
-from copy import deepcopy
+from myjive.fem import XPointSet
+from myjive.util import Table
+from myjive.util.proputils import mdtarg, optarg
 
 
 class RMPlotModule(Module):
     def init(self, globdat, **props):
-
+        self._field = mdtarg(self, props, "field")
+        self._comp = mdtarg(self, props, "comp")
+        self._plottype = mdtarg(self, props, "plotType")
         self._figprops = optarg(self, props, "figure", dtype=dict)
-        self._refprops = optarg(self, props, "reference", dtype=dict)
+        self._exactprops = optarg(self, props, "exact", dtype=dict)
+        self._femprops = optarg(self, props, "fem", dtype=dict)
         self._pertprops = optarg(self, props, "perturbed", dtype=dict)
 
-    def run(self, globdat):
+        if self._plottype not in ["node", "elem"]:
+            raise ValueError("ViewModule plotType property must be node or elem")
 
-        # Get reference solve
-        x = self._get_x(globdat)
-        u = globdat[gn.STATE0]
+    def run(self, globdat):
+        # Get the exact solution
+        x_exact, field_exact = self._get_exact_solution(globdat)
+
+        # Get the FEM solution
+        x_fem, field_fem = self._get_fem_solution(globdat)
 
         # Get perturbed solves
         x_pert = []
-        u_pert = []
+        field_pert = []
         for globdat_pert in globdat["perturbedSolves"]:
-            xp = self._get_x(globdat_pert)
-            up = globdat_pert[gn.STATE0]
+            xp, fieldp = self._get_fem_solution(globdat_pert)
             x_pert.append(xp)
-            u_pert.append(up)
+            field_pert.append(fieldp)
 
-        # Plot both in a single figure
+        # Plot all in a single figure
         fig, ax = plt.subplots(1, 1)
-        for xp, up in zip(x_pert, u_pert):
-            ax.plot(xp, up, **self._pertprops)
-        ax.plot(x, u, **self._refprops)
+        for xp, fieldp in zip(x_pert, field_pert):
+            if self._plottype == "node":
+                ax.plot(xp, fieldp, **self._pertprops)
+            elif self._plottype == "elem":
+                ax.step(xp[1:], fieldp, **self._pertprops)
+            else:
+                assert False
+
+        ax.plot(x_exact, field_exact, **self._exactprops)
+
+        if self._plottype == "node":
+            ax.plot(x_fem, field_fem, **self._femprops)
+        elif self._plottype == "elem":
+            ax.step(x_fem[1:], field_fem, **self._femprops)
+        else:
+            assert False
+
         ax.set(**self._figprops)
         plt.show()
 
@@ -57,6 +78,43 @@ class RMPlotModule(Module):
             x[idof] = coords[0]
 
         return x
+
+    def _get_exact_solution(self, globdat):
+        points = XPointSet()
+        for coord in np.linspace(0, 1, 1000):
+            points.add_point([coord])
+        points.to_pointset()
+
+        table = Table(size=len(points))
+        models = self.get_relevant_models("GETEXACTTABLE", globdat[gn.MODELS])
+        for model in models:
+            table = model.GETEXACTTABLE(self._field, table, globdat, points)
+
+        x_exact = points.get_coords().flatten()
+        field_exact = table[self._comp]
+
+        return x_exact, field_exact
+
+    def _get_fem_solution(self, globdat):
+        if self._plottype == "node":
+            nodecount = len(globdat[gn.NSET])
+            table = Table(size=nodecount)
+            tbwts = np.zeros(nodecount)
+            models = self.get_relevant_models("GETTABLE", globdat[gn.MODELS])
+            for model in models:
+                table, tbwts = model.GETTABLE(self._field, table, tbwts, globdat)
+        elif self._plottype == "elem":
+            table = Table(size=len(globdat[gn.ESET]))
+            models = self.get_relevant_models("GETELEMTABLE", globdat[gn.MODELS])
+            for model in models:
+                table = model.GETELEMTABLE(self._field, table, globdat)
+        else:
+            assert False
+
+        x_fem = self._get_x(globdat)
+        field_fem = table[self._comp]
+
+        return x_fem, field_fem
 
     def shutdown(self, globdat):
         pass

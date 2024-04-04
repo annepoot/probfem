@@ -38,10 +38,19 @@ rmfem =
 rmplot =
 {
   type = RMPlot;
+  plotType = node;
 
-  reference =
+  field = solution;
+  comp = dx;
+
+  exact =
   {
     color = C0;
+  };
+
+  fem =
+  {
+    color = C1;
   };
 
   perturbed =
@@ -54,7 +63,7 @@ rmplot =
 model =
 {
   type = Multi;
-  models = [ solid, load, diri, rm ];
+  models = [ solid, load, diri, rm, ref ];
 
   solid =
   {
@@ -121,6 +130,20 @@ model =
     boundary =
     {
         groups = [ left, right ];
+    };
+  };
+
+  ref =
+  {
+    type = Reference;
+
+    u = x**3 * sin(a*pi*x) * exp(-b*(x-0.5)**2);
+    kappa = 1 + x**3;
+
+    params =
+    {
+      a = 15;
+      b = 50;
     };
   };
 };
