@@ -33,6 +33,8 @@ rmfem =
 
   nsample = 20;
   seed = 0;
+
+  errorTables = [ solution, strain ];
 };
 
 rmplot =

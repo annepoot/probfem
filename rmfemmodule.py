@@ -28,6 +28,8 @@ class RMFemModule(Module):
         self._solvemodule = modulefac.get_module(solvemoduletype, "solveModule")
         self._solvemodule.init(globdat, **solvemoduleprops)
 
+        self._errornames = optarg(self, props, "errorTables", default=[])
+
         perturbed_solves = []
         for _ in range(self._nsample):
             pglobdat = deepcopy(globdat)
@@ -71,6 +73,15 @@ class RMFemModule(Module):
                 for model in self.get_relevant_models("WRITEMESH", models):
                     fname, ftype = self._writemeshfile.format(i), self._writemeshtype
                     model.WRITEMESH(pglobdat, fname=fname, ftype=ftype)
+
+        if gn.TABLES not in globdat:
+            globdat[gn.TABLES] = {}
+
+        errortable = Table(size=len(globdat[gn.ESET]))
+        for name in self._errornames:
+            for model in self.get_relevant_models("COMPUTEERROR", globdat[gn.MODELS]):
+                errortable = model.COMPUTEERROR(name, errortable, globdat)
+        globdat[gn.TABLES]["error"] = errortable
 
         models = self.get_relevant_models("COMPUTEESTIMATOR", globdat[gn.MODELS])
         assert len(models) == 1
