@@ -155,9 +155,9 @@ class ReferenceModel(Model):
                 return eldisp @ sgrads
 
             def error_func(x):
-                return np.sqrt((exact_func(x) - fem_func(x)) ** 2)
+                return (exact_func(x) - fem_func(x)) ** 2
 
-            norm = quad(error_func, coords[0, 0], coords[0, 1])[0]
+            norm = np.sqrt(quad(error_func, coords[0, 0], coords[0, 1])[0])
 
             xtable.set_value(ielem, jcol, norm)
 
