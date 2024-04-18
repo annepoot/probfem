@@ -17,6 +17,7 @@ class RMPlotModule(Module):
         self._exactprops = optarg(self, props, "exact", dtype=dict)
         self._femprops = optarg(self, props, "fem", dtype=dict)
         self._pertprops = optarg(self, props, "perturbed", dtype=dict)
+        self._saveprops = optarg(self, props, "save", dtype=dict)
 
         if self._plottype not in ["node", "elem"]:
             raise ValueError("ViewModule plotType property must be node or elem")
@@ -56,6 +57,9 @@ class RMPlotModule(Module):
             assert False
 
         ax.set(**self._figprops)
+
+        if len(self._saveprops) > 0:
+            plt.savefig(**self._saveprops)
         plt.show()
 
         return "ok"
