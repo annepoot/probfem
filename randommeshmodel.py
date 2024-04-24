@@ -75,23 +75,7 @@ class RandomMeshModel(Model):
             idofs = dofs.get_dofs(inodes, dofs.get_types())
             coords = nodes.get_some_coords(inodes)
             grads, weights = shape.get_shape_gradients(coords)
-
             eldisp = globdat[gn.STATE0][idofs]
-            strain = grads[:, :, 0].T @ eldisp
-
-            def grad_jump(offset):
-                assert abs(offset) == 1
-                refnodes = elems.get_elem_nodes(ielem + offset)
-                refdofs = dofs.get_dofs(refnodes, dofs.get_types())
-                refcoords = nodes.get_some_coords(refnodes)
-                refgrads, _ = shape.get_shape_gradients(refcoords)
-                refdisp = globdat[gn.STATE0][refdofs]
-                refstrain = refgrads[:, :, 0].T @ refdisp
-
-                if offset > 0:
-                    return refstrain - strain
-                else:
-                    return strain - refstrain
 
             expectation = 0
 
@@ -150,7 +134,7 @@ class RandomMeshModel(Model):
                     if rp > r:  # A++
                         if midproof:
                             a_r = (rp - r) / hp
-                            j_r = grad_jump(1)
+                            j_r = self._grad_jump(ielem, 1, globdat)
                             I_i = hp**2 * (r - lp) / (rp - lp) ** 2 * a_r**2 * j_r**2
                             I_inext = (
                                 hp * a_r * (hp * a_r / (rp - lp) - 1) ** 2 * j_r**2
@@ -170,8 +154,8 @@ class RandomMeshModel(Model):
                         if midproof:
                             a_l = (lp - l) / hp
                             a_r = (rp - r) / hp
-                            j_l = grad_jump(-1)
-                            j_r = grad_jump(1)
+                            j_l = self._grad_jump(ielem, -1, globdat)
+                            j_r = self._grad_jump(ielem, 1, globdat)
                             xi_i = a_l * j_l + a_r * j_r
                             I_iprev = -hp * a_l * (hp / (rp - lp) * xi_i + j_l) ** 2
                             I_i = hp**2 * (r - l) / (rp - lp) ** 2 * xi_i**2
@@ -186,7 +170,7 @@ class RandomMeshModel(Model):
                     else:  # A--
                         if midproof:
                             a_l = (lp - l) / hp
-                            j_l = grad_jump(-1)
+                            j_l = self._grad_jump(ielem, -1, globdat)
                             I_iprev = (
                                 -hp * a_l * (hp * a_l / (rp - lp) + 1) ** 2 * j_l**2
                             )
@@ -232,20 +216,6 @@ class RandomMeshModel(Model):
             strain = grads[:, :, 0].T @ eldisp
             norm_K = weights[0]
 
-            def grad_jump(offset):
-                assert abs(offset) == 1
-                refnodes = elems.get_elem_nodes(ielem + offset)
-                refdofs = dofs.get_dofs(refnodes, dofs.get_types())
-                refcoords = nodes.get_some_coords(refnodes)
-                refgrads, _ = shape.get_shape_gradients(refcoords)
-                refdisp = globdat[gn.STATE0][refdofs]
-                refstrain = refgrads[:, :, 0].T @ refdisp
-
-                if offset > 0:
-                    return refstrain - strain
-                else:
-                    return strain - refstrain
-
             expectation = 0
 
             for pglobdat in globdat["perturbedSolves"]:
@@ -269,7 +239,7 @@ class RandomMeshModel(Model):
                 if lp >= l:
                     if rp > r:  # A++
                         if midproof:
-                            j_r = grad_jump(1)
+                            j_r = self._grad_jump(ielem, 1, globdat)
                             a_r = (rp - r) / hp
                             norm += hp**2 * j_r**2 * a_r**2 / (rp - lp) ** 2
                         else:
@@ -282,8 +252,8 @@ class RandomMeshModel(Model):
                 else:
                     if rp > r:  # A-+
                         if midproof:
-                            j_l = grad_jump(-1)
-                            j_r = grad_jump(1)
+                            j_l = self._grad_jump(ielem, -1, globdat)
+                            j_r = self._grad_jump(ielem, 1, globdat)
                             a_l = (lp - l) / hp
                             a_r = (rp - r) / hp
                             xi_i = a_l * j_l + a_r * j_r
@@ -292,7 +262,7 @@ class RandomMeshModel(Model):
                             norm += (strain - strain_p) ** 2
                     else:  # A--
                         if midproof:
-                            j_l = grad_jump(-1)
+                            j_l = self._grad_jump(ielem, -1, globdat)
                             a_l = (lp - l) / hp
                             norm += hp**2 * j_l**2 * a_l**2 / (rp - lp) ** 2
                         else:
@@ -310,6 +280,31 @@ class RandomMeshModel(Model):
 
         table = xtable.to_table()
         return table
+
+    def _grad_jump(self, ielem, offset, globdat):
+        assert abs(offset) == 1
+
+        elems = globdat[gn.ESET]
+        nodes = elems.get_nodes()
+        dofs = globdat[gn.DOFSPACE]
+        shape = globdat[gn.SHAPEFACTORY].get_shape(globdat[gn.MESHSHAPE], "Gauss1")
+
+        def get_strain(ielem):
+            inodes = elems.get_elem_nodes(ielem)
+            idofs = dofs.get_dofs(inodes, dofs.get_types())
+            coords = nodes.get_some_coords(inodes)
+            grads, _ = shape.get_shape_gradients(coords)
+            disp = globdat[gn.STATE0][idofs]
+            strain = grads[:, :, 0].T @ disp
+            return strain
+
+        this_strain = get_strain(ielem)
+        that_strain = get_strain(ielem + offset)
+
+        if offset > 0:
+            return that_strain - this_strain
+        else:
+            return this_strain - that_strain
 
     def _write_mesh(self, globdat, fname):
         nodes = globdat[gn.NSET]
