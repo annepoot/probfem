@@ -29,6 +29,7 @@ class RMFemModule(Module):
         self._solvemodule.init(globdat, **solvemoduleprops)
 
         self._errornames = optarg(self, props, "errorTables", default=[])
+        self._estimatornames = optarg(self, props, "estimatorTables", default=[])
 
         perturbed_solves = []
         for _ in range(self._nsample):
@@ -81,14 +82,14 @@ class RMFemModule(Module):
         for name in self._errornames:
             for model in self.get_relevant_models("COMPUTEERROR", globdat[gn.MODELS]):
                 errortable = model.COMPUTEERROR(name, errortable, globdat)
+
+        for name in self._estimatornames:
+            for model in self.get_relevant_models(
+                "COMPUTEESTIMATOR", globdat[gn.MODELS]
+            ):
+                errortable = model.COMPUTEESTIMATOR(name, errortable, globdat)
+
         globdat[gn.TABLES]["error"] = errortable
-
-        models = self.get_relevant_models("COMPUTEESTIMATOR", globdat[gn.MODELS])
-        assert len(models) == 1
-        eps, eta = models[0].COMPUTEESTIMATOR(globdat)
-
-        globdat["epsilon"] = eps
-        globdat["eta"] = eta
 
         return "ok"
 

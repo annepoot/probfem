@@ -31,10 +31,11 @@ rmfem =
     elemTables = [ strain, size ];
   };
 
-  nsample = 20;
+  nsample = 30;
   seed = 0;
 
   errorTables = [ solution, strain ];
+  estimatorTables = [ eta, eta1, eta2 ];
 };
 
 rmplot =

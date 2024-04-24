@@ -28,17 +28,23 @@ rmfem =
   solveModule =
   {
     type = Linsolve;
-
     elemTables = [ strain, size ];
   };
 
   nsample = 50;
   seed = 0;
+
+  errorTables = [ solution, strain ];
+  estimatorTables = [ eta, eta1, eta2 ];
 };
 
 rmplot =
 {
   type = RMPlot;
+  plotType = node;
+
+  field = solution;
+  comp = dx;
 
   figure =
   {
@@ -63,7 +69,7 @@ rmplot =
 model =
 {
   type = Multi;
-  models = [ solid, load, diri, rm ];
+  models = [ solid, load, diri, rm, ref ];
 
   solid =
   {
@@ -125,5 +131,13 @@ model =
     {
         groups = [ left, right ];
     };
+  };
+
+  ref =
+  {
+    type = Reference;
+
+    u = sin(2*pi*x);
+    kappa = 1+0;
   };
 };
