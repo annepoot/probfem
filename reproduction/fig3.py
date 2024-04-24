@@ -34,11 +34,15 @@ x = np.linspace(0, 1, ne, endpoint=False) + 1 / 2 / ne
 
 u_error = globdat["tables"]["error"]["solution"]
 eps_error = globdat["tables"]["error"]["strain"]
+eta = globdat["tables"]["error"]["eta"]
+eta1 = globdat["tables"]["error"]["eta1"]
+eta2 = globdat["tables"]["error"]["eta2"]
 
 fig, ax = plt.subplots()
-ax.plot(x, eps_error)
-ax.plot(x, u_error)
-ax.plot(x, globdat["eta"])
+ax.plot(x, eps_error, color="k", label=r"$\|u' - u_h'\|_{L^2(K)}$")
+ax.plot(x, eta1, label=r"$\eta_{K,1}$")
+ax.plot(x, eta2, label=r"$\eta_{K,2}$")
 ax.set_yscale("log")
 ax.set_ylim((1e-10, 1e0))
+ax.legend()
 plt.show()
