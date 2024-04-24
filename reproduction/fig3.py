@@ -34,7 +34,6 @@ x = np.linspace(0, 1, ne, endpoint=False) + 1 / 2 / ne
 
 u_error = globdat["tables"]["error"]["solution"]
 eps_error = globdat["tables"]["error"]["strain"]
-eta = globdat["tables"]["error"]["eta"]
 eta1 = globdat["tables"]["error"]["eta1"]
 eta2 = globdat["tables"]["error"]["eta2"]
 
