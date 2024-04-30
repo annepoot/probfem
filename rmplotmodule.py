@@ -5,22 +5,37 @@ from myjive.names import GlobNames as gn
 from myjive.app import Module
 from myjive.fem import XPointSet
 from myjive.util import Table
-from myjive.util.proputils import mdtarg, optarg
+from myjive.util.proputils import check_value
 
 
 class RMPlotModule(Module):
-    def init(self, globdat, **props):
-        self._field = mdtarg(self, props, "field")
-        self._comp = mdtarg(self, props, "comp")
-        self._plottype = mdtarg(self, props, "plotType")
-        self._figprops = optarg(self, props, "figure", dtype=dict)
-        self._exactprops = optarg(self, props, "exact", dtype=dict)
-        self._femprops = optarg(self, props, "fem", dtype=dict)
-        self._pertprops = optarg(self, props, "perturbed", dtype=dict)
-        self._saveprops = optarg(self, props, "save", dtype=dict)
 
-        if self._plottype not in ["node", "elem"]:
-            raise ValueError("ViewModule plotType property must be node or elem")
+    def configure(
+        self,
+        globdat,
+        *,
+        field,
+        comp,
+        plotType,
+        figure={},
+        exact={},
+        fem={},
+        perturbed={},
+        save={}
+    ):
+        # Validate input arguments
+        check_value(self, plotType, ["node", "elem"])
+        self._field = field
+        self._comp = comp
+        self._plottype = plotType
+        self._figprops = figure
+        self._exactprops = exact
+        self._femprops = fem
+        self._pertprops = perturbed
+        self._saveprops = save
+
+    def init(self, globdat):
+        pass
 
     def run(self, globdat):
         # Get the exact solution

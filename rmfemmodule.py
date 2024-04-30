@@ -2,35 +2,53 @@ import numpy as np
 
 from myjive.names import GlobNames as gn
 from myjive.app import Module
-from myjive.util.proputils import mdtarg, mdtdict, optarg
+from myjive.util.proputils import check_dict, split_off_type
 from myjive.util import Table
 from copy import deepcopy
 
 
 class RMFemModule(Module):
-    def init(self, globdat, **props):
-        # Get props
-        solvemoduleprops = mdtdict(self, props, "solveModule", ["type"])
-        modelprops = mdtdict(self, props, "modelprops", mandatory_keys=["models"])
-        self._nsample = mdtarg(self, props, "nsample", dtype=int)
-        writemeshprops = optarg(self, props, "writeMesh", dtype=dict)
-        seed = optarg(self, props, "seed")
-        self._rng = np.random.default_rng(seed)
 
-        if "file" in writemeshprops and "type" in writemeshprops:
-            self._writemeshfile = writemeshprops["file"]
-            self._writemeshtype = writemeshprops["type"]
+    def __init__(self, name):
+        super().__init__(name)
+        self._needs_modelprops = True
+
+    def configure(
+        self,
+        globdat,
+        *,
+        solveModule,
+        nsample,
+        writeMesh={},
+        seed=None,
+        errorTables=[],
+        estimatorTables=[]
+    ):
+        # Validate input arguments
+        check_dict(self, solveModule, ["type"])
+        if len(writeMesh) > 0:
+            check_dict(self, writeMesh, ["file", "type"])
+        self._nsample = nsample
+        self._rng = np.random.default_rng(seed)
+        self._errornames = errorTables
+        self._estimatornames = estimatorTables
+
+        if "file" in writeMesh and "type" in writeMesh:
+            self._writemeshfile = writeMesh["file"]
+            self._writemeshtype = writeMesh["type"]
         else:
             self._writemeshfile = None
 
         modulefac = globdat[gn.MODULEFACTORY]
-        solvemoduletype = solvemoduleprops["type"]
-        self._solvemodule = modulefac.get_module(solvemoduletype, "solveModule")
-        self._solvemodule.init(globdat, **solvemoduleprops)
+        solvetype, solveprops = split_off_type(solveModule)
+        self._solvemodule = modulefac.get_module(solvetype, "solveModule")
+        self._solvemodule.configure(globdat, **solveprops)
 
-        self._errornames = optarg(self, props, "errorTables", default=[])
-        self._estimatornames = optarg(self, props, "estimatorTables", default=[])
+    def init(self, globdat, *, modelprops):
+        # Validate input arguments
+        check_dict(self, modelprops, ["models"])
 
+        # Get props
         perturbed_solves = []
         for _ in range(self._nsample):
             pglobdat = deepcopy(globdat)
@@ -39,8 +57,9 @@ class RMFemModule(Module):
             name_list = modelprops["models"]
             model_list = []
             for name in name_list:
-                m = modelfac.get_model(modelprops[name]["type"], name)
-                m.configure(pglobdat, **(modelprops[name]))
+                typ, mprops = split_off_type(modelprops[name])
+                m = modelfac.get_model(typ, name)
+                m.configure(pglobdat, **mprops)
                 model_list.append(m)
             pglobdat[gn.MODELS] = model_list
 
