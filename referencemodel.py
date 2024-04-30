@@ -5,7 +5,6 @@ from scipy.integrate import quad
 from myjive.names import GlobNames as gn
 from myjive.model.model import Model
 from myjive.util import to_xtable
-from myjive.util.proputils import mdtarg, optarg
 import myjive.util.proputils as pu
 
 
@@ -26,11 +25,7 @@ class ReferenceModel(Model):
             table = self._compute_strain_error(table, globdat)
         return table
 
-    def configure(self, globdat, **props):
-        # get props
-        u = mdtarg(self, props, "u")
-        kappa = mdtarg(self, props, "kappa")
-        eval_params = optarg(self, props, "params", dtype=dict)
+    def configure(self, globdat, *, u, kappa, params={}):
 
         # Get basic dimensionality info
         self._rank = globdat[gn.MESHRANK]
@@ -38,7 +33,7 @@ class ReferenceModel(Model):
 
         # Get the dictionary for load evaluation
         eval_dict = self._get_sympy_eval_dict()
-        eval_dict.update(eval_params)
+        eval_dict.update(params)
 
         # Compute the symbolic expressions
         self._u_exact = eval(u, {}, eval_dict)

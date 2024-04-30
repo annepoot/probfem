@@ -4,7 +4,7 @@ from scipy.integrate import quad
 
 from myjive.names import GlobNames as gn
 from myjive.model.model import Model
-from myjive.util.proputils import mdtlist, mdtdict, mdtarg
+from myjive.util.proputils import check_dict, check_list
 from myjive.util import to_xtable
 
 
@@ -28,12 +28,13 @@ class RandomMeshModel(Model):
         else:
             raise ValueError("Invalid file type passed to WRITEMESH")
 
-    def configure(self, globdat, **props):
+    def configure(self, globdat, *, p, boundary):
         # get props
-        self._p = mdtarg(self, props, "p", dtype=float)
-        bprops = mdtdict(self, props, "boundary", ["groups"])
+        check_dict(self, boundary, ["groups"])
+        check_list(self, boundary["groups"])
+        self._p = p
+        self._bgroups = boundary["groups"]
 
-        self._bgroups = mdtlist(self, bprops, "groups")
         bnodes = set()
         for group in self._bgroups:
             ngroup = globdat[gn.NGROUPS][group]

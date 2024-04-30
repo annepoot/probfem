@@ -53,7 +53,7 @@ rmplot =
     ylabel = Solution;
   };
 
-  reference =
+  exact =
   {
     color = black;
     linewidth = 1;
