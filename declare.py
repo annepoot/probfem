@@ -6,6 +6,7 @@ from myjive.model import ModelFactory
 from randommeshmodel import RandomMeshModel
 from referencemodel import ReferenceModel
 
+from mcmcmodule import MCMCModule
 from rmfemmodule import RMFemModule
 from rmplotmodule import RMPlotModule
 
@@ -27,6 +28,7 @@ def declare_extra_models(globdat):
 def declare_extra_modules(globdat):
     factory = globdat.get(gn.MODULEFACTORY, ModuleFactory())
 
+    MCMCModule.declare(factory)
     RMFemModule.declare(factory)
     RMPlotModule.declare(factory)
 
