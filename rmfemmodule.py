@@ -8,7 +8,6 @@ from copy import deepcopy
 
 
 class RMFemModule(Module):
-
     def __init__(self, name):
         super().__init__(name)
         self._needs_modelprops = True
@@ -48,6 +47,9 @@ class RMFemModule(Module):
         # Validate input arguments
         check_dict(self, modelprops, ["models"])
 
+        # Initialize solvemodule
+        self._solvemodule.init(globdat)
+
         # Get props
         perturbed_solves = []
         for _ in range(self._nsample):
@@ -69,7 +71,7 @@ class RMFemModule(Module):
 
     def run(self, globdat):
         # Perform unperturbed solve
-        self._solvemodule.solve(globdat)
+        self._solvemodule.run(globdat)
 
         # Get element size table
         meshsize = Table(size=len(globdat[gn.ESET]))
@@ -86,7 +88,7 @@ class RMFemModule(Module):
                 )
 
             # Perform the solve
-            self._solvemodule.solve(pglobdat)
+            self._solvemodule.run(pglobdat)
 
             # Write the mesh to a file
             if self._writemeshfile is not None:
