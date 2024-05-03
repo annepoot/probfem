@@ -1,10 +1,10 @@
 import numpy as np
+from copy import deepcopy
 
 from myjive.names import GlobNames as gn
 from myjive.app import Module
 from myjive.util.proputils import check_dict, split_off_type
 from myjive.util import Table
-from copy import deepcopy
 
 
 class RMFemModule(Module):
@@ -12,6 +12,7 @@ class RMFemModule(Module):
         super().__init__(name)
         self._needs_modelprops = True
 
+    @Module.save_config
     def configure(
         self,
         globdat,
