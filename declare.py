@@ -3,6 +3,7 @@ from myjive.names import GlobNames as gn
 from myjive.app import ModuleFactory
 from myjive.model import ModelFactory
 
+from observationmodel import ObservationModel
 from randommeshmodel import RandomMeshModel
 from referencemodel import ReferenceModel
 
@@ -19,6 +20,7 @@ def declare_all(globdat):
 def declare_extra_models(globdat):
     factory = globdat.get(gn.MODELFACTORY, ModelFactory())
 
+    ObservationModel.declare(factory)
     RandomMeshModel.declare(factory)
     ReferenceModel.declare(factory)
 
