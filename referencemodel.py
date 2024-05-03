@@ -25,6 +25,7 @@ class ReferenceModel(Model):
             table = self._compute_strain_error(table, globdat)
         return table
 
+    @Model.save_config
     def configure(self, globdat, *, u, kappa, params={}):
 
         # Get basic dimensionality info

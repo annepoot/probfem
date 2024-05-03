@@ -28,6 +28,7 @@ class RandomMeshModel(Model):
         else:
             raise ValueError("Invalid file type passed to WRITEMESH")
 
+    @Model.save_config
     def configure(self, globdat, *, p, boundary):
         # get props
         check_dict(self, boundary, ["groups"])

@@ -6,6 +6,7 @@ from myjive.util.proputils import check_dict, split_off_type
 
 
 class MCMCModule(Module):
+    @Module.save_config
     def configure(
         self,
         globdat,

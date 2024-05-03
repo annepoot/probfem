@@ -9,7 +9,7 @@ from myjive.util.proputils import check_value
 
 
 class RMPlotModule(Module):
-
+    @Module.save_config
     def configure(
         self,
         globdat,
