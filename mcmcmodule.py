@@ -2,7 +2,7 @@ import numpy as np
 from scipy.stats import multivariate_normal, uniform
 from myjive.names import GlobNames as gn
 from myjive.app import Module
-from myjive.util.proputils import check_dict, split_off_type
+from myjive.util.proputils import check_dict, split_off_type, set_recursive
 
 
 class MCMCModule(Module):
@@ -46,27 +46,10 @@ class MCMCModule(Module):
         self._solvemodule.init(globdat)
 
     def run(self, globdat):
+        models = globdat[gn.MODELS]
+        observation_model = self.get_unique_relevant_model("GETLOGLIKELIHOOD", models)
+
         self._solvemodule.run(globdat)
-        ref_solution = globdat[gn.STATE0]
-
-        ndof = globdat[gn.DOFSPACE].dof_count()
-        measure_dofs = np.arange(0, ndof)[:: (ndof - 1) // 10][1:-1]
-        # ref = ref_solution[measure_dofs]
-        ref = np.array(
-            [
-                0.01154101,
-                0.01667733,
-                0.01592942,
-                0.00980423,
-                -0.00043005,
-                -0.01177105,
-                -0.02001336,
-                -0.0211289,
-                -0.01350695,
-            ]
-        )
-
-        measurements = ref + self._sigma_c * self._rng.standard_normal(9)
 
         # Initial guess
         xi = self._start
@@ -75,12 +58,10 @@ class MCMCModule(Module):
         solution = globdat[gn.STATE0]
         stiffness = globdat[gn.TABLES]["stiffness"][""]
 
-        mu_y = globdat["state0"][measure_dofs]
         Sigma_0 = self._sigma_0**2 * np.identity(self._nvar)
         prior = multivariate_normal(mean=self._mu_0, cov=Sigma_0)
         Sigma_q = self._sigma_q**2 * np.identity(self._nvar)
         proposal = multivariate_normal(mean=xi, cov=Sigma_q)
-        Sigma_y = self._sigma_y**2 * np.identity(len(mu_y))
 
         variables = np.zeros((self._nsample + 1, len(xi)))
         solutions = np.zeros((self._nsample + 1, len(solution)))
@@ -89,10 +70,8 @@ class MCMCModule(Module):
         solutions[0] = solution
         stiffnesses[0] = stiffness
 
-        logp_prior = prior.logpdf(xi)
-        logp_likelihood = multivariate_normal(solution[measure_dofs], Sigma_y).logpdf(
-            measurements
-        )
+        logprior = prior.logpdf(xi)
+        loglikelihood = observation_model.GETLOGLIKELIHOOD(globdat)
 
         for i in range(1, self._nsample + 1):
             proposal.mean = xi
@@ -104,23 +83,25 @@ class MCMCModule(Module):
             solution_prop = globdat[gn.STATE0]
             stiffness_prop = globdat[gn.TABLES]["stiffness"][""]
 
-            logp_prior_prop = prior.logpdf(xi_prop)
-            logp_likelihood_prop = multivariate_normal(
-                solution_prop[measure_dofs], Sigma_y
-            ).logpdf(measurements)
+            logprior_prop = prior.logpdf(xi_prop)
+            loglikelihood_prop = observation_model.GETLOGLIKELIHOOD(globdat)
 
-            logalpha = min(
-                logp_prior_prop + logp_likelihood_prop - logp_prior - logp_likelihood, 0
-            )
+            logalpha = logprior_prop + loglikelihood_prop - logprior - loglikelihood
 
-            if self._rng.uniform() < np.exp(logalpha):
+            if logalpha < 0:
+                if self._rng.uniform() < np.exp(logalpha):
+                    accept = True
+                else:
+                    accept = False
+            else:
+                accept = True
+
+            if accept:
                 xi = xi_prop
                 solution = solution_prop
                 stiffness = stiffness_prop
-                logp_prior = logp_prior_prop
-                logp_likelihood = logp_likelihood_prop
-
-            print(xi)
+                logprior = logprior_prop
+                loglikelihood = loglikelihood_prop
 
             variables[i] = xi
             stiffnesses[i] = stiffness
@@ -141,11 +122,6 @@ class MCMCModule(Module):
             for model in globdat[gn.MODELS]:
                 if model.get_name() == name:
                     config = model.get_config()
-                    subconf = config
-                    for i, key in enumerate(keys):
-                        if i == len(keys) - 1:
-                            subconf[key] = val
-                        else:
-                            subconf = subconf[key]
+                    set_recursive(config, keys, val)
                     _, config = split_off_type(config)
                     model.configure(globdat, **config)

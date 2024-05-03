@@ -49,7 +49,7 @@ mcmc =
 model =
 {
   type = Multi;
-  models = [ solid, load, diri ];
+  models = [ solid, load, diri, obs ];
 
   solid =
   {
@@ -103,5 +103,33 @@ model =
     groups = [ left, right ];
     dofs   = [ dx, dx ];
     values = [ 0.0, 0.0 ];
+  };
+
+  obs =
+  {
+    type = Observation;
+    field = state0;
+
+    observation = {
+      type = equal;
+      nobs = 9;
+      includeBoundary = False;
+    };
+
+    measurement = {
+      type = direct;
+      values = [0.01154101, 0.01667733, 0.01592942, 0.00980423, -0.00043005, -0.01177105, -0.02001336, -0.0211289, -0.01350695];
+
+      corruption = {
+        type = multivariate_normal;
+        cov = 1e-8;
+        seed = 0;
+      };
+    };
+
+    noise = {
+      type = multivariate_normal;
+      cov = 1e-8;
+    };
   };
 };
