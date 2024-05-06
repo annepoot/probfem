@@ -24,10 +24,9 @@ props = pu.parse_file("fig10.pro")
 extra_declares = [declarex, declareloc]
 globdat = main.jive(props, extra_declares=extra_declares)
 
-variables = globdat["mcmcvariables"]
-solutions = globdat["mcmcsolutions"]
+variables = globdat["mcmc"]["variables"]
+solutions = globdat["mcmc"]["state0"]
 
-stiffnesses = globdat["mcmcstiffnesses"]
 fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2)
 ax1.scatter(variables[:, 0], variables[:, 1])
 ax2.scatter(variables[:, 0], variables[:, 2])
