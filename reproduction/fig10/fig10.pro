@@ -36,11 +36,14 @@ mcmc =
                solid.material.params.xi_2,
                solid.material.params.xi_3,
                solid.material.params.xi_4];
+
   startValue = [0.9, 1.1, 0.15, 0.35];
   priorStd = 1.;
   proposalStd = 1e-2;
   corruptionNoise = 1e-4;
   observationNoise = 1e-4;
+
+  output = [variables, state0, tables.stiffness.];
 
   nsample = 1000;
   seed = 0;

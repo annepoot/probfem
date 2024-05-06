@@ -2,7 +2,13 @@ import numpy as np
 from scipy.stats import multivariate_normal, uniform
 from myjive.names import GlobNames as gn
 from myjive.app import Module
-from myjive.util.proputils import check_dict, split_off_type, set_recursive
+from myjive.util.proputils import (
+    check_dict,
+    check_list,
+    split_off_type,
+    set_recursive,
+    get_recursive,
+)
 
 
 class MCMCModule(Module):
@@ -21,10 +27,12 @@ class MCMCModule(Module):
         proposalStd,
         corruptionNoise,
         observationNoise,
-        seed=None
+        seed=None,
+        output=["variables"]
     ):
         # Validate input arguments
         check_dict(self, solveModule, ["type"])
+        check_list(self, output)
         self._nsample = nsample
         self._variables = variables
         self._nvar = len(self._variables)
@@ -35,6 +43,7 @@ class MCMCModule(Module):
         self._sigma_c = corruptionNoise
         self._sigma_y = observationNoise
         self._rng = np.random.default_rng(seed)
+        self._output = output
 
         modulefac = globdat[gn.MODULEFACTORY]
         solvetype, solveprops = split_off_type(solveModule)
@@ -63,12 +72,8 @@ class MCMCModule(Module):
         Sigma_q = self._sigma_q**2 * np.identity(self._nvar)
         proposal = multivariate_normal(mean=xi, cov=Sigma_q)
 
-        variables = np.zeros((self._nsample + 1, len(xi)))
-        solutions = np.zeros((self._nsample + 1, len(solution)))
-        stiffnesses = np.zeros((self._nsample + 1, len(solution)))
-        variables[0] = xi
-        solutions[0] = solution
-        stiffnesses[0] = stiffness
+        output_dict = {}
+        output_dict = self._update_output_dict(output_dict, globdat, 0, xi, True)
 
         logprior = prior.logpdf(xi)
         loglikelihood = observation_model.GETLOGLIKELIHOOD(globdat)
@@ -79,9 +84,6 @@ class MCMCModule(Module):
 
             self._configure_models(globdat, self._variables, xi_prop)
             self._solvemodule.run(globdat)
-
-            solution_prop = globdat[gn.STATE0]
-            stiffness_prop = globdat[gn.TABLES]["stiffness"][""]
 
             logprior_prop = prior.logpdf(xi_prop)
             loglikelihood_prop = observation_model.GETLOGLIKELIHOOD(globdat)
@@ -98,18 +100,12 @@ class MCMCModule(Module):
 
             if accept:
                 xi = xi_prop
-                solution = solution_prop
-                stiffness = stiffness_prop
                 logprior = logprior_prop
                 loglikelihood = loglikelihood_prop
 
-            variables[i] = xi
-            stiffnesses[i] = stiffness
-            solutions[i] = solution
+            output_dict = self._update_output_dict(output_dict, globdat, i, xi, accept)
 
-        globdat["mcmcvariables"] = variables
-        globdat["mcmcsolutions"] = solutions
-        globdat["mcmcstiffnesses"] = stiffnesses
+        globdat["mcmc"] = output_dict
 
         return "ok"
 
@@ -125,3 +121,23 @@ class MCMCModule(Module):
                     set_recursive(config, keys, val)
                     _, config = split_off_type(config)
                     model.configure(globdat, **config)
+
+    def _update_output_dict(self, output_dict, globdat, i, xi, accept):
+        if accept:
+            for key in self._output:
+                if key == "variables":
+                    value = xi
+                else:
+                    if "." in key:
+                        value = get_recursive(globdat, key.split("."))
+                    else:
+                        value = globdat[key]
+
+                if i == 0:
+                    output_dict[key] = np.zeros((self._nsample + 1, len(value)))
+                output_dict[key][i] = value
+        else:
+            for key, value in output_dict.items():
+                output_dict[key][i] = output_dict[key][i - 1]
+
+        return output_dict
