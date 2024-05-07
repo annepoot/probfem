@@ -136,20 +136,23 @@ class MCMCModule(Module):
     def _update_output_dict(self, output_dict, globdat, i, xi, accept):
         if accept:
             for key in self._output:
+                keys = key.split(".")
+
                 if key == "variables":
                     value = xi
                 else:
-                    if "." in key:
-                        value = get_recursive(globdat, key.split("."))
-                    else:
-                        value = globdat[key]
+                    value = get_recursive(globdat, keys)
 
                 if i == 0:
-                    output_dict[key] = np.zeros((self._nsample + 1, len(value)))
-                output_dict[key][i] = value
+                    array = np.zeros((self._nsample + 1, len(value)))
+                    set_recursive(output_dict, keys, array)
+
+                set_recursive(output_dict, keys + [i], value)
         else:
-            for key, value in output_dict.items():
-                output_dict[key][i] = output_dict[key][i - 1]
+            for key in self._output:
+                keys = key.split(".")
+                value = get_recursive(output_dict, keys + [i - 1])
+                set_recursive(output_dict, keys + [i], value)
 
         return output_dict
 
