@@ -25,24 +25,27 @@ class MCMCModule(Module):
         priorStd,
         proposalMean=None,
         proposalStd,
-        corruptionNoise,
-        observationNoise,
         seed=None,
+        tune=True,
+        tuneInterval=100,
         output=["variables"]
     ):
         # Validate input arguments
         check_dict(self, solveModule, ["type"])
+        check_list(self, variables)
         check_list(self, output)
         self._nsample = nsample
         self._variables = variables
+        self._nvar = len(self._variables)
         self._nvar = len(self._variables)
         self._start = np.zeros(self._nvar) if startValue is None else startValue
         self._mu_0 = np.zeros(self._nvar) if priorMean is None else priorMean
         self._sigma_0 = priorStd
         self._sigma_q = proposalStd
-        self._sigma_c = corruptionNoise
-        self._sigma_y = observationNoise
         self._rng = np.random.default_rng(seed)
+        self._tune = tune
+        self._tune_interval = tuneInterval
+        self._scaling = 1.0
         self._output = output
 
         modulefac = globdat[gn.MODULEFACTORY]
@@ -64,8 +67,6 @@ class MCMCModule(Module):
         xi = self._start
         self._configure_models(globdat, self._variables, xi)
         self._solvemodule.run(globdat)
-        solution = globdat[gn.STATE0]
-        stiffness = globdat[gn.TABLES]["stiffness"][""]
 
         Sigma_0 = self._sigma_0**2 * np.identity(self._nvar)
         prior = multivariate_normal(mean=self._mu_0, cov=Sigma_0)
@@ -78,9 +79,18 @@ class MCMCModule(Module):
         logprior = prior.logpdf(xi)
         loglikelihood = observation_model.GETLOGLIKELIHOOD(globdat)
 
+        accept_rate = 0.0
+
         for i in range(1, self._nsample + 1):
             proposal.mean = xi
-            xi_prop = xi + self._sigma_q * self._rng.standard_normal(4)
+
+            if self._tune and i % self._tune_interval == 0:
+                self._scaling = self._update_scaling(self._scaling, accept_rate)
+                accept_rate = 0.0
+
+            xi_prop = xi + self._scaling * self._sigma_q * self._rng.standard_normal(
+                self._nvar
+            )
 
             self._configure_models(globdat, self._variables, xi_prop)
             self._solvemodule.run(globdat)
@@ -102,6 +112,7 @@ class MCMCModule(Module):
                 xi = xi_prop
                 logprior = logprior_prop
                 loglikelihood = loglikelihood_prop
+                accept_rate += 1 / self._tune_interval
 
             output_dict = self._update_output_dict(output_dict, globdat, i, xi, accept)
 
@@ -141,3 +152,23 @@ class MCMCModule(Module):
                 output_dict[key][i] = output_dict[key][i - 1]
 
         return output_dict
+
+    def _update_scaling(self, scaling, accept_rate):
+        print("Accept rate:", accept_rate)
+        print("Old scaling:", scaling)
+        if accept_rate < 0.001:
+            scaling *= 0.1
+        elif accept_rate < 0.05:
+            scaling *= 0.5
+        elif accept_rate < 0.2:
+            scaling *= 0.9
+
+        if accept_rate > 0.95:
+            scaling *= 10
+        elif accept_rate > 0.75:
+            scaling *= 2
+        elif accept_rate > 0.5:
+            scaling *= 1.1
+        print("New scaling:", scaling)
+        print("")
+        return scaling
