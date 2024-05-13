@@ -19,7 +19,12 @@ message(){
 
 build_rmfem(){
 	message "CREATING rmfem ENVIRONMENT"
-	conda env create -f ENVIRONMENT.yml
+	conda env create -f ../ENVIRONMENT.yml
+
+	message "ADDING LOCAL PATHS"
+	conda activate rmfem-dev
+	conda develop ~/Storage/git/rmfem
+	conda deactivate
 }
 
 build_rmfem_dev(){
