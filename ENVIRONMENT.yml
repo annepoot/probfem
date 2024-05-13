@@ -12,8 +12,6 @@ dependencies:
   - seaborn=0.13.2
   - sympy=1.12
   # myjive import
-  - pip
-  - pip:
-    - myjive==0.1.7
+  - myjive=0.1.8
   # support packages
   - pytest
