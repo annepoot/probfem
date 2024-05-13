@@ -5,7 +5,7 @@ init =
   mesh =
   {
     type = manual;
-    file = fig10.mesh;
+    file = 1d-lin.mesh;
   };
 
   nodeGroups = [ left, right ];
@@ -35,15 +35,18 @@ mcmc =
   variables = [solid.material.params.xi_1,
                solid.material.params.xi_2,
                solid.material.params.xi_3,
-               solid.material.params.xi_4];
+               solid.material.params.xi_4,
+               solid.material.params.xi_5,
+               solid.material.params.xi_6];
 
-  startValue = [0.9, 1.1, 0.15, 0.35];
+  startValue = [1., 1., 0.25, 0.25, 1., 1.];
+
   priorStd = 1.;
-  proposalStd = 1e-2;
+  proposalStd = 1e-4;
 
   output = [variables, state0, tables.stiffness.];
 
-  nsample = 1000;
+  nsample = 10000;
   seed = 0;
 };
 
@@ -64,13 +67,15 @@ model =
       rank = 1;
       anmodel = bar;
 
-      E = exp(sqrt(2) * (xi_1/(pi) * sin(pi*x) + xi_2/(2*pi) * sin(2*pi*x) + xi_3/(3*pi) * sin(3*pi*x) + xi_4/(4*pi) * sin(4*pi*x)));
+      E = exp(sqrt(2) * (xi_1/(pi) * sin(pi*x) + xi_2/(2*pi) * sin(2*pi*x) + xi_3/(3*pi) * sin(3*pi*x) + xi_4/(4*pi) * sin(4*pi*x) + xi_5/(5*pi) * sin(5*pi*x) + xi_6/(6*pi) * sin(6*pi*x)));
 
       params = {
         xi_1 = 1.0;
         xi_2 = 1.0;
         xi_3 = 0.25;
         xi_4 = 0.25;
+        xi_5 = 1.0;
+        xi_6 = 1.0;
       };
     };
 
@@ -119,7 +124,7 @@ model =
 
     measurement = {
       type = direct;
-      values = [0.01154101, 0.01667733, 0.01592942, 0.00980423, -0.00043005, -0.01177105, -0.02001336, -0.0211289, -0.01350695];
+      values = [ 0.01062399,  0.01542748,  0.01468833,  0.00855645, -0.00047634, -0.01159096, -0.02030522, -0.02126783, -0.01368191];
 
       corruption = {
         type = multivariate_normal;
