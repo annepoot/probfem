@@ -14,10 +14,10 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
     ax1.sharey(ax2)
     ax3.sharey(ax4)
     plt.setp((ax1, ax2, ax3, ax4), xlabel=r"$\xi_1$")
-    ax1.set_ylabel(r"$\xi_2$")
-    ax2.set_ylabel(r"$\xi_2$")
-    ax3.set_ylabel(r"$\xi_3$")
-    ax4.set_ylabel(r"$\xi_4$")
+    ax1.set_ylabel(r"$\xi_3$")
+    ax2.set_ylabel(r"$\xi_4$")
+    ax3.set_ylabel(r"$\xi_5$")
+    ax4.set_ylabel(r"$\xi_6$")
 
     handles = []
     labels = []
@@ -31,19 +31,19 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
         N_burn = 5000
         df = df.iloc[N_burn::10]
 
-        sns.kdeplot(data=df, x="xi_1", y="xi_2", ax=ax1)
-        sns.kdeplot(data=df, x="xi_1", y="xi_2", ax=ax2)
-        sns.kdeplot(data=df, x="xi_1", y="xi_3", ax=ax3)
-        sns.kdeplot(data=df, x="xi_1", y="xi_4", ax=ax4)
+        sns.kdeplot(data=df, x="xi_1", y="xi_3", ax=ax1)
+        sns.kdeplot(data=df, x="xi_1", y="xi_4", ax=ax2)
+        sns.kdeplot(data=df, x="xi_1", y="xi_5", ax=ax3)
+        sns.kdeplot(data=df, x="xi_1", y="xi_6", ax=ax4)
 
         pc1 = ax1.collections[-1]
         handles.append(Line2D([], [], color=pc1.get_edgecolor()[0]))
         labels.append(r"$N = {}$".format(N))
 
-    handle = ax1.scatter([1.0], [1.0], color="k", zorder=2)
-    ax2.scatter([1.0], [1.0], color="k", zorder=2)
-    ax3.scatter([1.0], [0.25], color="k", zorder=2)
-    ax4.scatter([1.0], [0.25], color="k", zorder=2)
+    handle = ax1.scatter([1.0], [0.25], color="k", zorder=2)
+    ax2.scatter([1.0], [0.25], color="k", zorder=2)
+    ax3.scatter([1.0], [1.0], color="k", zorder=2)
+    ax4.scatter([1.0], [1.0], color="k", zorder=2)
 
     handles.append(handle)
     labels.append("Ref")
@@ -51,4 +51,5 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
     ax2.legend(
         handles=handles, labels=labels, loc="center left", bbox_to_anchor=(1.0, 0.5)
     )
+    plt.savefig(fname="img/kde-plot_noise-{}".format(noise), dpi=600)
     plt.show()

@@ -35,7 +35,7 @@ rmfem =
   seed = 0;
 
   errorTables = [ solution, strain ];
-  estimatorTables = [ eta, eta1, eta2 ];
+  estimatorTables = [ eta1, eta2 ];
 };
 
 rmplot =

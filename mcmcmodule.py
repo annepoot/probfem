@@ -53,9 +53,14 @@ class MCMCModule(Module):
         self._solvemodule = modulefac.get_module(solvetype, "solveModule")
         self._solvemodule.configure(globdat, **solveprops)
 
-    def init(self, globdat):
+        self._needs_modelprops = self._solvemodule._needs_modelprops
+
+    def init(self, globdat, *, modelprops=None):
         # Initialize solvemodule
-        self._solvemodule.init(globdat)
+        if self._solvemodule._needs_modelprops:
+            self._solvemodule.init(globdat, modelprops=modelprops)
+        else:
+            self._solvemodule.init(globdat)
 
     def run(self, globdat):
         models = globdat[gn.MODELS]

@@ -27,7 +27,6 @@ class ReferenceModel(Model):
 
     @Model.save_config
     def configure(self, globdat, *, u, kappa, params={}):
-
         # Get basic dimensionality info
         self._rank = globdat[gn.MESHRANK]
         self._strcount = self._rank * (self._rank + 1) // 2
