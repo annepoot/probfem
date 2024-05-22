@@ -88,6 +88,8 @@ class RMFemModule(Module):
                     nodes, pglobdat, meshsize=meshsize, rng=self._rng
                 )
 
+            print("RUNNING PERTURBED MESH #{}".format(i))
+
             # Perform the solve
             self._solvemodule.run(pglobdat)
 

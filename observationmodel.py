@@ -58,7 +58,9 @@ class ObservationModel(Model):
             full_field = get_recursive(globdat, self._fieldname.split("."))
         else:
             full_field = globdat[self._fieldname]
-        prediction = self._observationfunc(full_field, **self._observationprops)
+        prediction = self._observationfunc(
+            globdat, full_field, **self._observationprops
+        )
         return prediction
 
     def _get_measurements(self, globdat):
@@ -77,12 +79,16 @@ class ObservationModel(Model):
         return np.exp(loglikelihood)
 
     def _get_observation_func(self, typ):
-        if typ == "direct":
+        if typ == "directSelection":
             return self.direct_selection
-        elif typ == "equal":
+        elif typ == "equalSelection":
             return self.equal_selection
+        elif typ == "directLocation":
+            return self.direct_location
+        elif typ == "equalLocation":
+            return self.equal_location
         else:
-            raise ValueError("'{}' is not a valid observation function")
+            raise ValueError("'{}' is not a valid observation function".format(typ))
 
     def _get_measurement_func(self, typ):
         if typ == "direct":
@@ -90,18 +96,18 @@ class ObservationModel(Model):
         elif typ == "generative":
             return self.generative_measurements
         else:
-            raise ValueError("'{}' is not a valid measurement function")
+            raise ValueError("'{}' is not a valid measurement function".format(typ))
 
     def _get_distribution(self, typ):
         if typ == "multivariate_normal":
             return multivariate_normal
         else:
-            raise ValueError("'{}' is not a valid noise function")
+            raise ValueError("'{}' is not a valid noise function".format(typ))
 
-    def direct_selection(self, full_field, *, dofs):
+    def direct_selection(self, globdat, full_field, *, dofs):
         return full_field[dofs]
 
-    def equal_selection(self, full_field, *, nobs, includeBoundary):
+    def equal_selection(self, globdat, full_field, *, nobs, includeBoundary):
         ndofs = len(full_field)
         if includeBoundary:
             if (ndofs - 1) % (nobs - 1) != 0:
@@ -111,7 +117,39 @@ class ObservationModel(Model):
             if (ndofs - 1) % (nobs + 1) != 0:
                 raise ValueError("nobs incompatible with mesh")
             dofs = np.arange(0, ndofs)[:: (ndofs - 1) // (nobs + 1)][1:-1]
-        return self.direct_selection(full_field, dofs=dofs)
+        return self.direct_selection(globdat, full_field, dofs=dofs)
+
+    def direct_location(self, globdat, full_field, *, locs):
+        elems = globdat[gn.ESET]
+        nodes = globdat[gn.NSET]
+        dofs = globdat[gn.DOFSPACE]
+        shape = globdat[gn.SHAPEFACTORY].get_shape(globdat[gn.MESHSHAPE], "Gauss1")
+
+        pred_field = np.zeros_like(locs)
+        tol = 1e-8
+
+        for i, loc in enumerate(locs):
+            for elem in elems:
+                inodes = elem.get_nodes()
+                coords = nodes.get_some_coords(inodes)
+
+                if coords[0, 0] - tol < loc and coords[0, 1] + tol > loc:
+                    idofs = dofs.get_dofs(inodes, ["dx"])
+                    elfield = full_field[idofs]
+                    sfuncs = shape.eval_global_shape_functions([loc], coords)
+                    pred_field[i] = sfuncs @ elfield
+                    break
+            else:
+                raise RuntimeError("No matching element found!")
+
+        return pred_field
+
+    def equal_location(self, globdat, full_field, *, nobs, includeBoundary):
+        if includeBoundary:
+            locs = np.linspace(0, 1, nobs)
+        else:
+            locs = np.linspace(0, 1, nobs + 2)[1:-1]
+        return self.direct_location(globdat, full_field, locs=locs)
 
     def direct_measurement(self, *, values, corruption={}):
         if len(corruption) > 0:
