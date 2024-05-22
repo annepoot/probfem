@@ -90,6 +90,7 @@ class MCMCModule(Module):
             proposal.mean = xi
 
             if self._tune and i % self._tune_interval == 0:
+                print("MCMC sample {} of {}".format(i, self._nsample))
                 self._scaling = self._update_scaling(self._scaling, accept_rate)
                 accept_rate = 0.0
 
