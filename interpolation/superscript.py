@@ -32,6 +32,7 @@ rmplot = RMPlotModule("rmplot")
 rmplot.configure(
     globdat,
     field="solution",
+    femField="mcmc.state0.-1",
     comp="dx",
     plotType="node",
     figure={"title": "Perturbed solution", "xlabel": "x", "ylabel": "Solution"},
@@ -133,6 +134,6 @@ from writemeshmodule import WriteMeshModule
 
 writemesh = WriteMeshModule("writemesh")
 
-writemesh.WRITEMESH(globdat, "mesh-ref.mesh", "manual")
+writemesh.WRITEMESH(globdat, "output/mesh-ref.mesh", "manual")
 for i, pglobdat in enumerate(globdat["perturbedSolves"], 1):
-    writemesh.WRITEMESH(pglobdat, "mesh-{}.mesh".format(i), "manual")
+    writemesh.WRITEMESH(pglobdat, "output/mesh-{}.mesh".format(i), "manual")
