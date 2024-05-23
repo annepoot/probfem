@@ -46,5 +46,5 @@ for noise in [1e-08, 1e-10, 1e-12]:
         ax.set_ylim((0.5, 2.5))
         ax.set_xlabel(r"$x$")
         ax.set_ylabel(r"$\kappa(x)$")
-        plt.savefig(fname="img/kappa-plot_N-{}_noise_{}".format(N, noise), dpi=600)
+        # plt.savefig(fname="img/kappa-plot_N-{}_noise_{}".format(N, noise), dpi=600)
         plt.show()

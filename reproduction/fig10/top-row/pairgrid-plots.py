@@ -63,4 +63,4 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
                 )
 
     grid.add_legend()
-    grid.savefig(fname="img/pairgrid-plot_noise-{}".format(noise), dpi=600)
+    # grid.savefig(fname="img/pairgrid-plot_noise-{}".format(noise), dpi=600)

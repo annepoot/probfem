@@ -113,7 +113,7 @@ model =
     field = state0;
 
     observation = {
-      type = equal;
+      type = equalSelection;
       nobs = 9;
       includeBoundary = False;
     };
