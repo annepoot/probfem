@@ -51,5 +51,5 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
     ax2.legend(
         handles=handles, labels=labels, loc="center left", bbox_to_anchor=(1.0, 0.5)
     )
-    plt.savefig(fname="img/kde-plot_noise-{}".format(noise), dpi=600)
+    # plt.savefig(fname="img/kde-plot_noise-{}".format(noise), dpi=600)
     plt.show()

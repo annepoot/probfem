@@ -141,7 +141,7 @@ model =
     field = state0;
 
     observation = {
-      type = equal;
+      type = equalLocation;
       nobs = 9;
       includeBoundary = False;
     };

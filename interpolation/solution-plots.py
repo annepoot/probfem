@@ -60,5 +60,5 @@ x = np.linspace(0, 1, 1000)
 y = np.sin(2 * np.pi * x)
 plt.plot(x, y, color="k")
 
-plt.savefig("img/state0_before-bug-fix.png", dpi=600)
+# plt.savefig("img/state0_before-bug-fix.png", dpi=600)
 plt.show()
