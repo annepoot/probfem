@@ -176,8 +176,8 @@ class MCMCModule(Module):
             scaling *= 10
         elif accept_rate > 0.75:
             scaling *= 2
-        elif accept_rate > 0.5:
-            scaling *= 1.1
+        elif accept_rate > 0.4:
+            scaling *= 1.2
         print("New scaling:", scaling)
         print("")
         return scaling
