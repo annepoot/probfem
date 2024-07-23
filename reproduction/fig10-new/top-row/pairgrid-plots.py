@@ -24,12 +24,13 @@ labels_by_var = {
     "xi_6": r"$\xi_6$",
 }
 
-for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
+for noise in [1e-08, 1e-10, 1e-12]:
     N_burn = 5000
     df_list = []
 
     for N in [10, 20, 40]:
-        sub_df = pd.read_csv("output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise))
+        fname = "output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise)
+        sub_df = pd.read_csv(fname)
         sub_df = sub_df.transpose()
         sub_df = sub_df.rename(columns=lambda i: "xi_" + str(i + 1))
         sub_df = sub_df.rename(index=lambda s: int(s.split(".")[-1]) - 1)

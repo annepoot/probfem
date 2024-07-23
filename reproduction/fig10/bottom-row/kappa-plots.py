@@ -22,13 +22,9 @@ for noise in [1e-08, 1e-10, 1e-12]:
     for i, N in enumerate([10, 20, 40]):
         fig, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
 
-        for j, sample in enumerate(range(1, 21)):
-            if j == 12:
-                continue
-
-            df = pd.read_csv(
-                "output/mcmc_xi_N-{}_noise-{}_mesh-{}.csv".format(N, noise, sample)
-            )
+        for sample in range(1, 21):
+            fname = "output/mcmc_xi_N-{}_noise-{}_mesh-{}.csv".format(N, noise, sample)
+            df = pd.read_csv(fname)
             df = df.transpose()
             df = df.rename(columns=lambda i: "xi_" + str(i + 1))
             df = df.rename(index=lambda s: int(s.split(".")[-1]) - 1)
@@ -38,7 +34,7 @@ for noise in [1e-08, 1e-10, 1e-12]:
 
             for k, xi in df.iterrows():
                 kappa = get_kappa(x, xi)
-                label = r"$N = {}$".format(N) if k == N_burn and j == 0 else None
+                label = r"$N = {}$".format(N) if k == N_burn and sample == 1 else None
                 ax.plot(x, kappa, color="gray", linewidth=1, alpha=0.5, label=label)
         ax.plot(x, kappa_true, color="black", label="Ref")
         ax.legend()
