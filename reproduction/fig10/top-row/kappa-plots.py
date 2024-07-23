@@ -14,7 +14,7 @@ def get_kappa(x, xi):
     return kappa
 
 
-for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
+for noise in [1e-08, 1e-10, 1e-12]:
     x = np.linspace(0, 1, 1000)
     xi_true = [1.0, 1.0, 0.25, 0.25]
     kappa_true = get_kappa(x, xi_true)
@@ -22,7 +22,8 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
     for N in [10, 20, 40]:
         fig, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
 
-        df = pd.read_csv("output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise))
+        fname = "output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise)
+        df = pd.read_csv(fname)
         df = df.transpose()
         df = df.rename(columns=lambda i: "xi_" + str(i + 1))
         df = df.rename(index=lambda s: int(s.split(".")[-1]) - 1)

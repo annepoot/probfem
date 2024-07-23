@@ -5,9 +5,9 @@ import pandas as pd
 import seaborn as sns
 
 
-for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
+for noise in [1e-08, 1e-10, 1e-12]:
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, tight_layout=True)
-    plt.suptitle(r"KDE plots for $\sigma_\varepsilon$ = {:.0e}".format(np.sqrt(noise)))
+    # plt.suptitle(r"KDE plots for $\sigma_\varepsilon$ = {:.0e}".format(np.sqrt(noise)))
     ax1.sharex(ax2)
     ax2.sharex(ax3)
     ax3.sharex(ax4)
@@ -23,7 +23,8 @@ for noise in [1e-08, 1e-10, 1e-12, 1e-14, 1e-16]:
     labels = []
 
     for N in [10, 20, 40]:
-        df = pd.read_csv("output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise))
+        fname = "output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise)
+        df = pd.read_csv(fname)
         df = df.transpose()
         df = df.rename(columns=lambda i: "xi_" + str(i + 1))
         df = df.rename(index=lambda s: int(s.split(".")[-1]) - 1)

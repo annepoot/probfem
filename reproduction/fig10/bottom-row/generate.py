@@ -63,7 +63,7 @@ props["output"] = outputprops
 
 for N in [10, 20, 40]:
     mesher_lin(1, N)
-    for noise in [1e-8, 1e-10, 1e-12, 1e-14, 1e-16]:
+    for noise in [1e-8, 1e-10, 1e-12]:
         files, keys = get_files_and_keys(N, noise, nsample)
         props["model"]["obs"]["noise"]["cov"] = noise
         props["model"]["obs"]["measurement"]["corruption"]["cov"] = noise
