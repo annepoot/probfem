@@ -29,12 +29,14 @@ class RandomMeshModel(Model):
             raise ValueError("Invalid file type passed to WRITEMESH")
 
     @Model.save_config
-    def configure(self, globdat, *, p, boundary):
+    def configure(self, globdat, *, p, boundary, omitNodes=[]):
         # get props
         check_dict(self, boundary, ["groups"])
         check_list(self, boundary["groups"])
+        check_list(self, omitNodes)
         self._p = p
         self._bgroups = boundary["groups"]
+        self._omit_nodes = omitNodes
 
         bnodes = set()
         for group in self._bgroups:
@@ -47,16 +49,21 @@ class RandomMeshModel(Model):
         h = np.max(meshsize[""])
 
         for inode, node in enumerate(nodes):
-            if inode not in self._bnodes:
-                alpha_i_bar = rng.uniform(-0.5, 0.5)
-                ielem = inode - 1
-                h_i_bar = min(meshsize[""][ielem], meshsize[""][ielem + 1])
-                alpha_i = (h_i_bar / h) ** self._p * alpha_i_bar
+            if inode in self._omit_nodes:
+                continue
 
-                coords = node.get_coords()
-                coords += h**self._p * alpha_i
+            if inode in self._bnodes:
+                continue
 
-                node.set_coords(coords)
+            alpha_i_bar = rng.uniform(-0.5, 0.5)
+            ielem = inode - 1
+            h_i_bar = min(meshsize[""][ielem], meshsize[""][ielem + 1])
+            alpha_i = (h_i_bar / h) ** self._p * alpha_i_bar
+
+            coords = node.get_coords()
+            coords += h**self._p * alpha_i
+
+            node.set_coords(coords)
 
         return nodes
 
