@@ -22,7 +22,7 @@ build_rmfem(){
 	conda env create -f ../ENVIRONMENT.yml
 
 	message "ADDING LOCAL PATHS"
-	conda activate rmfem-dev
+	conda activate rmfem
 	conda develop ~/Storage/git/rmfem
 	conda deactivate
 }
