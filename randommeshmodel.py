@@ -31,34 +31,47 @@ class RandomMeshModel(Model):
     @Model.save_config
     def configure(self, globdat, *, p, boundary, omitNodes=[]):
         # get props
-        check_dict(self, boundary, ["groups"])
+        check_dict(self, boundary, ["groups", "dofs"])
         check_list(self, boundary["groups"])
+        check_list(self, boundary["dofs"])
         check_list(self, omitNodes)
         self._p = p
         self._bgroups = boundary["groups"]
+        self._bdofs = boundary["dofs"]
         self._omit_nodes = omitNodes
-
-        bnodes = set()
-        for group in self._bgroups:
-            ngroup = globdat[gn.NGROUPS][group]
-            for inode in ngroup:
-                bnodes.add(inode)
-        self._bnodes = list(bnodes)
 
     def _perturb_nodes(self, nodes, globdat, meshsize, rng=np.random.default_rng()):
         h = np.max(meshsize[""])
+        rank = globdat[gn.MESHRANK]
 
         for inode, node in enumerate(nodes):
             if inode in self._omit_nodes:
                 continue
 
-            if inode in self._bnodes:
-                continue
+            if rank == 1:
+                alpha_i_bar = rng.uniform(-0.5, 0.5)
+            elif rank == 2:
+                r = 0.25 * np.sqrt(rng.uniform(0.0, 1.0))
+                theta = rng.uniform(0.0, 2 * np.pi)
+                alpha_i_bar = r * np.array([np.cos(theta), np.sin(theta)])
+            else:
+                raise NotImplementedError(
+                    "RandomMeshModel has not been implemented for 3D yet"
+                )
 
-            alpha_i_bar = rng.uniform(-0.5, 0.5)
-            ielem = inode - 1
-            h_i_bar = min(meshsize[""][ielem], meshsize[""][ielem + 1])
+            patch = self._get_elem_patch(inode, globdat[gn.ESET])
+            h_i_bar = np.min(meshsize[""][patch])
             alpha_i = (h_i_bar / h) ** self._p * alpha_i_bar
+
+            for group, dof in zip(self._bgroups, self._bdofs):
+                ngroup = globdat[gn.NGROUPS][group]
+                if inode in ngroup:
+                    if dof == "dx":
+                        alpha_i[0] = 0.0
+                    elif dof == "dy":
+                        alpha_i[1] = 0.0
+                    elif dof == "dz":
+                        alpha_i[2] = 0.0
 
             coords = node.get_coords()
             coords += h**self._p * alpha_i
@@ -66,6 +79,13 @@ class RandomMeshModel(Model):
             node.set_coords(coords)
 
         return nodes
+
+    def _get_elem_patch(self, inode, elems):
+        patch = []
+        for ielem, elem in enumerate(elems):
+            if inode in elem.get_nodes():
+                patch.append(ielem)
+        return patch
 
     def _compute_estimator_1(self, table, globdat):
         xtable = to_xtable(table)
