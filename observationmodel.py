@@ -119,24 +119,26 @@ class ObservationModel(Model):
             dofs = np.arange(0, ndofs)[:: (ndofs - 1) // (nobs + 1)][1:-1]
         return self.direct_selection(globdat, full_field, dofs=dofs)
 
-    def direct_location(self, globdat, full_field, *, locs):
+    def direct_location(self, globdat, full_field, *, locs, dofs):
         elems = globdat[gn.ESET]
         nodes = globdat[gn.NSET]
-        dofs = globdat[gn.DOFSPACE]
+        dofspace = globdat[gn.DOFSPACE]
         shape = globdat[gn.SHAPEFACTORY].get_shape(globdat[gn.MESHSHAPE], "Gauss1")
 
-        pred_field = np.zeros_like(locs)
-        tol = 1e-8
+        nobs = len(locs)
+        pred_field = np.zeros(nobs)
+        if isinstance(dofs, str):
+            dofs = [dofs] * nobs
 
-        for i, loc in enumerate(locs):
+        for i, (loc, dof) in enumerate(zip(locs, dofs)):
             for elem in elems:
                 inodes = elem.get_nodes()
                 coords = nodes.get_some_coords(inodes)
 
-                if coords[0, 0] - tol < loc and coords[0, 1] + tol > loc:
-                    idofs = dofs.get_dofs(inodes, ["dx"])
+                if shape.contains_global_point(loc, coords):
+                    idofs = dofspace.get_dofs(inodes, [dof])
                     elfield = full_field[idofs]
-                    sfuncs = shape.eval_global_shape_functions([loc], coords)
+                    sfuncs = shape.eval_global_shape_functions(loc, coords)
                     pred_field[i] = sfuncs @ elfield
                     break
             else:
@@ -144,12 +146,13 @@ class ObservationModel(Model):
 
         return pred_field
 
-    def equal_location(self, globdat, full_field, *, nobs, includeBoundary):
+    def equal_location(self, globdat, full_field, *, nobs, dofs, includeBoundary):
         if includeBoundary:
             locs = np.linspace(0, 1, nobs)
         else:
             locs = np.linspace(0, 1, nobs + 2)[1:-1]
-        return self.direct_location(globdat, full_field, locs=locs)
+        locs = locs.reshape((-1, 1))
+        return self.direct_location(globdat, full_field, locs=locs, dofs=dofs)
 
     def direct_measurement(self, *, values, corruption={}):
         if len(corruption) > 0:
