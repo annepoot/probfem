@@ -93,9 +93,8 @@ class RMPlotModule(Module):
             raise RuntimeError("RMPlotModule has only been implemented in 1D")
         doftype = list(dofs.get_types())[0]
 
-        for inode, node in enumerate(nodes):
+        for inode, coords in enumerate(nodes):
             idof = dofs.get_dof(inode, doftype)
-            coords = node.get_coords()
             x[idof] = coords[0]
 
         return x

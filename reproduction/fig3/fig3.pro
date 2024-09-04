@@ -133,6 +133,7 @@ model =
     boundary =
     {
         groups = [ left, right ];
+        dofs = [ dx, dx ];
     };
   };
 
