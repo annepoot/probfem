@@ -111,12 +111,12 @@ class ReferenceModel(Model):
 
             def fem_func(x):
                 sfuncs = shape.eval_global_shape_functions([x], coords)
-                return eldisp @ sfuncs
+                return sfuncs @ eldisp
 
             def error_func(x):
                 return np.sqrt((exact_func(x) - fem_func(x)) ** 2)
 
-            norm = quad(error_func, coords[0, 0], coords[0, 1])[0]
+            norm = quad(error_func, coords[0, 0], coords[1, 0])[0]
 
             xtable.set_value(ielem, jcol, norm)
 
@@ -147,12 +147,12 @@ class ReferenceModel(Model):
 
             def fem_func(x):
                 sgrads = shape.eval_global_shape_gradients([x], coords)
-                return eldisp @ sgrads
+                return sgrads @ eldisp
 
             def error_func(x):
                 return (exact_func(x) - fem_func(x)) ** 2
 
-            norm = np.sqrt(quad(error_func, coords[0, 0], coords[0, 1])[0])
+            norm = np.sqrt(quad(error_func, coords[0, 0], coords[1, 0])[0])
 
             xtable.set_value(ielem, jcol, norm)
 

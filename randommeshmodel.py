@@ -6,6 +6,7 @@ from myjive.names import GlobNames as gn
 from myjive.model.model import Model
 from myjive.util.proputils import check_dict, check_list
 from myjive.util import to_xtable
+from myjive.fem import to_xnodeset
 
 
 class RandomMeshModel(Model):
@@ -44,12 +45,14 @@ class RandomMeshModel(Model):
         h = np.max(meshsize[""])
         rank = globdat[gn.MESHRANK]
 
-        for inode, node in enumerate(nodes):
+        to_xnodeset(nodes)
+
+        for inode, coords in enumerate(nodes):
             if inode in self._omit_nodes:
                 continue
 
             if rank == 1:
-                alpha_i_bar = rng.uniform(-0.5, 0.5)
+                alpha_i_bar = np.array([rng.uniform(-0.5, 0.5)])
             elif rank == 2:
                 r = 0.25 * np.sqrt(rng.uniform(0.0, 1.0))
                 theta = rng.uniform(0.0, 2 * np.pi)
@@ -73,17 +76,18 @@ class RandomMeshModel(Model):
                     elif dof == "dz":
                         alpha_i[2] = 0.0
 
-            coords = node.get_coords()
             coords += h**self._p * alpha_i
 
-            node.set_coords(coords)
+            nodes.set_node_coords(inode, coords)
+
+        nodes.to_nodeset()
 
         return nodes
 
     def _get_elem_patch(self, inode, elems):
         patch = []
         for ielem, elem in enumerate(elems):
-            if inode in elem.get_nodes():
+            if inode in elem:
                 patch.append(ielem)
         return patch
 
@@ -151,9 +155,9 @@ class RandomMeshModel(Model):
                 norm = 0
 
                 lp = coords_p[0, 0]
-                rp = coords_p[0, 1]
+                rp = coords_p[1, 0]
                 l = coords[0, 0]
-                r = coords[0, 1]
+                r = coords[1, 0]
                 hp = h**self._p
 
                 # If true, use the expressions from halfway through the proofs in Lemma 5.3
@@ -242,7 +246,7 @@ class RandomMeshModel(Model):
             grads, weights = shape.get_shape_gradients(coords)
 
             eldisp = globdat[gn.STATE0][idofs]
-            strain = grads[:, :, 0].T @ eldisp
+            strain = grads[0] @ eldisp
             norm_K = weights[0]
 
             expectation = 0
@@ -252,14 +256,14 @@ class RandomMeshModel(Model):
                 coords_p = nodes_p.get_some_coords(inodes)
                 grads_p, _ = shape.get_shape_gradients(coords_p)
                 disp_p = pglobdat[gn.STATE0][idofs]
-                strain_p = grads_p[:, :, 0].T @ disp_p
+                strain_p = grads_p[0] @ disp_p
 
                 norm = 0
 
                 lp = coords_p[0, 0]
-                rp = coords_p[0, 1]
+                rp = coords_p[1, 0]
                 l = coords[0, 0]
-                r = coords[0, 1]
+                r = coords[1, 0]
                 hp = h**self._p
 
                 # If true, use the expressions from halfway through the proofs in Lemma 5.4
@@ -324,7 +328,7 @@ class RandomMeshModel(Model):
             coords = nodes.get_some_coords(inodes)
             grads, _ = shape.get_shape_gradients(coords)
             disp = globdat[gn.STATE0][idofs]
-            strain = grads[:, :, 0].T @ disp
+            strain = grads[0] @ disp
             return strain
 
         this_strain = get_strain(ielem)
