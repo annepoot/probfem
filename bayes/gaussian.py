@@ -1,4 +1,5 @@
 import numpy as np
+from warnings import warn
 
 
 class GaussianLike:
@@ -94,7 +95,7 @@ class DirectGaussian(GaussianLike):
         return np.sqrt(np.diagonal(self._cov))
 
     def calc_samples(self):
-        return self._mean + self._sqrtcov @ np.random.randn(self._n)
+        return self._mean + self._sqrtcov @ np.random.randn(self._len)
 
 
 class LinTransGaussian(GaussianLike):
@@ -186,7 +187,9 @@ class LinSolveGaussian(GaussianLike):
         return np.linalg.solve(self._inv, self._latent.calc_mean())
 
     def calc_cov(self):
-        raise NotImplementedError("requires explicit inversion of inv!")
+        warn("Explicit inversion of fine-scale matrix!")
+        explicit_inv = np.linalg.inv(self._inv)
+        return explicit_inv @ self._latent.calc_cov() @ explicit_inv.T
 
     def calc_samples(self):
         return np.linalg.solve(self._inv, self._latent.calc_samples())
