@@ -17,44 +17,44 @@ message(){
 	echo ""
 }
 
-build_rmfem(){
-	message "CREATING rmfem ENVIRONMENT"
+build_probfem(){
+	message "CREATING probfem ENVIRONMENT"
 	conda env create -f ../ENVIRONMENT.yml
 
 	message "ADDING LOCAL PATHS"
-	conda activate rmfem
-	conda develop ~/Storage/git/rmfem
+	conda activate probfem
+	conda develop ~/Storage/git/probfem
 	conda deactivate
 }
 
-build_rmfem_dev(){
-	message "CREATING rmfem-dev ENVIRONMENT"
+build_probfem_dev(){
+	message "CREATING probfem-dev ENVIRONMENT"
 	conda env create -f ENVIRONMENT-dev.yml -y
 
-	message "UPDATING rmfem-dev ENVIRONMENT"
-	conda env update --name rmfem-dev --file ~/Storage/git/myjive/ENVIRONMENT.yml
+	message "UPDATING probfem-dev ENVIRONMENT"
+	conda env update --name probfem-dev --file ~/Storage/git/myjive/ENVIRONMENT.yml
 
 	message "ADDING LOCAL PATHS"
-	conda activate rmfem-dev
-	conda develop ~/Storage/git/rmfem
+	conda activate probfem-dev
+	conda develop ~/Storage/git/probfem
 	conda develop ~/Storage/git/myjive
 	conda deactivate
 }
 
-# (re)build rmfem environment
-if conda env list | grep -q "^rmfem "; then
+# (re)build probfem environment
+if conda env list | grep -q "^probfem "; then
 	while true; do
-		read -p "rmfem environment already exists
+		read -p "probfem environment already exists
 Do you want to rebuild it? [Y/n] " yn
 		case $yn in
 			[Yy]* )
-				message "REMOVING rmfem ENVIRONMENT"
-				conda remove --name rmfem --all -y
-				build_rmfem
+				message "REMOVING probfem ENVIRONMENT"
+				conda remove --name probfem --all -y
+				build_probfem
 				break
 				;;
 			[Nn]* )
-				echo "Skipping rmfem build"
+				echo "Skipping probfem build"
 				break
 				;;
 			* )
@@ -63,24 +63,24 @@ Do you want to rebuild it? [Y/n] " yn
 		esac
 	done
 else
-	build_rmfem
+	build_probfem
 fi
 
 
-# (re)build rmfem-dev environment
-if conda env list | grep -q "^rmfem-dev "; then
+# (re)build probfem-dev environment
+if conda env list | grep -q "^probfem-dev "; then
 	while true; do
-		read -p "rmfem-dev environment already exists.
+		read -p "probfem-dev environment already exists.
 Do you want to rebuild it? [Y/n] " yn
 		case $yn in
 			[Yy]* )
-				message "REMOVING rmfem-dev ENVIRONMENT"
-				conda remove --name rmfem-dev --all -y
-				build_rmfem_dev
+				message "REMOVING probfem-dev ENVIRONMENT"
+				conda remove --name probfem-dev --all -y
+				build_probfem_dev
 				break
 				;;
 			[Nn]* )
-				echo "Skipping rmfem-dev build"
+				echo "Skipping probfem-dev build"
 				break
 				;;
 			* )
@@ -89,6 +89,6 @@ Do you want to rebuild it? [Y/n] " yn
 		esac
 	done
 else
-	build_rmfem_dev
+	build_probfem_dev
 fi
 
