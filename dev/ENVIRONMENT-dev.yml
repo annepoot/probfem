@@ -1,4 +1,4 @@
-name: rmfem-dev
+name: probfem-dev
 channels:
   - conda-forge
   - defaults
