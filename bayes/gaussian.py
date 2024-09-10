@@ -58,7 +58,10 @@ class GaussianLike:
     def calc_std(self):
         raise NotImplementedError("This has to be implemented in a child class")
 
-    def calc_samples(self):
+    def calc_sample(self, seed):
+        raise NotImplementedError("This has to be implemented in a child class")
+
+    def calc_samples(self, n, seed):
         raise NotImplementedError("This has to be implemented in a child class")
 
     def condition_on(self, operator, measurements, noise):
@@ -94,8 +97,15 @@ class DirectGaussian(GaussianLike):
     def calc_std(self):
         return np.sqrt(np.diagonal(self._cov))
 
-    def calc_samples(self):
-        return self._mean + self._sqrtcov @ np.random.randn(self._len)
+    def calc_sample(self, seed):
+        rng = np.random.default_rng(seed)
+        return self._mean + self._sqrtcov @ rng.standard_normal(self._len)
+
+    def calc_samples(self, n, seed):
+        rng = np.random.default_rng(seed)
+        return np.tile(self._mean, (n, 1)).T + self._sqrtcov @ rng.standard_normal(
+            (self._len, n)
+        )
 
 
 class LinTransGaussian(GaussianLike):
@@ -153,8 +163,14 @@ class LinTransGaussian(GaussianLike):
     def calc_cov(self):
         return self._scale @ self._latent.calc_cov() @ self._scale.T
 
-    def calc_samples(self):
-        return self._scale @ self._latent.calc_samples() + self._shift
+    def calc_sample(self, seed):
+        return self._scale @ self._latent.calc_sample(seed) + self._shift
+
+    def calc_samples(self, n, seed):
+        return (
+            self._scale @ self._latent.calc_samples(n, seed)
+            + np.tile(self._shift, (n, 1)).T
+        )
 
     def to_direct_gaussian(self):
         return DirectGaussian(self.calc_mean(), self.calc_cov())
@@ -191,8 +207,11 @@ class LinSolveGaussian(GaussianLike):
         explicit_inv = np.linalg.inv(self._inv)
         return explicit_inv @ self._latent.calc_cov() @ explicit_inv.T
 
-    def calc_samples(self):
-        return np.linalg.solve(self._inv, self._latent.calc_samples())
+    def calc_sample(self, seed):
+        return np.linalg.solve(self._inv, self._latent.calc_sample(seed))
+
+    def calc_samples(self, n, seed):
+        return np.linalg.solve(self._inv, self._latent.calc_samples(n, seed))
 
 
 class ConditionalGaussian(GaussianLike):
@@ -206,8 +225,12 @@ class ConditionalGaussian(GaussianLike):
             raise TypeError()
 
         self._latent = latent
-        self._linop = linop
-        self._obs = obs
+        if np.isscalar(obs):
+            self._linop = np.reshape(linop, (1, -1))
+            self._obs = np.array([obs])
+        else:
+            self._linop = linop
+            self._obs = obs
         self._noise = noise
 
         # check compatibility
@@ -229,12 +252,18 @@ class ConditionalGaussian(GaussianLike):
 
     def calc_mean(self):
         mean = self._latent.calc_mean()
-        return mean - self._kalgain @ (self._linop @ mean - self._obs)
+        return mean + self._kalgain @ (self._obs - self._linop @ mean)
 
     def calc_cov(self):
         Sigma = self._latent.calc_cov()
         return Sigma - self._kalgain @ self._linop @ Sigma
 
-    def calc_samples(self):
-        sample = self._latent.calc_samples()
-        return sample - self._kalgain @ (self._linop @ sample)
+    def calc_sample(self, seed):
+        sample = self._latent.calc_sample(seed)
+        return sample + self._kalgain @ (self._obs - self._linop @ sample)
+
+    def calc_samples(self, n, seed):
+        samples = self._latent.calc_samples(n, seed)
+        return samples + self._kalgain @ (
+            np.tile(self._obs, (n, 1)).T - self._linop @ samples
+        )
