@@ -14,4 +14,4 @@ dependencies:
   # support packages
   - black
   - pytest
-  - spyder
+  - spyder<6.0.0
