@@ -3,7 +3,6 @@ from copy import deepcopy
 
 from myjive.names import GlobNames as gn
 from myjive.app import Module
-from myjive.implicit import LinsolveModule
 from myjive.solver import Constraints
 from myjive.util.proputils import split_off_type
 
@@ -11,7 +10,7 @@ from bfem import BFEMObservationModel, BoundaryObservationModel
 
 
 class BFEMSolveModule(Module):
-    @LinsolveModule.save_config
+    @Module.save_config
     def configure(
         self,
         globdat,

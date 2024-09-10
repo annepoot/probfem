@@ -9,6 +9,8 @@ from .boundaryobservationmodel import BoundaryObservationModel
 
 from .bfeminitmodule import BFEMInitModule
 from .bfemsolvemodule import BFEMSolveModule
+from .conversionmodule import ConversionModule
+from .probviewmodule import ProbViewModule
 
 __all__ = ["declare_all", "declare_models", "declare_modules"]
 
@@ -33,5 +35,7 @@ def declare_modules(globdat):
 
     BFEMInitModule.declare(factory)
     BFEMSolveModule.declare(factory)
+    ConversionModule.declare(factory)
+    ProbViewModule.declare(factory)
 
     globdat[gn.MODULEFACTORY] = factory
