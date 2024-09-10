@@ -6,6 +6,8 @@ from myjive.model import ModelFactory
 from .bfemmodel import BFEMModel
 from .bfemobservationmodel import BFEMObservationModel
 from .boundaryobservationmodel import BoundaryObservationModel
+from .cgobservationmodel import CGObservationModel
+from .randomobservationmodel import RandomObservationModel
 
 from .bfeminitmodule import BFEMInitModule
 from .bfemsolvemodule import BFEMSolveModule
@@ -26,6 +28,8 @@ def declare_models(globdat):
     BFEMModel.declare(factory)
     BFEMObservationModel.declare(factory)
     BoundaryObservationModel.declare(factory)
+    CGObservationModel.declare(factory)
+    RandomObservationModel.declare(factory)
 
     globdat[gn.MODELFACTORY] = factory
 

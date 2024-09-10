@@ -5,21 +5,14 @@ from myjive.model.model import Model
 
 
 class BFEMObservationModel(Model):
-    def GETOBSERVATIONOPERATOR(self, globdat):
+    def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
         Phic = self._constrain_phi(Phi, globdat)
-        return Phic.T
-
-    def GETMEASUREMENTS(self, globdat):
-        measurements = self._get_measurements(globdat)
-        return measurements
+        return Phic, Phic.T @ globdat["fine"]["extForce"]
 
     @Model.save_config
     def configure(self, globdat):
         pass
-
-    def _get_measurements(self, globdat):
-        return globdat["coarse"]["extForce"]
 
     def _get_phi(self, globdat):
         cglobdat = globdat["coarse"]

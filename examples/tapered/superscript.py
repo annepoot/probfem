@@ -17,7 +17,7 @@ x = np.linspace(0, 1, 65)
 u = globdat["fine"]["tables"]["state0"]["dx"]
 u_coarse = globdat["fine"]["tables"]["state0Coarse"]["dx"]
 
-prior = globdat["gp"]["sequence"][3]
+prior = globdat["gp"]["sequence"][0]
 u_prior = prior.calc_mean()
 std_u_prior = np.sqrt(np.diagonal(prior.calc_cov()))
 samples_u_prior = prior.calc_samples(n=20, seed=0)

@@ -86,17 +86,16 @@ class BFEMSolveModule(Module):
 
         posterior = deepcopy(prior)
 
-        for model in self.get_relevant_models("GETOBSERVATIONOPERATOR", models):
-            PhiT = model.GETOBSERVATIONOPERATOR(globdat)
-            measurements = model.GETMEASUREMENTS(globdat)
+        for model in self.get_relevant_models("GETOBSERVATIONS", models):
+            Phi, measurements = model.GETOBSERVATIONS(globdat)
 
             if self._sequential:
-                for phiT, measurement in zip(PhiT, measurements):
-                    posterior = posterior.condition_on(phiT, measurement, 1e-8)
+                for phi, measurement in zip(Phi.T, measurements):
+                    posterior = posterior.condition_on(phi, measurement, 1e-8)
                     for model in self.get_relevant_models("APPLYPOSTTRANS", models):
                         sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
             else:
-                posterior = posterior.condition_on(PhiT, measurements, 1e-8)
+                posterior = posterior.condition_on(Phi.T, measurements, 1e-8)
                 for model in self.get_relevant_models("APPLYPOSTTRANS", models):
                     sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
 
