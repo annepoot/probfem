@@ -16,7 +16,9 @@ class BFEMSolveModule(Module):
         globdat,
         *,
         coarseSolve={"type": "Linsolve"},
-        fineSolve={"type": "Linsolve"}
+        fineSolve={"type": "Linsolve"},
+        sequential,
+        nsample=0,
     ):
 
         coarsetype, coarseprops = split_off_type(coarseSolve)
@@ -27,6 +29,9 @@ class BFEMSolveModule(Module):
 
         self._coarse_solve.configure(globdat, **coarseprops)
         self._fine_solve.configure(globdat, **fineprops)
+
+        self._sequential = sequential
+        self._nsample = nsample
 
     def init(self, globdat):
         pass
@@ -73,26 +78,34 @@ class BFEMSolveModule(Module):
         prior = model.GETPRIOR(globdat)
 
         prior = prior.to_direct_gaussian()
+
+        sequence = []
+
+        for model in self.get_relevant_models("APPLYPOSTTRANS", models):
+            sequence.append(model.APPLYPOSTTRANS(prior, globdat))
+
         posterior = deepcopy(prior)
 
         for model in self.get_relevant_models("GETOBSERVATIONOPERATOR", models):
             PhiT = model.GETOBSERVATIONOPERATOR(globdat)
             measurements = model.GETMEASUREMENTS(globdat)
 
-            posterior = posterior.condition_on(PhiT, measurements, 1e-8)
-
-            if isinstance(model, BFEMObservationModel):
-                globdat["Phi"] = PhiT.T
-
-            if isinstance(model, BoundaryObservationModel):
-                prior = prior.condition_on(PhiT, measurements, 1e-8)
-
-        for model in self.get_relevant_models("APPLYPOSTTRANS", models):
-            prior = model.APPLYPOSTTRANS(prior, globdat)
-            posterior = model.APPLYPOSTTRANS(posterior, globdat)
+            if self._sequential:
+                for phiT, measurement in zip(PhiT, measurements):
+                    posterior = posterior.condition_on(phiT, measurement, 1e-8)
+                    for model in self.get_relevant_models("APPLYPOSTTRANS", models):
+                        sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
+            else:
+                posterior = posterior.condition_on(PhiT, measurements, 1e-8)
+                for model in self.get_relevant_models("APPLYPOSTTRANS", models):
+                    sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
 
         # Create a dictionary for the gp output
+        prior = sequence[0]
+        posterior = sequence[-1]
+
         globdat["gp"] = {}
+        globdat["gp"]["sequence"] = sequence
         globdat["gp"]["mean"] = {}
         globdat["gp"]["mean"]["prior"] = {}
         globdat["gp"]["mean"]["prior"]["state0"] = prior.calc_mean()
@@ -122,15 +135,23 @@ class BFEMSolveModule(Module):
         globdat["gp"]["std"]["posterior"]["extForce"] = np.sqrt(
             np.diagonal(globdat["gp"]["cov"]["posterior"]["extForce"])
         )
-        globdat["gp"]["samples"] = {}
-        globdat["gp"]["samples"]["prior"] = {}
-        globdat["gp"]["samples"]["prior"]["state0"] = prior.calc_samples()
-        globdat["gp"]["samples"]["prior"]["extForce"] = prior._latent.calc_samples()
-        globdat["gp"]["samples"]["posterior"] = {}
-        globdat["gp"]["samples"]["posterior"]["state0"] = posterior.calc_samples()
-        globdat["gp"]["samples"]["posterior"][
-            "extForce"
-        ] = posterior._latent.calc_samples()
+
+        if self._nsample > 0:
+            globdat["gp"]["samples"] = {}
+            globdat["gp"]["samples"]["prior"] = {}
+            globdat["gp"]["samples"]["prior"]["state0"] = prior.calc_samples(
+                self._nsample, 0
+            )
+            globdat["gp"]["samples"]["prior"]["extForce"] = prior._latent.calc_samples(
+                self._nsample, 0
+            )
+            globdat["gp"]["samples"]["posterior"] = {}
+            globdat["gp"]["samples"]["posterior"]["state0"] = posterior.calc_samples(
+                self._nsample, 0
+            )
+            globdat["gp"]["samples"]["posterior"]["extForce"] = (
+                posterior._latent.calc_samples(self._nsample, 0)
+            )
 
         return "ok"
 

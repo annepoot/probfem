@@ -1,11 +1,21 @@
 init =
 {
-  type = Init;
+  type = BFEMInit;
+
+  coarseInit =
+  {
+    type = Init;
+    mesh =
+    {
+      type = manual;
+      file = bar_coarse.mesh;
+    };
+  };
 
   mesh =
   {
     type = manual;
-    file = 2nodebar.mesh;
+    file = bar_fine.mesh;
   };
 
   nodeGroups = [ left, right, mid ];
@@ -26,54 +36,39 @@ init =
   };
 };
 
-rmfem =
+solve =
 {
-  type = RMFem;
+  type = BFEMSolve;
 
-  solveModule =
-  {
+  coarseSolve={
     type = Linsolve;
+
+    tables = [ strain ];
   };
 
-  nsample = 10;
-  seed = 0;
+  fineSolve = {
+    type = Linsolve;
 
-/*
-  writeMesh =
-  {
-    type = manual;
-    file = meshes/2nodebar-p{}.mesh;
+    tables = [ strain ];
   };
-*/
+
+  sequential = True;
+  nsample = 20;
 };
 
-rmplot =
+conv =
 {
-  type = RMPlot;
+  type = Conversion;
 
-  title = "Plot";
-
-  figure =
-  {
-
-  };
-
-  reference =
-  {
-    color = C0;
-  };
-
-  perturbed =
-  {
-    color = grey;
-    alpha = 0.3;
-  };
+  sources = [ fine.state0, coarse.state0, coarse.tables.state0, fine.tables.state0Coarse ];
+  targets = [ fine.tables.state0, coarse.tables.state0, fine.tables.state0Coarse, fine.tables.state0Error ];
+  convTypes = [ field2table, field2table, coarse2fine, coarse2error ];
 };
 
 model =
 {
   type = Multi;
-  models = [ solid, load, diri, rm ];
+  models = [ solid, bfem, bobs, obs, load, diri ];
 
   solid =
   {
@@ -87,7 +82,7 @@ model =
       rank = 1;
       anmodel = bar;
 
-      E = 1.0 - 0.99 * x;
+      E = 0.1 - 0.099 * x;
     };
 
     shape =
@@ -95,6 +90,48 @@ model =
       type = Line2;
       intScheme = Gauss2;
     };
+  };
+
+  bfem =
+  {
+    type = BFEM;
+
+    prior =
+    {
+      type = LinTransGaussian;
+
+      latent =
+      {
+        type = DirectGaussian;
+
+        mean = 0;
+        cov = K;
+      };
+
+      scale = 1.0;
+      shift = 0.0;
+    };
+
+    postTrans =
+    {
+      type = LinSolveGaussian;
+
+      latent = {
+        type = Prior;
+      };
+
+      inv = K;
+    };
+  };
+
+  obs =
+  {
+    type = BFEMObservation;
+  };
+
+  bobs =
+  {
+    type = BoundaryObservation;
   };
 
   load =
@@ -119,16 +156,6 @@ model =
 
     groups = [ left, right ];
     dofs   = [ dx, dx ];
-    values = [ 0.0, 1.0 ];
-  };
-
-  rm =
-  {
-    type = RandomMesh;
-
-    boundary =
-    {
-        groups = [ left, right ];
-    };
+    values = [ 0.0, 0.0 ];
   };
 };
