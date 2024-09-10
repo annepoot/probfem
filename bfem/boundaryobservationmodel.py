@@ -5,13 +5,10 @@ from myjive.model.model import Model
 
 
 class BoundaryObservationModel(Model):
-    def GETOBSERVATIONOPERATOR(self, globdat):
+    def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
-        return Phi.T
-
-    def GETMEASUREMENTS(self, globdat):
         measurements = self._get_measurements(globdat)
-        return measurements
+        return Phi, measurements
 
     @Model.save_config
     def configure(self, globdat):

@@ -126,7 +126,11 @@ model =
 
   obs =
   {
-    type = BFEMObservation;
+    type = CGObservation;
+
+    matrix = K;
+    renormalize = True;
+    nobs = None;
   };
 
   bobs =
