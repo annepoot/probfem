@@ -1,0 +1,170 @@
+init =
+{
+  type = BFEMInit;
+
+  coarseInit =
+  {
+    type = Init;
+    mesh =
+    {
+      type = gmsh;
+      file = meshes/plate_r0.msh;
+    };
+  };
+
+  mesh =
+  {
+    type = gmsh;
+    file = meshes/plate_r1.msh;
+  };
+
+  nodeGroups = [ l, lb ];
+
+  l =
+  {
+    xtype = min;
+  };
+
+  lb =
+  {
+  	xtype = min;
+    ytype = min;
+  };
+};
+
+solve =
+{
+  type = BFEMSolve;
+
+  coarseSolve={
+    type = Linsolve;
+
+    tables = [ strain ];
+  };
+
+  fineSolve = {
+    type = Linsolve;
+
+    tables = [ strain ];
+  };
+};
+
+conv =
+{
+  type = Conversion;
+
+  sources = [ fine.state0, coarse.state0, coarse.tables.state0, fine.tables.state0Coarse ];
+  targets = [ fine.tables.state0, coarse.tables.state0, fine.tables.state0Coarse, fine.tables.state0Error ];
+  convTypes = [ field2table, field2table, coarse2fine, coarse2error ];
+};
+
+view =
+{
+  type = ProbView;
+
+  tables = [ state0, strain, stress ];
+
+  keys = [ fine.tables.state0.dx, fine.tables.state0Coarse.dx, fine.tables.state0Error.dx ];
+
+  fill =
+  {
+    cmap = viridis;
+    levels = 100;
+  };
+};
+
+model =
+{
+  type = Multi;
+
+  models = [ solid, bfem, obs, bobs, load, diri ];
+
+  solid =
+  {
+    type = Solid;
+    elements = all;
+
+    material =
+    {
+      type = Isotropic;
+      rank = 2;
+      anmodel = plane_stress;
+
+      E = 3.;
+      nu = 0.2;
+    };
+
+    shape =
+    {
+      type = Triangle3;
+      intScheme = Gauss1;
+    };
+  };
+
+  bfem =
+  {
+    type = BFEM;
+
+    prior =
+    {
+      type = LinTransGaussian;
+
+      latent =
+      {
+        type = DirectGaussian;
+
+        mean = 0;
+        cov = K;
+      };
+
+      scale = 1.0;
+      shift = 0.0;
+    };
+
+    postTrans =
+    {
+      type = LinSolveGaussian;
+
+      latent = {
+        type = Prior;
+      };
+
+      inv = K;
+    };
+  };
+
+  obs =
+  {
+    type = BFEMObservation;
+  };
+
+  bobs =
+  {
+    type = BoundaryObservation;
+  };
+
+  load =
+  {
+    type = Load;
+
+    elements = all;
+
+    dofs   = [ dx  ];
+    values = [ 1.0 ];
+
+    shape =
+    {
+      type = Triangle3;
+      intScheme = Gauss1;
+    };
+  };
+
+  diri =
+  {
+    type = Dirichlet;
+
+    groups = [ l , lb ];
+    dofs   = [ dx, dy ];
+    values = [ 0., 0. ];
+  };
+};
