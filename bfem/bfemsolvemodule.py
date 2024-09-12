@@ -90,15 +90,24 @@ class BFEMSolveModule(Module):
 
             Phi, measurements, noise = model.GETOBSERVATIONS(globdat)
 
-            if self._sequential:
-                for phi, measurement in zip(Phi.T, measurements):
-                    posterior = posterior.condition_on(phi, measurement, noise)
+            if isinstance(self._sequential, bool):
+                if self._sequential:
+                    for phi, measurement in zip(Phi.T, measurements):
+                        posterior = posterior.condition_on(phi, measurement, noise)
+                        for model in self.get_relevant_models("APPLYPOSTTRANS", models):
+                            sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
+                else:
+                    posterior = posterior.condition_on(Phi.T, measurements, noise)
                     for model in self.get_relevant_models("APPLYPOSTTRANS", models):
                         sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
-            else:
-                posterior = posterior.condition_on(Phi.T, measurements, noise)
-                for model in self.get_relevant_models("APPLYPOSTTRANS", models):
-                    sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
+            elif isinstance(self._sequential, int):
+                block = self._sequential
+                for i in range(Phi.shape[1] // block + 1):
+                    phiT = Phi.T[i * block : (i + 1) * block]
+                    meas = measurements[i * block : (i + 1) * block]
+                    posterior = posterior.condition_on(phiT, meas, noise)
+                    for model in self.get_relevant_models("APPLYPOSTTRANS", models):
+                        sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
 
         # Create a dictionary for the gp output
         prior = sequence[0]
