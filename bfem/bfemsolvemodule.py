@@ -87,15 +87,16 @@ class BFEMSolveModule(Module):
         posterior = deepcopy(prior)
 
         for model in self.get_relevant_models("GETOBSERVATIONS", models):
-            Phi, measurements = model.GETOBSERVATIONS(globdat)
+
+            Phi, measurements, noise = model.GETOBSERVATIONS(globdat)
 
             if self._sequential:
                 for phi, measurement in zip(Phi.T, measurements):
-                    posterior = posterior.condition_on(phi, measurement, 1e-8)
+                    posterior = posterior.condition_on(phi, measurement, noise)
                     for model in self.get_relevant_models("APPLYPOSTTRANS", models):
                         sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
             else:
-                posterior = posterior.condition_on(Phi.T, measurements, 1e-8)
+                posterior = posterior.condition_on(Phi.T, measurements, noise)
                 for model in self.get_relevant_models("APPLYPOSTTRANS", models):
                     sequence.append(model.APPLYPOSTTRANS(posterior, globdat))
 
@@ -121,19 +122,11 @@ class BFEMSolveModule(Module):
         globdat["gp"]["cov"]["posterior"]["extForce"] = posterior._latent.calc_cov()
         globdat["gp"]["std"] = {}
         globdat["gp"]["std"]["prior"] = {}
-        globdat["gp"]["std"]["prior"]["state0"] = np.sqrt(
-            np.diagonal(globdat["gp"]["cov"]["prior"]["state0"])
-        )
-        globdat["gp"]["std"]["prior"]["extForce"] = np.sqrt(
-            np.diagonal(globdat["gp"]["cov"]["prior"]["extForce"])
-        )
+        globdat["gp"]["std"]["prior"]["state0"] = prior.calc_std()
+        globdat["gp"]["std"]["prior"]["extForce"] = prior._latent.calc_std()
         globdat["gp"]["std"]["posterior"] = {}
-        globdat["gp"]["std"]["posterior"]["state0"] = np.sqrt(
-            np.diagonal(globdat["gp"]["cov"]["posterior"]["state0"])
-        )
-        globdat["gp"]["std"]["posterior"]["extForce"] = np.sqrt(
-            np.diagonal(globdat["gp"]["cov"]["posterior"]["extForce"])
-        )
+        globdat["gp"]["std"]["posterior"]["state0"] = posterior.calc_std()
+        globdat["gp"]["std"]["posterior"]["extForce"] = posterior._latent.calc_std()
 
         if self._nsample > 0:
             globdat["gp"]["samples"] = {}

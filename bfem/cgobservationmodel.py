@@ -14,10 +14,12 @@ class CGObservationModel(Model):
 
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
-        return Phi, Phi.T @ globdat["fine"]["extForce"]
+        return Phi, Phi.T @ globdat["fine"]["extForce"], self._noise
 
     @Model.save_config
-    def configure(self, globdat, *, matrix, renormalize, nobs, solver={"type": "CG"}):
+    def configure(
+        self, globdat, *, matrix, renormalize, nobs, noise, solver={"type": "CG"}
+    ):
         self._matrixname = matrix
         self._renormalize = renormalize
 
@@ -28,6 +30,7 @@ class CGObservationModel(Model):
         self._solver.configure(globdat, **solverprops)
 
         self._nobs = nobs
+        self._noise = noise
 
     def _get_phi(self, globdat):
         u = np.zeros_like(globdat["fine"]["state0"])

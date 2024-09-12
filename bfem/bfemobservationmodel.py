@@ -8,11 +8,11 @@ class BFEMObservationModel(Model):
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
         Phic = self._constrain_phi(Phi, globdat)
-        return Phic, Phic.T @ globdat["fine"]["extForce"]
+        return Phic, Phic.T @ globdat["fine"]["extForce"], self._noise
 
     @Model.save_config
-    def configure(self, globdat):
-        pass
+    def configure(self, globdat, noise):
+        self._noise = noise
 
     def _get_phi(self, globdat):
         cglobdat = globdat["coarse"]

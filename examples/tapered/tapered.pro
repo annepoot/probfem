@@ -18,7 +18,7 @@ init =
     file = bar_fine.mesh;
   };
 
-  nodeGroups = [ left, right, mid ];
+  nodeGroups = [ left, right ];
 
   left =
   {
@@ -28,11 +28,6 @@ init =
   right =
   {
     xtype = max;
-  };
-
-  mid =
-  {
-    xtype = mid;
   };
 };
 
@@ -53,7 +48,6 @@ solve =
   };
 
   sequential = True;
-  nsample = 20;
 };
 
 conv =
@@ -121,6 +115,7 @@ model =
       };
 
       inv = K;
+      explicit = True;
     };
   };
 
@@ -131,11 +126,13 @@ model =
     matrix = K;
     renormalize = True;
     nobs = None;
+    noise = None;
   };
 
   bobs =
   {
     type = BoundaryObservation;
+    noise = None;
   };
 
   load =

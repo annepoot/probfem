@@ -55,8 +55,20 @@ class GaussianLike:
     def calc_cov(self):
         raise NotImplementedError("This has to be implemented in a child class")
 
-    def calc_std(self):
+    def calc_sqrtcov(self):
         raise NotImplementedError("This has to be implemented in a child class")
+
+    def calc_std(self):
+        L = self.calc_sqrtcov()
+        var = np.zeros(self._len)
+        for i in range(self._len):
+            var[i] = L[i] @ L[i]
+            if var[i] < 0:
+                if np.isclose(var[i], 0):
+                    var[i] = 0
+                else:
+                    raise ValueError("Large negative value encountered!")
+        return np.sqrt(var)
 
     def calc_sample(self, seed):
         raise NotImplementedError("This has to be implemented in a child class")
@@ -93,6 +105,9 @@ class DirectGaussian(GaussianLike):
 
     def calc_cov(self):
         return self._cov
+
+    def calc_sqrtcov(self):
+        return self._sqrtcov
 
     def calc_std(self):
         return np.sqrt(np.diagonal(self._cov))
@@ -163,6 +178,9 @@ class LinTransGaussian(GaussianLike):
     def calc_cov(self):
         return self._scale @ self._latent.calc_cov() @ self._scale.T
 
+    def calc_sqrtcov(self):
+        return self._scale @ self._latent.calc_sqrtcov()
+
     def calc_sample(self, seed):
         return self._scale @ self._latent.calc_sample(seed) + self._shift
 
@@ -182,12 +200,17 @@ class LinSolveGaussian(GaussianLike):
     where x is Gaussian too
     """
 
-    def __init__(self, latent, inv):
+    def __init__(self, latent, inv, explicit=False):
         if not isinstance(latent, GaussianLike):
             raise TypeError()
 
         self._latent = latent
         self._inv = inv
+        self._explicit = explicit
+
+        if self._explicit:
+            warn("Explicit inversion of fine-scale matrix!")
+            self._explicitinv = np.linalg.inv(self._inv)
 
         # check compatibility
         self._len = self._inv.shape[0]
@@ -203,9 +226,20 @@ class LinSolveGaussian(GaussianLike):
         return np.linalg.solve(self._inv, self._latent.calc_mean())
 
     def calc_cov(self):
-        warn("Explicit inversion of fine-scale matrix!")
-        explicit_inv = np.linalg.inv(self._inv)
-        return explicit_inv @ self._latent.calc_cov() @ explicit_inv.T
+        if self._explicit:
+            return self._explicitinv @ self._latent.calc_cov() @ self._explicitinv.T
+        else:
+            raise ValueError(
+                "Set explicit to True to explicitly compute the posterior covariance!"
+            )
+
+    def calc_sqrtcov(self):
+        if self._explicit:
+            return self._explicitinv @ self._latent.calc_sqrtcov()
+        else:
+            raise ValueError(
+                "Set explicit to True to explicitly compute the posterior covariance!"
+            )
 
     def calc_sample(self, seed):
         return np.linalg.solve(self._inv, self._latent.calc_sample(seed))
@@ -242,10 +276,38 @@ class ConditionalGaussian(GaussianLike):
 
         Sigma = self._latent.calc_cov()
 
-        self._gram = self._linop @ Sigma @ self._linop.T
-        self._gram += np.identity(len(self._obs)) * noise
-        self._sqrtgram = np.linalg.cholesky(self._gram)
-        self._kalgain = Sigma @ self._linop.T @ np.linalg.inv(self._gram)
+        gram = self._linop @ Sigma @ self._linop.T
+
+        if self._noise is None:
+
+            # Compute the pseudoinverse, in case of linearly dependent observations
+            tol = 1e-12
+
+            if len(gram) == 1:
+                if gram[0, 0] > tol:
+                    graminv = 1 / gram
+                elif gram[0, 0] >= -tol:
+                    graminv = np.zeros((1, 1))
+                else:
+                    raise ValueError("Negative eigenvalue in Gram matrix!")
+
+            else:
+                lamb, Q = np.linalg.eigh(gram)
+                for i, l in enumerate(lamb):
+                    if l > tol:
+                        lamb[i] = 1 / l
+                    elif l >= -tol:
+                        lamb[i] = 0
+                    else:
+                        raise ValueError("Negative eigenvalue in Gram matrix!")
+
+                graminv = (Q * lamb) @ Q.T
+
+        else:
+            gram += np.identity(len(self._obs)) * self._noise
+            graminv = np.linalg.inv(gram)
+
+        self._kalgain = Sigma @ self._linop.T @ graminv
 
     def __len__(self):
         return self._len
@@ -257,6 +319,15 @@ class ConditionalGaussian(GaussianLike):
     def calc_cov(self):
         Sigma = self._latent.calc_cov()
         return Sigma - self._kalgain @ self._linop @ Sigma
+
+    def calc_sqrtcov(self):
+        if self._noise is None:
+            P = np.identity(self._len) - self._kalgain @ self._linop
+            return P @ self._latent.calc_sqrtcov()
+        else:
+            raise ValueError(
+                "Not sure how to handle calc_sqrtcov in case of observation noise"
+            )
 
     def calc_sample(self, seed):
         sample = self._latent.calc_sample(seed)
