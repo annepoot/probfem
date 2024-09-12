@@ -8,13 +8,14 @@ from myjive.util.proputils import split_off_type
 class RandomObservationModel(Model):
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
-        return Phi, Phi.T @ globdat["fine"]["extForce"]
+        return Phi, Phi.T @ globdat["fine"]["extForce"], self._noise
 
     @Model.save_config
-    def configure(self, globdat, *, renormalize, nobs, seed):
+    def configure(self, globdat, *, renormalize, nobs, seed, noise):
         self._renormalize = renormalize
         self._nobs = nobs
         self._seed = seed
+        self._noise = noise
 
     def _get_measurements(self, globdat):
         return self._Phi @ globdat["fine"]["extForce"]

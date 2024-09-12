@@ -8,11 +8,11 @@ class BoundaryObservationModel(Model):
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
         measurements = self._get_measurements(globdat)
-        return Phi, measurements
+        return Phi, measurements, self._noise
 
     @Model.save_config
-    def configure(self, globdat):
-        pass
+    def configure(self, globdat, noise):
+        self._noise = noise
 
     def _get_measurements(self, globdat):
         fglobdat = globdat["fine"]

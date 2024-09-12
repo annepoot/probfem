@@ -19,17 +19,17 @@ u_coarse = globdat["fine"]["tables"]["state0Coarse"]["dx"]
 
 prior = globdat["gp"]["sequence"][0]
 u_prior = prior.calc_mean()
-std_u_prior = np.sqrt(np.diagonal(prior.calc_cov()))
+std_u_prior = prior.calc_std()
 samples_u_prior = prior.calc_samples(n=20, seed=0)
 
 # Create figure 1 directly using matplotlib
 for posterior in globdat["gp"]["sequence"]:
     u_post = posterior.calc_mean()
-    std_u_post = np.sqrt(np.diagonal(posterior.calc_cov()))
+    std_u_post = posterior.calc_std()
     samples_u_post = posterior.calc_samples(n=20, seed=0)
     plt.figure()
-    plt.plot(x, u_post, label="posterior mean")
-    plt.plot(x, u_prior, label="prior mean")
+    plt.plot(x, u_post, color="C0", label="posterior mean")
+    plt.plot(x, u_prior, color="C1", label="prior mean")
     plt.plot(x, samples_u_post, color="C0", linewidth=0.2)
     plt.plot(x, samples_u_prior, color="C1", linewidth=0.2)
     plt.fill_between(x, u_post - 2 * std_u_post, u_post + 2 * std_u_post, alpha=0.3)
