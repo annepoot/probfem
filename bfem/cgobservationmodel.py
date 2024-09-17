@@ -14,7 +14,7 @@ class CGObservationModel(Model):
 
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
-        return Phi, Phi.T @ globdat["fine"]["extForce"], self._noise
+        return Phi, Phi.T @ globdat["extForce"], self._noise
 
     @Model.save_config
     def configure(
@@ -33,10 +33,10 @@ class CGObservationModel(Model):
         self._noise = noise
 
     def _get_phi(self, globdat):
-        u = np.zeros_like(globdat["fine"]["state0"])
-        f = globdat["fine"]["extForce"]
+        u = np.zeros_like(globdat["state0"])
+        f = globdat["extForce"]
 
-        dofcount = globdat["fine"]["dofSpace"].dof_count()
+        dofcount = globdat["dofSpace"].dof_count()
         if self._nobs is None:
             nobs = dofcount
         else:

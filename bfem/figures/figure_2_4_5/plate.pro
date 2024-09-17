@@ -1,16 +1,8 @@
+modules = [ init, solve ];
+
 init =
 {
-  type = BFEMInit;
-
-  coarseInit =
-  {
-    type = Init;
-    mesh =
-    {
-      type = gmsh;
-      file = meshes/plate_r0.msh;
-    };
-  };
+  type = Init;
 
   mesh =
   {
@@ -36,28 +28,23 @@ solve =
 {
   type = BFEMSolve;
 
-  coarseSolve={
-    type = Linsolve;
-
-    tables = [ strain ];
-  };
-
   fineSolve = {
     type = Linsolve;
 
     tables = [ strain ];
   };
+
+  sequential = False;
 };
 
 model =
 {
-  type = Multi;
-
-  models = [ solid, bfem, obs, bobs, load, diri ];
+  models = [ solid, bfem, load, diri, bobs, obs ];
 
   solid =
   {
     type = Solid;
+
     elements = all;
 
     material =
@@ -106,17 +93,42 @@ model =
       };
 
       inv = K;
+      explicit = True;
     };
   };
 
   obs =
   {
     type = BFEMObservation;
+
+    models = [ solid, load, diri ];
+
+    init =
+    {
+      type = Init;
+
+      mesh =
+      {
+        type = gmsh;
+        file = meshes/plate_r0.msh;
+      };
+    };
+
+    solver =
+    {
+      type = Linsolve;
+
+      tables = [ strain ];
+    };
+
+    noise = None;
   };
 
   bobs =
   {
     type = BoundaryObservation;
+
+    noise = None;
   };
 
   load =

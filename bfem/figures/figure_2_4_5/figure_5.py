@@ -11,8 +11,8 @@ props["model"]["bfem"]["prior"]["latent"]["cov"] = "K"
 
 extra_declares = [declarex, declarebfem]
 globdat = main.jive(props, extra_declares=extra_declares)
-cglobdat = globdat["coarse"]
-fglobdat = globdat["fine"]
+cglobdat = globdat["obs"]["obs"]
+fglobdat = globdat
 
 u_coarse = cglobdat["state0"]
 u = fglobdat["state0"]
@@ -27,7 +27,7 @@ std_u_post = std["posterior"]["state0"]
 cov = globdat["gp"]["cov"]
 cov_u_post = cov["posterior"]["state0"]
 
-Phi = globdat["Phi"]
+Phi = cglobdat["Phi"]
 
 QuickViewer(
     u_post,

@@ -2,21 +2,74 @@ import numpy as np
 
 from myjive.names import GlobNames as gn
 from myjive.model.model import Model
+from myjive.util.proputils import split_off_type
 
 
 class BFEMObservationModel(Model):
+    def RETURNMATRICES(self, globdat):
+        self._init.run(self._obsdat)
+        self._solver.run(self._obsdat)
+        globdat["obs"][self.get_name()] = self._obsdat
+
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
         Phic = self._constrain_phi(Phi, globdat)
-        return Phic, Phic.T @ globdat["fine"]["extForce"], self._noise
+        return Phic, Phic.T @ globdat["extForce"], self._noise
 
     @Model.save_config
-    def configure(self, globdat, noise):
+    def configure(self, globdat, init, models, solver, noise):
+
+        inittype, newinitprops = split_off_type(init)
+        solvertype, newsolverprops = split_off_type(solver)
+        self._init = globdat[gn.MODULEFACTORY].get_module(inittype, "obsinit")
+        self._solver = globdat[gn.MODULEFACTORY].get_module(solvertype, "obssolve")
+
+        initprops = {}
+        solverprops = {}
+        for module in globdat[gn.MODULES].values():
+            if isinstance(module, type(self._init)):
+                if len(initprops) > 0:
+                    raise ValueError("ambiguous init props")
+                initprops.update(module.get_config())
+            elif isinstance(module, type(self._solver)):
+                if len(solverprops) > 0:
+                    raise ValueError("ambiguous solver props")
+                solverprops.update(module.get_config())
+
+        initprops.update(newinitprops)
+        solverprops.update(newsolverprops)
+
+        self._obsdat = {
+            gn.MODULEFACTORY: globdat[gn.MODULEFACTORY],
+            gn.MODELFACTORY: globdat[gn.MODELFACTORY],
+            gn.SHAPEFACTORY: globdat[gn.SHAPEFACTORY],
+            gn.SOLVERFACTORY: globdat[gn.SOLVERFACTORY],
+            gn.PRECONFACTORY: globdat[gn.PRECONFACTORY],
+        }
+
+        self._init.configure(self._obsdat, **initprops)
+        self._solver.configure(self._obsdat, **solverprops)
+
+        model_list = []
+        modelprops = {}
+        modelprops["models"] = models
+        for model_name in models:
+            for m in globdat[gn.MODELS].values():
+                if m.get_name() == model_name:
+                    model_list.append(m)
+                    modelprops[model_name] = m.get_config()
+                    break
+            else:
+                raise ValueError("Model '{}' not found!".format(model_name))
+
+        self._init.init(self._obsdat, modelprops=modelprops)
+        self._solver.init(self._obsdat)
+
         self._noise = noise
 
     def _get_phi(self, globdat):
-        cglobdat = globdat["coarse"]
-        fglobdat = globdat["fine"]
+        cglobdat = self._obsdat
+        fglobdat = globdat
 
         elemsc = cglobdat[gn.ESET]
         nodesc = cglobdat[gn.NSET]
@@ -25,8 +78,8 @@ class BFEMObservationModel(Model):
         dofs = fglobdat[gn.DOFSPACE]
 
         rank = fglobdat[gn.MESHRANK]
-        shapefac = fglobdat[gn.SHAPEFACTORY]
-        shape = shapefac.get_shape(fglobdat[gn.MESHSHAPE], "Gauss1")
+        shapefac = cglobdat[gn.SHAPEFACTORY]
+        shape = shapefac.get_shape(cglobdat[gn.MESHSHAPE], "Gauss1")
         dof_types = fglobdat[gn.DOFSPACE].get_types()
 
         Phi = np.zeros((dofs.dof_count(), dofsc.dof_count()))
@@ -70,7 +123,7 @@ class BFEMObservationModel(Model):
 
     def _constrain_phi(self, Phi, globdat):
         Phic = Phi.copy()
-        cdofs, _ = globdat["coarse"][gn.CONSTRAINTS].get_constraints()
+        cdofs, _ = self._obsdat[gn.CONSTRAINTS].get_constraints()
 
         for i in range(Phic.shape[0]):
             for cdof in cdofs:

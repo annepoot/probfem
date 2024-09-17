@@ -1,14 +1,12 @@
 import numpy as np
 
-from myjive.names import GlobNames as gn
 from myjive.model.model import Model
-from myjive.util.proputils import split_off_type
 
 
 class RandomObservationModel(Model):
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
-        return Phi, Phi.T @ globdat["fine"]["extForce"], self._noise
+        return Phi, Phi.T @ globdat["extForce"], self._noise
 
     @Model.save_config
     def configure(self, globdat, *, renormalize, nobs, seed, noise):
@@ -17,11 +15,8 @@ class RandomObservationModel(Model):
         self._seed = seed
         self._noise = noise
 
-    def _get_measurements(self, globdat):
-        return self._Phi @ globdat["fine"]["extForce"]
-
     def _get_phi(self, globdat):
-        dofcount = globdat["fine"]["dofSpace"].dof_count()
+        dofcount = globdat["dofSpace"].dof_count()
         if self._nobs is None:
             nobs = dofcount
         else:

@@ -6,8 +6,6 @@ from myjive.app import Module
 from myjive.solver import Constraints
 from myjive.util.proputils import split_off_type
 
-from bfem import BFEMObservationModel, BoundaryObservationModel
-
 
 class BFEMSolveModule(Module):
     @Module.save_config
@@ -15,20 +13,15 @@ class BFEMSolveModule(Module):
         self,
         globdat,
         *,
-        coarseSolve={"type": "Linsolve"},
         fineSolve={"type": "Linsolve"},
         sequential,
         nsample=0,
     ):
 
-        coarsetype, coarseprops = split_off_type(coarseSolve)
-        finetype, fineprops = split_off_type(fineSolve)
+        solvetype, solveprops = split_off_type(fineSolve)
 
-        self._coarse_solve = globdat[gn.MODULEFACTORY].get_module(coarsetype, "coarse")
-        self._fine_solve = globdat[gn.MODULEFACTORY].get_module(finetype, "fine")
-
-        self._coarse_solve.configure(globdat, **coarseprops)
-        self._fine_solve.configure(globdat, **fineprops)
+        self._fine_solve = globdat[gn.MODULEFACTORY].get_module(solvetype, "fineSolve")
+        self._fine_solve.configure(globdat, **solveprops)
 
         self._sequential = sequential
         self._nsample = nsample
@@ -37,11 +30,10 @@ class BFEMSolveModule(Module):
         pass
 
     def run(self, globdat):
-        self._coarse_solve.solve(globdat["coarse"])
-        self._fine_solve.solve(globdat["fine"])
+        self._fine_solve.solve(globdat)
 
         models = globdat[gn.MODELS]
-        fglobdat = globdat["fine"]
+        fglobdat = globdat
         fmodels = fglobdat[gn.MODELS]
 
         # Figure out which matrices to get from the fine-scale models
@@ -70,6 +62,8 @@ class BFEMSolveModule(Module):
             c = model.GETCONSTRAINTS(c, fglobdat)
         globdat[gn.CONSTRAINTS] = c
 
+        globdat["obs"] = {}
+
         # Pass the matrices to the prior model
         for model in self.get_relevant_models("RETURNMATRICES", models):
             model.RETURNMATRICES(globdat)
@@ -89,6 +83,13 @@ class BFEMSolveModule(Module):
         for model in self.get_relevant_models("GETOBSERVATIONS", models):
 
             Phi, measurements, noise = model.GETOBSERVATIONS(globdat)
+
+            name = model.get_name()
+            if name not in globdat["obs"]:
+                globdat["obs"][name] = {}
+
+            globdat["obs"][name]["Phi"] = Phi
+            globdat["obs"][name]["measurements"] = measurements
 
             if isinstance(self._sequential, bool):
                 if self._sequential:

@@ -14,8 +14,8 @@ globdat = main.jive(props, extra_declares=extra_declares)
 x = np.linspace(0, 1, 65)
 
 # Get the prior and posterior means and standard deviations
-u = globdat["fine"]["tables"]["state0"]["dx"]
-u_coarse = globdat["fine"]["tables"]["state0Coarse"]["dx"]
+u = globdat["tables"]["state0"]["dx"]
+u_coarse = globdat["tables"]["state0Coarse"]["dx"]
 
 prior = globdat["gp"]["sequence"][0]
 u_prior = prior.calc_mean()
