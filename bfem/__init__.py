@@ -8,6 +8,7 @@ from .bfemobservationmodel import BFEMObservationModel
 from .boundaryobservationmodel import BoundaryObservationModel
 from .cgobservationmodel import CGObservationModel
 from .randomobservationmodel import RandomObservationModel
+from .randombfemobservationmodel import RandomBFEMObservationModel
 
 from .bfemsolvemodule import BFEMSolveModule
 from .conversionmodule import ConversionModule
@@ -29,6 +30,7 @@ def declare_models(globdat):
     BoundaryObservationModel.declare(factory)
     CGObservationModel.declare(factory)
     RandomObservationModel.declare(factory)
+    RandomBFEMObservationModel.declare(factory)
 
     globdat[gn.MODELFACTORY] = factory
 
