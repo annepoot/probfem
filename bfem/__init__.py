@@ -9,7 +9,6 @@ from .boundaryobservationmodel import BoundaryObservationModel
 from .cgobservationmodel import CGObservationModel
 from .randomobservationmodel import RandomObservationModel
 
-from .bfeminitmodule import BFEMInitModule
 from .bfemsolvemodule import BFEMSolveModule
 from .conversionmodule import ConversionModule
 from .probviewmodule import ProbViewModule
@@ -37,7 +36,6 @@ def declare_models(globdat):
 def declare_modules(globdat):
     factory = globdat.get(gn.MODULEFACTORY, ModuleFactory())
 
-    BFEMInitModule.declare(factory)
     BFEMSolveModule.declare(factory)
     ConversionModule.declare(factory)
     ProbViewModule.declare(factory)

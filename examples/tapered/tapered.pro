@@ -1,16 +1,8 @@
+modules = [ init, solver, conv, convobs ];
+
 init =
 {
-  type = BFEMInit;
-
-  coarseInit =
-  {
-    type = Init;
-    mesh =
-    {
-      type = manual;
-      file = bar_coarse.mesh;
-    };
-  };
+  type = Init;
 
   mesh =
   {
@@ -31,15 +23,9 @@ init =
   };
 };
 
-solve =
+solver =
 {
   type = BFEMSolve;
-
-  coarseSolve={
-    type = Linsolve;
-
-    tables = [ strain ];
-  };
 
   fineSolve = {
     type = Linsolve;
@@ -54,15 +40,23 @@ conv =
 {
   type = Conversion;
 
-  sources = [ fine.state0, coarse.state0, coarse.tables.state0, fine.tables.state0Coarse ];
-  targets = [ fine.tables.state0, coarse.tables.state0, fine.tables.state0Coarse, fine.tables.state0Error ];
-  convTypes = [ field2table, field2table, coarse2fine, coarse2error ];
+  sources = [ state0 ];
+  targets = [ tables.state0 ];
+  convTypes = [ field2table ];
+};
+
+convobs =
+{
+  type = Conversion;
+
+  sources = [ obs.obs.state0, obs.obs.tables.state0, tables.state0Coarse ];
+  targets = [ obs.obs.tables.state0, tables.state0Coarse, tables.state0Error ];
+  convTypes = [ field2table, coarse2fine, coarse2error ];
 };
 
 model =
 {
-  type = Multi;
-  models = [ solid, bfem, bobs, obs, load, diri ];
+  models = [ solid, bfem, load, diri, bobs, obs ];
 
   solid =
   {
@@ -121,17 +115,33 @@ model =
 
   obs =
   {
-    type = CGObservation;
+    type = BFEMObservation;
 
-    matrix = K;
-    renormalize = True;
-    nobs = None;
+    models = [ solid, load, diri ];
+
+    init =
+    {
+      type = Init;
+
+      mesh =
+      {
+        type = manual;
+        file = bar_coarse.mesh;
+      };
+    };
+
+    solver =
+    {
+      type = Linsolve;
+    };
+
     noise = None;
   };
 
   bobs =
   {
     type = BoundaryObservation;
+
     noise = None;
   };
 

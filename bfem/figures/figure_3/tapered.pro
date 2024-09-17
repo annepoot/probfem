@@ -1,16 +1,8 @@
+modules = [ init, solve ];
+
 init =
 {
-  type = BFEMInit;
-
-  coarseInit =
-  {
-    type = Init;
-    mesh =
-    {
-      type = manual;
-      file = bar_coarse.mesh;
-    };
-  };
+  type = Init;
 
   mesh =
   {
@@ -18,7 +10,7 @@ init =
     file = bar_fine.mesh;
   };
 
-  nodeGroups = [ left, right, mid ];
+  nodeGroups = [ left, right ];
 
   left =
   {
@@ -29,22 +21,24 @@ init =
   {
     xtype = max;
   };
-
-  mid =
-  {
-    xtype = mid;
-  };
 };
 
 solve =
 {
   type = BFEMSolve;
+
+  fineSolve =
+  {
+    type = Linsolve;
+  };
+
+  sequential = False;
+  nsample = 20;
 };
 
 model =
 {
-  type = Multi;
-  models = [ solid, bfem, obs, bobs, load, diri ];
+  models = [ solid, bfem, load, diri, bobs, obs ];
 
   solid =
   {
@@ -97,17 +91,40 @@ model =
       };
 
       inv = K;
+      explicit = True;
     };
   };
 
   obs =
   {
     type = BFEMObservation;
+
+    models = [ solid, load, diri ];
+
+    init =
+    {
+      type = Init;
+
+      mesh =
+      {
+        type = manual;
+        file = bar_coarse.mesh;
+      };
+    };
+
+    solver =
+    {
+      type = Linsolve;
+    };
+
+    noise = None;
   };
 
   bobs =
   {
     type = BoundaryObservation;
+
+    noise = None;
   };
 
   load =

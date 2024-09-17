@@ -42,8 +42,8 @@ class ProbViewModule(Module):
         pass
 
     def run(self, globdat):
-        cglobdat = globdat["fine"]
-        fglobdat = globdat["fine"]
+        cglobdat = globdat["obs"]["obs"]
+        fglobdat = globdat
 
         for name in self._ntables:
             self._write_node_table(name, cglobdat)
@@ -56,7 +56,7 @@ class ProbViewModule(Module):
         return "ok"
 
     def shutdown(self, globdat):
-        fglobdat = globdat["fine"]
+        fglobdat = globdat
 
         fig, axs = plt.subplots(
             nrows=len(self._keys), ncols=1, squeeze=False, **self._figprops

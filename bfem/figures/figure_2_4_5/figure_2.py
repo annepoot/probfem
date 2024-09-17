@@ -8,15 +8,15 @@ props = pu.parse_file("plate.pro")
 
 extra_declares = [declarex, declarebfem]
 globdat = main.jive(props, extra_declares=extra_declares)
-cglobdat = globdat["coarse"]
-fglobdat = globdat["fine"]
+cglobdat = globdat["obs"]["obs"]
+fglobdat = globdat
 
 u_coarse = cglobdat["state0"]
 eps_xx_coarse = cglobdat["tables"]["strain"]["xx"]
 u = fglobdat["state0"]
 eps_xx = fglobdat["tables"]["strain"]["xx"]
 
-Phi = globdat["Phi"]
+Phi = cglobdat["Phi"]
 
 err = u - Phi @ u_coarse
 err_eps_xx = eps_xx - Phi[: len(eps_xx), : len(eps_xx_coarse)] @ eps_xx_coarse

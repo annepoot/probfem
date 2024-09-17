@@ -15,12 +15,12 @@ class BoundaryObservationModel(Model):
         self._noise = noise
 
     def _get_measurements(self, globdat):
-        fglobdat = globdat["fine"]
+        fglobdat = globdat
         dofs, vals = fglobdat[gn.CONSTRAINTS].get_constraints()
         return np.array(vals)
 
     def _get_phi(self, globdat):
-        fglobdat = globdat["fine"]
+        fglobdat = globdat
         dofs, vals = fglobdat[gn.CONSTRAINTS].get_constraints()
         dof_count = fglobdat[gn.DOFSPACE].dof_count()
 

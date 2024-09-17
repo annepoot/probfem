@@ -41,9 +41,9 @@ for covariance in ["K", "M"]:
         globdat = main.jive(props, extra_declares=extra_declares)
 
         # Save the fine and projected coarse displacements
-        u_coarse = globdat["coarse"]["state0"]
-        u = globdat["fine"]["state0"]
-        Phi = globdat["Phi"]
+        u_coarse = globdat["obs"]["obs"]["state0"]
+        u = globdat["state0"]
+        Phi = globdat["obs"]["obs"]["Phi"]
         u_coarse = Phi @ u_coarse
 
         # Get the prior and posterior means and standard deviations
