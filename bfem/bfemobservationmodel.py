@@ -9,7 +9,6 @@ class BFEMObservationModel(Model):
     def RETURNMATRICES(self, globdat):
         self._init.run(self._obsdat)
         self._solver.run(self._obsdat)
-        globdat["obs"][self.get_name()] = self._obsdat
 
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
