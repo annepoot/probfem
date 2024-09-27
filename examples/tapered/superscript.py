@@ -6,7 +6,28 @@ import myjive.util.proputils as pu
 from bfem import declare_all as declarebfem
 from myjivex import declare_all as declarex
 
+# Load props (BFEM settings)
 props = pu.parse_file("tapered.pro")
+
+# # CG observation settings
+# props["modules"] = ["init", "solver", "conv"]
+# props["model"]["obs"] = {
+#     "type": "CGObservation",
+#     "matrix": "K",
+#     "nobs": None,
+#     "renormalize": True,
+#     "noise": None,
+# }
+
+# # Random observation settings
+# props["modules"] = ["init", "solver", "conv"]
+# props["model"]["obs"] = {
+#     "type": "RandomObservation",
+#     "seed": 0,
+#     "nobs": None,
+#     "renormalize": True,
+#     "noise": None,
+# }
 
 extra_declares = [declarex, declarebfem]
 globdat = main.jive(props, extra_declares=extra_declares)

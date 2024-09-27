@@ -1,4 +1,5 @@
 modules = [ init, solver, conv ];
+
 init =
 {
   type = Init;
@@ -6,20 +7,29 @@ init =
   mesh =
   {
     type = gmsh;
-    file = meshes/plate_r1.msh;
+    file = meshes/box_r3.msh;
   };
 
-  nodeGroups = [ l, lb ];
+  nodeGroups = [ l, r, b, t ];
 
   l =
   {
     xtype = min;
   };
 
-  lb =
+  r =
   {
-  	xtype = min;
+    xtype = max;
+  };
+
+  b =
+  {
     ytype = min;
+  };
+
+  t =
+  {
+    ytype = max;
   };
 };
 
@@ -33,7 +43,7 @@ solver =
     tables = [ strain ];
   };
 
-  sequential = False;
+  sequential = 9;
 };
 
 conv =
@@ -45,34 +55,8 @@ conv =
   convTypes = [ field2table ];
 };
 
-convobs =
-{
-  type = Conversion;
-
-  sources = [ obs.obs.state0, obs.obs.tables.state0, tables.state0Coarse ];
-  targets = [ obs.obs.tables.state0, tables.state0Coarse, tables.state0Error ];
-  convTypes = [ field2table, coarse2fine, coarse2error ];
-};
-
-view =
-{
-  type = ProbView;
-
-  tables = [ state0, strain, stress ];
-
-  keys = [ fine.tables.state0.dx, fine.tables.state0Coarse.dx, fine.tables.state0Error.dx ];
-
-  fill =
-  {
-    cmap = viridis;
-    levels = 100;
-  };
-};
-
 model =
 {
-  type = Multi;
-
   models = [ solid, bfem, load, diri, bobs, obs ];
 
   solid =
@@ -92,8 +76,8 @@ model =
 
     shape =
     {
-      type = Triangle3;
-      intScheme = Gauss1;
+      type = Quad4;
+      intScheme = Gauss9;
     };
   };
 
@@ -132,27 +116,35 @@ model =
 
   obs =
   {
-    type = BFEMObservation;
+    type = RandomBFEMObservation;
 
-    models = [ solid, load, diri ];
-
-    init =
+    obs =
     {
-      type = Init;
+      type = BFEMObservation;
 
-      mesh =
+      models = [ solid, load, diri ];
+
+      init =
       {
-        type = gmsh;
-        file = meshes/plate_r0.msh;
+        type = Init;
+
+        mesh =
+        {
+          type = gmsh;
+          file = meshes/box_r0.msh;
+        };
       };
+
+      solver =
+      {
+        type = Linsolve;
+      };
+
+      noise = None;
     };
 
-    solver =
-    {
-      type = Linsolve;
-    };
-
-    noise = None;
+    seed = 1;
+    nobs = 10;
   };
 
   bobs =
@@ -173,8 +165,8 @@ model =
 
     shape =
     {
-      type = Triangle3;
-      intScheme = Gauss1;
+      type = Quad4;
+      intScheme = Gauss9;
     };
   };
 
@@ -182,8 +174,8 @@ model =
   {
     type = Dirichlet;
 
-    groups = [ l , lb ];
-    dofs   = [ dx, dy ];
-    values = [ 0., 0. ];
+    groups = [ l , r , b , t , l , r , b , t  ];
+    dofs   = [ dx, dx, dx, dx, dy, dy, dy, dy ];
+    values = [ 0., 0., 0., 0., 0., 0., 0., 0. ];
   };
 };
