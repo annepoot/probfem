@@ -9,7 +9,12 @@ from myjive.fem import to_xnodeset
 class RandomBFEMObservationModel(Model):
     def RETURNMATRICES(self, globdat):
         for i, obsmodel in enumerate(self._obslist):
-            self._obslist[i] = self._randomize_model_1d(obsmodel, globdat)
+            if globdat[gn.MESHRANK] == 1:
+                self._obslist[i] = self._randomize_model_1d(obsmodel, globdat)
+            elif globdat[gn.MESHRANK] == 2:
+                self._obslist[i] = self._randomize_model_2d(obsmodel, globdat)
+            else:
+                raise ValueError("observation model is only implemented for 1d and 2d")
 
         for obsmodel in self._obslist:
             obsmodel.RETURNMATRICES(globdat)
@@ -70,5 +75,39 @@ class RandomBFEMObservationModel(Model):
         cnodes = xnodes.to_nodeset()
 
         assert obsmodel._obsdat[gn.NSET] == cnodes
+
+        return obsmodel
+
+    def _randomize_model_2d(self, obsmodel, globdat):
+        nodes = obsmodel._obsdat[gn.NSET]
+
+        # new_coords = self._rng.random(2)
+
+        # xnodes = to_xnodeset(nodes)
+        # for i, coords in enumerate(nodes):
+        #     if not np.isclose(coords[0], 0.0) and not np.isclose(coords[0], 1.0):
+        #         coords[0] = new_coords[0]
+        #     if not np.isclose(coords[1], 0.0) and not np.isclose(coords[1], 1.0):
+        #         coords[1] = new_coords[1]
+        #     xnodes.set_node_coords(i, coords)
+        # nodes = xnodes.to_nodeset()
+
+        xnodes = to_xnodeset(nodes)
+        for i, coords in enumerate(nodes):
+            if np.isclose(coords[0], 0.0):
+                pass
+            elif np.isclose(coords[1], 0.0):
+                pass
+            elif np.isclose(coords[0], 1.0):
+                pass
+            elif np.isclose(coords[1], 1.0):
+                pass
+            else:
+                coords = 0.25 + 0.5 * self._rng.random(2)
+                # coords = self._rng.random(2)
+                xnodes.set_node_coords(i, coords)
+        nodes = xnodes.to_nodeset()
+
+        assert obsmodel._obsdat[gn.NSET] == nodes
 
         return obsmodel

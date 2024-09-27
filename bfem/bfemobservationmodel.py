@@ -9,6 +9,7 @@ class BFEMObservationModel(Model):
     def RETURNMATRICES(self, globdat):
         self._init.run(self._obsdat)
         self._solver.run(self._obsdat)
+        globdat["obs"][self.get_name()] = self._obsdat
 
     def GETOBSERVATIONS(self, globdat):
         Phi = self._get_phi(globdat)
@@ -124,10 +125,10 @@ class BFEMObservationModel(Model):
         Phic = Phi.copy()
         cdofs, _ = self._obsdat[gn.CONSTRAINTS].get_constraints()
 
-        for i in range(Phic.shape[0]):
-            for cdof in cdofs:
-                if np.isclose(Phic[i, cdof], 1):
-                    Phic[i, :] = 0.0
-                    Phic[:, cdof] = 0.0
+        for cdof in cdofs:
+            mask = np.isclose(Phi[:, cdof], 1.0)
+            if sum(mask) > 0:
+                Phic[mask] = 0.0
+                Phic[:, cdof] = 0.0
 
         return Phic
