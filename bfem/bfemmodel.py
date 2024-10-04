@@ -23,7 +23,6 @@ class BFEMModel(Model):
 
     @Model.save_config
     def configure(self, globdat, *, prior, postTrans):
-
         self._priorprops = prior
         self._transprops = postTrans
 

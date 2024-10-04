@@ -26,7 +26,6 @@ class RandomObservationModel(Model):
         rng = np.random.default_rng(self._seed)
 
         for i in range(nobs):
-
             p = rng.standard_normal(dofcount)
 
             if self._renormalize:

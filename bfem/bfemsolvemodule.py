@@ -17,7 +17,6 @@ class BFEMSolveModule(Module):
         sequential,
         nsample=0,
     ):
-
         solvetype, solveprops = split_off_type(fineSolve)
 
         self._fine_solve = globdat[gn.MODULEFACTORY].get_module(solvetype, "fineSolve")
@@ -81,7 +80,6 @@ class BFEMSolveModule(Module):
         posterior = deepcopy(prior)
 
         for model in self.get_relevant_models("GETOBSERVATIONS", models):
-
             Phi, measurements, noise = model.GETOBSERVATIONS(globdat)
 
             name = model.get_name()

@@ -46,7 +46,6 @@ class CGObservationModel(Model):
         PhiT[0] = self._solver.get_residual(u, f)
 
         for i in range(1, nobs):
-
             res = self._solver.get_residual(u, f)
             du = self._solver.iterate(res)
 

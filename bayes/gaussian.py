@@ -279,7 +279,6 @@ class ConditionalGaussian(GaussianLike):
         gram = self._linop @ Sigma @ self._linop.T
 
         if self._noise is None:
-
             # Compute the pseudoinverse, in case of linearly dependent observations
             tol = 1e-12
 
