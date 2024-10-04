@@ -32,7 +32,6 @@ for covariance in ["K", "M"]:
 
     # Loop over different densities of the coarse mesh
     for N_coarse in [2, 4, 8, 16, 32, 64]:
-
         # Remesh the coarse mesh
         mesher(n=N_coarse, fname="bar_coarse.mesh")
 

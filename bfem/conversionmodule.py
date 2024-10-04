@@ -118,7 +118,6 @@ class ConversionModule(Module):
 
             # Go over the fine mesh
             for inode, coords in enumerate(nodes):
-
                 # Check if the node falls inside the bounding box
                 inside = True
                 for i in range(rank):

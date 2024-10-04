@@ -50,7 +50,6 @@ for i in range(n_test - 1):
 
 # Create figure 1 directly using matplotlib
 for posterior in globdat["gp"]["sequence"]:
-
     if isinstance(posterior._latent, ConditionalGaussian):
         linop = posterior._latent._linop
         if np.count_nonzero(linop) > 1:

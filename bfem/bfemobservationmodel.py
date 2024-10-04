@@ -18,7 +18,6 @@ class BFEMObservationModel(Model):
 
     @Model.save_config
     def configure(self, globdat, init, models, solver, noise):
-
         inittype, newinitprops = split_off_type(init)
         solvertype, newsolverprops = split_off_type(solver)
         self._init = globdat[gn.MODULEFACTORY].get_module(inittype, "obsinit")
@@ -96,7 +95,6 @@ class BFEMObservationModel(Model):
 
             # Go over the fine mesh
             for inode, coords in enumerate(nodes):
-
                 # Check if the node falls inside the bounding box
                 inside = True
                 for i in range(rank):
