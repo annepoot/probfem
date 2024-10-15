@@ -16,6 +16,9 @@ class BFEMObservationModel(Model):
         Phic = self._constrain_phi(Phi, globdat)
         return Phic, Phic.T @ globdat["extForce"], self._noise
 
+    def GETOBSDAT(self, globdat):
+        return self._obsdat
+
     @Model.save_config
     def configure(self, globdat, init, models, solver, noise):
         inittype, newinitprops = split_off_type(init)
