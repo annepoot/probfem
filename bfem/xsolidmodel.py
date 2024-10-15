@@ -6,7 +6,7 @@ from myjive.model.model import Model
 from myjivex.materials import new_material
 import myjive.util.proputils as pu
 from myjive.util.proputils import check_dict, split_off_type
-from .hypermesh import create_hypermesh
+from meshing import create_hypermesh
 
 TYPE = "type"
 INTSCHEME = "intScheme"
