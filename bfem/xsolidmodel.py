@@ -1,12 +1,12 @@
 import numpy as np
 from numba import njit
 
-from myjive.fem import XNodeSet, XElementSet
 from myjive.names import GlobNames as gn
 from myjive.model.model import Model
 from myjivex.materials import new_material
 import myjive.util.proputils as pu
 from myjive.util.proputils import check_dict, split_off_type
+from .hypermesh import create_hypermesh
 
 TYPE = "type"
 INTSCHEME = "intScheme"
@@ -61,7 +61,7 @@ class XSolidModel(Model):
         elems1 = egroup1.get_elements()
         elems2 = egroup2.get_elements()
 
-        elemsh, elemmap = self._get_hypermesh(elems1, elems2)
+        elemsh, elemmap = create_hypermesh(elems1, elems2)
 
         nodes1 = elems1.get_nodes()
         nodes2 = elems2.get_nodes()
@@ -164,116 +164,6 @@ class XSolidModel(Model):
 
         return M
 
-    def _get_hypermesh(self, elems1, elems2):
-        nodes1 = elems1.get_nodes()
-        nodes2 = elems2.get_nodes()
-
-        nodesh = XNodeSet()
-        nodemap1 = np.zeros(len(nodes1), dtype=int)
-        nodemap2 = np.zeros(len(nodes2), dtype=int)
-
-        coords1 = nodes1.get_coords()
-        coords2 = nodes2.get_coords()
-
-        rank = coords1.shape[1]
-        if rank != coords2.shape[1]:
-            raise RuntimeError("incompatible rank!")
-
-        for inode1, coords in enumerate(nodes1):
-            inodeh = nodesh.add_node(coords)
-            nodemap1[inode1] = inodeh
-
-        for inode2, coords in enumerate(nodes2):
-            mask = np.all(np.isclose(coords, coords1), axis=1)
-            if np.sum(mask) == 0:
-                inodeh = nodesh.add_node(coords)
-            else:
-                inode1 = np.where(mask)[0]
-                if len(inode1) != 1:
-                    raise RuntimeError("no unique matching node found")
-                inodeh = nodemap1[inode1[0]]
-            nodemap2[inode2] = inodeh
-
-        elemsh = XElementSet(nodesh)
-        elemmap = []
-
-        for ielem1, inodes1 in enumerate(elems1):
-            coords1 = nodes1.get_some_coords(inodes1)
-            bbox1 = np.stack([np.min(coords1, axis=0), np.max(coords1, axis=0)])
-            for ielem2, inodes2 in enumerate(elems2):
-                coords2 = nodes2.get_some_coords(inodes2)
-                bbox2 = np.stack([np.min(coords2, axis=0), np.max(coords2, axis=0)])
-
-                # check bounding boxes
-                if np.any(bbox1[0] > bbox2[1]) or np.any(bbox2[0] > bbox1[1]):
-                    continue
-
-                # check overlap
-                if rank == 1:
-                    if coords1[0, 0] > coords2[0, 0]:
-                        left = coords1[0, 0]
-                        ileft = nodemap1[inodes1[0]]
-                    else:
-                        left = coords2[0, 0]
-                        ileft = nodemap2[inodes2[0]]
-
-                    if coords1[1, 0] < coords2[1, 0]:
-                        right = coords1[1, 0]
-                        iright = nodemap1[inodes1[1]]
-                    else:
-                        right = coords2[1, 0]
-                        iright = nodemap2[inodes2[1]]
-
-                    if left < right:
-                        elemsh.add_element([ileft, iright])
-                        elemmap.append((ielem1, ielem2))
-
-                elif rank == 2:
-                    intersection = self._clip_polygons(coords1, coords2)
-                    nside = len(intersection)
-
-                    if nside == 0:
-                        continue
-
-                    elif nside >= 3:
-                        # add one or more elements
-                        # triangulation is done as:
-                        # (0, 1, 2)
-                        # (0, 2, 3)
-                        # ...
-                        # (0, n-2, n-1)
-                        for isubelem in range(nside - 2):
-                            indices = [0, isubelem + 1, isubelem + 2]
-                            coordsh = nodesh.get_coords()
-                            inodesh = np.zeros(3, dtype=int)
-
-                            for i, coord in enumerate(intersection[indices]):
-                                mask = np.all(np.isclose(coordsh, coord), axis=1)
-                                if np.sum(mask) == 0:
-                                    inodeh = nodesh.add_node(coord)
-                                else:
-                                    inodeh = np.where(mask)[0]
-                                    if len(inodeh) != 1:
-                                        raise RuntimeError(
-                                            "no unique matching node found"
-                                        )
-                                    inodeh = inodeh[0]
-                                inodesh[i] = inodeh
-
-                            elemsh.add_element(inodesh)
-                            elemmap.append((ielem1, ielem2))
-
-                    else:
-                        raise RuntimeError("degenerate polygon")
-
-                else:
-                    raise NotImplementedError("rank {} is not implemented".format(rank))
-
-        if len(elemsh) != len(elemmap):
-            raise RuntimeError("elemmap size mismatch")
-
-        return elemsh, elemmap
-
     def _get_N_matrix(self, sfuncs):
         return self._get_N_matrix_jit(sfuncs, self._dofcount, self._rank)
 
@@ -318,58 +208,3 @@ class XSolidModel(Model):
                 B[5, i + 0] = gi[2]
                 B[5, i + 2] = gi[0]
         return B
-
-    @staticmethod
-    def _clip_polygons(coords1, coords2):
-        clip = coords1.copy()
-
-        for A, B in zip(coords2, np.roll(coords2, shift=-1, axis=0)):
-            # Check each point in the clipped polygon
-            cross = np.cross(B - A, clip - A)
-            keep = np.logical_or(cross > 0, np.isclose(cross, 0))
-
-            # If not all nodes should be kept, perform
-            if np.all(np.logical_not(keep)):
-                return np.zeros((0, 2))
-            elif not np.all(keep):
-                newclip = []
-                for keepprev, keepcurr, coordsprev, coordscurr in zip(
-                    np.roll(keep, shift=1, axis=0),
-                    keep,
-                    np.roll(clip, shift=1, axis=0),
-                    clip,
-                ):
-                    if keepcurr:
-                        if not keepprev:
-                            mat = np.column_stack([B - A, -(coordscurr - coordsprev)])
-                            vec = coordsprev - A
-                            s, t = np.linalg.solve(mat, vec)
-                            xcoords = A + s * (B - A)
-                            assert np.allclose(
-                                (1 - s) * A + s * B,
-                                (1 - t) * coordsprev + t * coordscurr,
-                            )
-                            newclip.append(xcoords)
-                        newclip.append(coordscurr)
-                    else:
-                        if keepprev:
-                            # search for the intersection
-                            mat = np.column_stack([B - A, -(coordscurr - coordsprev)])
-                            vec = coordsprev - A
-                            s, t = np.linalg.solve(mat, vec)
-                            xcoords = A + s * (B - A)
-                            assert np.allclose(
-                                (1 - s) * A + s * B,
-                                (1 - t) * coordsprev + t * coordscurr,
-                            )
-                            newclip.append(xcoords)
-
-                clip = np.array(newclip)
-                round_clip = np.round(clip, decimals=8)
-                unique_idx = np.unique(round_clip, axis=0, return_index=True)[1]
-                clip = clip[np.sort(unique_idx)]
-
-                if len(clip) < 3:
-                    return np.zeros((0, 2))
-
-        return clip
