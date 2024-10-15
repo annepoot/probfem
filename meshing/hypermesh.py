@@ -1,5 +1,9 @@
 import numpy as np
 from myjive.fem import XNodeSet, XElementSet
+from .boundingbox import create_bboxes, calc_bbox_intersections
+
+
+__all__ = ["create_hypermesh", "clip_polygons"]
 
 
 def create_hypermesh(elems1, elems2):
@@ -109,40 +113,6 @@ def create_hypermesh(elems1, elems2):
         raise RuntimeError("elemmap size mismatch")
 
     return elemsh, elemmap
-
-
-def create_bboxes(elems):
-    nodes = elems.get_nodes()
-    rank = nodes.rank()
-
-    lbounds = np.zeros((len(elems), rank))
-    ubounds = np.zeros((len(elems), rank))
-
-    for ielem, inodes in enumerate(elems):
-        coords = nodes.get_some_coords(inodes)
-        lbounds[ielem] = np.min(coords, axis=0)
-        ubounds[ielem] = np.max(coords, axis=0)
-
-    return lbounds, ubounds
-
-
-def create_bbox(coords):
-    return np.min(coords, axis=0), np.max(coords, axis=0)
-
-
-def check_bbox_intersection(bbox1, bbox2):
-    if np.any(bbox1[0] > bbox2[1]):
-        return False
-    elif np.any(bbox1[1] < bbox2[0]):
-        return False
-    else:
-        return True
-
-
-def calc_bbox_intersections(bbox1, bboxes2):
-    lcheck = np.all(bbox1[0] <= bboxes2[1], axis=1)
-    ucheck = np.all(bbox1[1] >= bboxes2[0], axis=1)
-    return np.where(np.logical_and(lcheck, ucheck))[0]
 
 
 def clip_polygons(coords1, coords2, tol=1e-8):
