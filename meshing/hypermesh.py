@@ -1,6 +1,6 @@
 import numpy as np
 from myjive.fem import XNodeSet, XElementSet
-from .boundingbox import create_bboxes, calc_bbox_intersections
+from .boundingbox import create_bboxes, list_bbox_bbox_intersections
 
 
 __all__ = ["create_hypermesh", "clip_polygons"]
@@ -44,7 +44,7 @@ def create_hypermesh(elems1, elems2):
 
     for ielem1, (inodes1, lbound1, ubound1) in enumerate(zip(elems1, *bboxes1)):
         coords1 = nodes1.get_some_coords(inodes1)
-        ielems2 = calc_bbox_intersections((lbound1, ubound1), bboxes2)
+        ielems2 = list_bbox_bbox_intersections((lbound1, ubound1), bboxes2)
 
         for ielem2 in ielems2:
             inodes2 = elems2[ielem2]
