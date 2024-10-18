@@ -3,8 +3,10 @@ import numpy as np
 __all__ = [
     "create_bbox",
     "create_bboxes",
-    "calc_bbox_intersection",
-    "calc_bbox_intersections",
+    "check_bbox_bbox_intersection",
+    "check_point_bbox_intersection",
+    "list_bbox_bbox_intersections",
+    "list_point_bbox_intersections",
 ]
 
 
@@ -27,16 +29,21 @@ def create_bboxes(elems):
     return lbounds, ubounds
 
 
-def calc_bbox_intersection(bbox1, bbox2):
-    if np.any(bbox1[0] > bbox2[1]):
-        return False
-    elif np.any(bbox1[1] < bbox2[0]):
-        return False
-    else:
-        return True
+def check_bbox_bbox_intersection(bbox1, bbox2):
+    return np.all(bbox1[0] <= bbox2[1]) and np.all(bbox1[1] >= bbox2[0])
 
 
-def calc_bbox_intersections(bbox1, bboxes2):
+def check_point_bbox_intersection(point, bbox):
+    return np.all(point >= bbox[0]) and np.all(point <= bbox[1])
+
+
+def list_bbox_bbox_intersections(bbox1, bboxes2):
     lcheck = np.all(bbox1[0] <= bboxes2[1], axis=1)
     ucheck = np.all(bbox1[1] >= bboxes2[0], axis=1)
+    return np.where(np.logical_and(lcheck, ucheck))[0]
+
+
+def list_point_bbox_intersections(point, bboxes):
+    lcheck = np.all(point >= bboxes[0], axis=1)
+    ucheck = np.all(point <= bboxes[1], axis=1)
     return np.where(np.logical_and(lcheck, ucheck))[0]
