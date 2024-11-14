@@ -56,15 +56,11 @@ class RMFemModule(Module):
         for _ in range(self._nsample):
             pglobdat = deepcopy(globdat)
             modelfac = pglobdat[gn.MODELFACTORY]
+            pglobdat[gn.MODELS] = self._gather_models(modelprops, modelfac)
 
-            name_list = modelprops["models"]
-            model_list = []
-            for name in name_list:
+            for name, model in pglobdat[gn.MODELS].items():
                 typ, mprops = split_off_type(modelprops[name])
-                m = modelfac.get_model(typ, name)
-                m.configure(pglobdat, **mprops)
-                model_list.append(m)
-            pglobdat[gn.MODELS] = model_list
+                model.configure(pglobdat, **mprops)
 
             perturbed_solves.append(pglobdat)
 
@@ -119,3 +115,27 @@ class RMFemModule(Module):
 
     def shutdown(self, globdat):
         pass
+
+    def _gather_models(self, props, model_factory):
+        if gn.MODELS in props:
+            model_names = props[gn.MODELS]
+        else:
+            raise ValueError("missing 'models = [...];' in .pro file")
+
+        models = {}
+
+        for name in model_names:
+            # Get the name of each item in the property file
+            if "type" in props[name]:
+                typ = props[name]["type"]
+            else:
+                typ = name.title()
+                props[name]["type"] = typ
+
+            # If it refers to a module (and not to a model), add it to the chain
+            if model_factory.is_model(typ):
+                models[name] = model_factory.get_model(typ, name)
+            else:
+                raise ValueError("'{}' is not declared as a model".format(typ))
+
+        return models

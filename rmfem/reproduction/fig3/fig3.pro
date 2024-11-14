@@ -1,3 +1,5 @@
+modules = [init, rmfem, rmplot];
+
 init =
 {
   type = Init;
@@ -65,7 +67,6 @@ rmplot =
 
 model =
 {
-  type = Multi;
   models = [ solid, load, diri, rm, ref ];
 
   solid =
