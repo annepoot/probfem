@@ -5,7 +5,7 @@ from myjive.app import main
 import myjive.util.proputils as pu
 from bfem import declare_all as declarebfem
 from myjivex import declare_all as declarex
-from bayes.gaussian import ConditionalGaussian
+from probability import ConditionalGaussian
 
 props = pu.parse_file("tapered.pro")
 

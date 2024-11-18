@@ -91,9 +91,9 @@ model =
 
       latent =
       {
-        type = DirectGaussian;
+        type = Gaussian;
 
-        mean = 0;
+        mean = None;
         cov = K;
       };
 

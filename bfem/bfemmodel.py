@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from bayes.gaussian import DirectGaussian, LinTransGaussian, LinSolveGaussian
+from probability import Gaussian, LinTransGaussian, LinSolveGaussian
 from myjive.names import GlobNames as gn
 from myjive.model import Model
 from myjive.solver import Constrainer
@@ -37,7 +37,7 @@ class BFEMModel(Model):
 
     def _recurse_askmat(self, props, needed):
         dic = {
-            "DirectGaussian": ["cov"],
+            "Gaussian": ["cov"],
             "LinTransGaussian": ["scale"],
             "LinSolveGaussian": ["inv"],
             "Prior": [],
@@ -60,7 +60,7 @@ class BFEMModel(Model):
 
     def _recurse_retmat(self, globdat, props, latent=None):
         dic = {
-            "DirectGaussian": ["cov"],
+            "Gaussian": ["cov"],
             "LinTransGaussian": ["scale"],
             "LinSolveGaussian": ["inv"],
             "Prior": [],
@@ -96,8 +96,8 @@ class BFEMModel(Model):
             latent = self._recurse_prior(globdat, distprops["latent"])
             distprops.pop("latent")
 
-        if disttype == "DirectGaussian":
-            return DirectGaussian(**distprops)
+        if disttype == "Gaussian":
+            return Gaussian(**distprops)
         elif disttype == "LinTransGaussian":
             return LinTransGaussian(latent, **distprops)
         elif disttype == "LinSolveGaussian":
@@ -118,8 +118,8 @@ class BFEMModel(Model):
 
             distprops.pop("latent")
 
-        if disttype == "DirectGaussian":
-            return DirectGaussian(**distprops)
+        if disttype == "Gaussian":
+            return Gaussian(**distprops)
         elif disttype == "LinTransGaussian":
             return LinTransGaussian(latent, **distprops)
         elif disttype == "LinSolveGaussian":

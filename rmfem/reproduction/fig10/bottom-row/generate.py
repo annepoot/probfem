@@ -1,8 +1,8 @@
-from myjive.app import main
-import myjive.util.proputils as pu
-from rmfem import declare_all as declarermfem
-from bayes import declare_all as declarebayes
-from myjivex import declare_all as declarex
+import numpy as np
+import pandas as pd
+
+from rmfem_props import mwmc_props
+from rmfem.rmfemrunner import RMFEMRunner
 
 
 def mesher_lin(L, n, fname="1d-lin"):
@@ -18,59 +18,48 @@ def mesher_lin(L, n, fname="1d-lin"):
             fmesh.write("%d %d\n" % (i, i + 1))
 
 
-def get_files_and_keys(N, noise, nsample):
-    files = []
-    keys = []
+obs_values = np.array(
+    [
+        0.01154101,
+        0.01667733,
+        0.01592942,
+        0.00980423,
+        -0.00043005,
+        -0.01177105,
+        -0.02001336,
+        -0.0211289,
+        -0.01350695,
+    ]
+)
+n_obs = len(obs_values)
+rng = np.random.default_rng(0)
+corruption = rng.standard_normal(n_obs)
 
-    files.append("output/mcmc_xi_N-{}_noise-{}_mesh-ref.csv".format(N, noise))
-    files.append("output/mcmc_state0_N-{}_noise-{}_mesh-ref.csv".format(N, noise))
-    files.append("output/mcmc_stiffness_N-{}_noise-{}_mesh-ref.csv".format(N, noise))
+for n_elem in [10, 20, 40]:
+    mesher_lin(1, n_elem)
 
-    keys.append("mcmc.variables.0")
-    keys.append("mcmc.state0.0")
-    keys.append("mcmc.tables.stiffness..0")
+    for std_noise in [1e-4, 1e-5, 1e-6]:
+        likelihood_props = mwmc_props["inner"]["target"]["likelihood"]
+        likelihood_props["values"] = obs_values + std_noise * corruption
+        likelihood_props["noise"]["cov"] = std_noise**2 * np.identity(n_obs)
 
-    for sample in range(nsample):
-        files.append(
-            "output/mcmc_xi_N-{}_noise-{}_mesh-{}.csv".format(N, noise, sample + 1)
-        )
-        files.append(
-            "output/mcmc_state0_N-{}_noise-{}_mesh-{}.csv".format(N, noise, sample + 1)
-        )
-        files.append(
-            "output/mcmc_stiffness_N-{}_noise-{}_mesh-{}.csv".format(
-                N, noise, sample + 1
-            )
-        )
+        rmfem = RMFEMRunner(**mwmc_props)
+        samples = rmfem()
 
-        keys.append("perturbedSolves.{}.mcmc.variables".format(sample))
-        keys.append("perturbedSolves.{}.mcmc.state0".format(sample))
-        keys.append("perturbedSolves.{}.mcmc.tables.stiffness".format(sample))
+        subdf_list = []
+        for i, sample in enumerate(samples):
+            subdf = pd.DataFrame(sample, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
+            subdf["sample"] = subdf.index
+            subdf["n_elem"] = n_elem
+            subdf["std_noise"] = std_noise
+            subdf["mesh"] = i
+            subdf_list.append(subdf)
 
-    return files, keys
+        df = pd.concat(subdf_list)
 
-
-extra_declares = [declarex, declarermfem, declarebayes]
-props = pu.parse_file("1d-inv-kl4.pro")
-nsample = props["rmfem"]["nsample"]
-files, keys = get_files_and_keys(10, 1e-8, nsample)
-outputprops = {
-    "type": "Output",
-    "files": files,
-    "keys": keys,
-    "overwrite": True,
-}
-props["output"] = outputprops
-
-for N in [10, 20, 40]:
-    mesher_lin(1, N)
-    for noise in [1e-8, 1e-10, 1e-12]:
-        files, keys = get_files_and_keys(N, noise, nsample)
-        props["model"]["obs"]["noise"]["cov"] = noise
-        props["model"]["obs"]["measurement"]["corruption"]["cov"] = noise
-        props["output"]["files"] = files
-        props["output"]["keys"] = keys
-
-        globdat = main.jive(props, extra_declares=extra_declares)
+        if n_elem == 10 and np.isclose(std_noise, 1e-4):
+            df.to_csv("samples.csv", mode="w", header="column_names", index=False)
+        else:
+            df.to_csv("samples.csv", mode="a", header=False, index=False)
 
 mesher_lin(1, 10)
