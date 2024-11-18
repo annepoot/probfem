@@ -70,7 +70,7 @@ class BFEMSolveModule(Module):
         model = self.get_unique_relevant_model("GETPRIOR", models)
         prior = model.GETPRIOR(globdat)
 
-        prior = prior.to_direct_gaussian()
+        prior = prior.to_gaussian()
 
         sequence = []
 

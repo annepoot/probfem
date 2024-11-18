@@ -1,8 +1,12 @@
 import numpy as np
 from warnings import warn
 
+from .distribution import Distribution
 
-class GaussianLike:
+__all__ = ["Gaussian", "LinTransGaussian", "LinSolveGaussian", "ConditionalGaussian"]
+
+
+class GaussianLike(Distribution):
     """
     This class defines all core functionality for Gaussian distributions.
     All classes that implement some sort of Gaussian are derived from this class
@@ -80,25 +84,49 @@ class GaussianLike:
         return ConditionalGaussian(self, operator, measurements, noise)
 
 
-class DirectGaussian(GaussianLike):
+class Gaussian(GaussianLike):
     def __init__(self, mean, cov):
-        if np.isscalar(mean):
-            if mean == 0.0:
-                self._mean = np.zeros(cov.shape[0])
-            else:
-                raise ValueError
-        else:
-            self._mean = mean
-        self._cov = cov
-        self._sqrtcov = np.linalg.cholesky(cov)
+        self._len = self._calc_len(mean, cov)
 
-        # check compatibility
-        self._len = len(self._mean)
-        if self._cov.shape[0] != self._len or self._cov.shape[1] != self._len:
-            raise ValueError("mean and cov have incompatible sizes")
+        self.update_mean(mean)
+        self.update_cov(cov)
 
     def __len__(self):
         return self._len
+
+    def update_mean(self, mean):
+        if mean is None:
+            self._mean = np.zeros(self._len)
+        elif np.isscalar(mean):
+            if mean != 0.0:
+                raise ValueError
+            self._mean = np.zeros(self._len)
+        else:
+            if not isinstance(mean, np.ndarray):
+                raise TypeError
+            if len(mean.shape) != 1:
+                raise ValueError
+            self._mean = mean
+
+    def update_cov(self, cov):
+        if np.isscalar(cov):
+            self._cov = cov * np.identity(self._len)
+        else:
+            if not isinstance(cov, np.ndarray):
+                raise TypeError
+            if len(cov.shape) == 1:
+                if cov.shape[0] != self._len:
+                    raise ValueError
+                self._cov = np.diag(cov)
+            elif len(cov.shape) == 2:
+                if cov.shape[0] != self._len or cov.shape[1] != self._len:
+                    raise ValueError
+                self._cov = cov
+
+        self._sqrtcov = np.linalg.cholesky(self._cov)
+        self._logdet = 2 * np.sum(np.log(np.diagonal(self._sqrtcov)))
+        if abs(self._logdet) < 100:
+            assert np.isclose(self._logdet, np.log(np.linalg.det(self._cov)))
 
     def calc_mean(self):
         return self._mean
@@ -121,6 +149,32 @@ class DirectGaussian(GaussianLike):
         return np.tile(self._mean, (n, 1)).T + self._sqrtcov @ rng.standard_normal(
             (self._len, n)
         )
+
+    def calc_pdf(self, x):
+        return np.exp(self.evaluate_logpdf(x))
+
+    def calc_logpdf(self, x):
+        # TODO: improve efficiency via backsubstitution
+        potential = (
+            1 / 2 * (x - self._mean) @ np.linalg.solve(self._cov, (x - self._mean))
+        )
+        return (
+            -self._len / 2 * np.log(2 * np.pi)
+            - self._len / 2 * self._logdet
+            - potential
+        )
+
+    def _calc_len(self, mean, cov):
+        if mean is None:
+            if np.isscalar(cov):
+                return 1
+            else:
+                return len(cov)
+        else:
+            if np.isscalar(mean):
+                return 1
+            else:
+                return len(mean)
 
 
 class LinTransGaussian(GaussianLike):
@@ -190,8 +244,8 @@ class LinTransGaussian(GaussianLike):
             + np.tile(self._shift, (n, 1)).T
         )
 
-    def to_direct_gaussian(self):
-        return DirectGaussian(self.calc_mean(), self.calc_cov())
+    def to_gaussian(self):
+        return Gaussian(self.calc_mean(), self.calc_cov())
 
 
 class LinSolveGaussian(GaussianLike):
@@ -242,10 +296,18 @@ class LinSolveGaussian(GaussianLike):
             )
 
     def calc_sample(self, seed):
-        return np.linalg.solve(self._inv, self._latent.calc_sample(seed))
+        latent_sample = self._latent.calc_sample(seed)
+        if self._explicit:
+            return self._explicitinv @ latent_sample
+        else:
+            return np.linalg.solve(self._inv, latent_sample)
 
     def calc_samples(self, n, seed):
-        return np.linalg.solve(self._inv, self._latent.calc_samples(n, seed))
+        latent_samples = self._latent.calc_samples(n, seed)
+        if self._explicit:
+            return self._explicitinv @ latent_samples
+        else:
+            return np.linalg.solve(self._inv, latent_samples)
 
 
 class ConditionalGaussian(GaussianLike):

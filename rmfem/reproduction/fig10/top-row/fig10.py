@@ -14,26 +14,26 @@ def get_kappa(x, xi):
     return kappa
 
 
-for noise in [1e-08, 1e-10, 1e-12]:
+for std_noise in [1e-4, 1e-5, 1e-6]:
     x = np.linspace(0, 1, 1000)
     xi_true = [1.0, 1.0, 0.25, 0.25]
     kappa_true = get_kappa(x, xi_true)
 
-    for N in [10, 20, 40]:
-        fig, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
-
-        fname = "output/mcmc_xi_N-{}_noise-{}.csv".format(N, noise)
-        df = pd.read_csv(fname)
-        df = df.transpose()
-        df = df.rename(columns=lambda i: "xi_" + str(i + 1))
-        df = df.rename(index=lambda s: int(s.split(".")[-1]) - 1)
-
+    for n_elem in [10, 20, 40]:
         N_burn = 5000
-        df = df.iloc[N_burn::10]
+        N_filter = 20
 
-        for i, xi in df.iterrows():
+        fname = "samples.csv"
+        df = pd.read_csv(fname)
+        df = df[abs(df["std_noise"] - std_noise) < 1e-20]
+        df = df[df["n_elem"] == n_elem]
+        df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
+
+        fig, ax = plt.subplots(1, 1, figsize=(4, 4), tight_layout=True)
+        for i, sample in df.iterrows():
+            xi = sample[["xi_1", "xi_2", "xi_3", "xi_4"]]
             kappa = get_kappa(x, xi)
-            label = r"$N = {}$".format(N) if i == N_burn else None
+            label = r"$N = {}$".format(n_elem) if sample["sample"] == N_burn else None
             ax.plot(x, kappa, color="gray", linewidth=1, alpha=0.5, label=label)
         ax.plot(x, kappa_true, color="black", label="Ref")
         ax.legend()

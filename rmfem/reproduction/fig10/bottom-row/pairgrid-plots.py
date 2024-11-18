@@ -27,27 +27,18 @@ labels_by_var = {
 }
 
 for width in [0.05, 0.10, 0.20, 0.50]:
-    for noise in [1e-08, 1e-10, 1e-12]:
+    for std_noise in [1e-04, 1e-05, 1e-06]:
         N_burn = 5000
-        df_list = []
+        N_filter = 1000
 
-        for sample in range(1, 21):
-            for N in [10, 20, 40]:
-                fname = "output-after-bug-fix/mcmc_xi_N-{}_noise-{}_mesh-{}.csv".format(
-                    N, noise, sample
-                )
-                sub_df = pd.read_csv(fname)
-                sub_df = sub_df.transpose()
-                sub_df = sub_df.rename(columns=lambda i: "xi_" + str(i + 1))
-                sub_df = sub_df.rename(index=lambda s: int(s.split(".")[-1]) - 1)
-                sub_df = sub_df.iloc[N_burn::10]
-                sub_df["N"] = str(N)
-                df_list.append(sub_df)
-
-        df = pd.concat(df_list, axis=0)
+        fname = "samples.csv"
+        df = pd.read_csv(fname)
+        df = df[abs(df["std_noise"] - std_noise) < 1e-20]
+        df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
+        df["n_elem"] = df["n_elem"].astype(str)
 
         grid = sns.PairGrid(
-            data=df, vars=variables, hue="N", diag_sharey=False, height=1.5
+            data=df, vars=variables, hue="n_elem", diag_sharey=False, height=1.5
         )
         grid.map_upper(sns.scatterplot)
         grid.map_lower(sns.kdeplot)

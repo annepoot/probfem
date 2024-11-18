@@ -2,9 +2,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from myjive.app import main
-import myjive.util.proputils as pu
-from rmfem import declare_all as declarermfem
-from myjivex import declare_all as declarex
+from myjivex import declare_all
+from myjive.util.proputils import split_off_type
+
+from rmfem.rmfemrunner import RMFEMRunner
+from fig2_props import fig2_props
 
 
 def mesher_lin(L, n, fname="2nodebar"):
@@ -21,13 +23,33 @@ def mesher_lin(L, n, fname="2nodebar"):
             fmesh.write("%d %d\n" % (i, i + 1))
 
 
-props = pu.parse_file("fig2.pro")
-
-extra_declares = [declarex, declarermfem]
-
 for p in [1, 2]:
     for N in [5, 10, 20]:
-        mesher_lin(1, N, fname="fig2")
-        props["model"]["rm"]["p"] = p
-        props["rmplot"]["figure"]["title"] = "p = {}, N = {}".format(p, N)
-        globdat = main.jive(props, extra_declares=extra_declares)
+        mesher_lin(1, N, fname="fig2.mesh")
+
+        props_ref = fig2_props["inner"]
+        inner_type, inner_kws = split_off_type(props_ref)
+        assert inner_type is main.jive
+        globdat_ref = main.jive(inner_kws, extra_declares=[declare_all])
+        x_ref = globdat_ref["nodeSet"].get_coords().flatten()
+        u_ref = globdat_ref["state0"]
+
+        fig2_props["p"] = p
+
+        rmfem = RMFEMRunner(**fig2_props)
+        samples = rmfem()
+
+        x_exact = np.linspace(0, 1, 100)
+        u_exact = np.sin(x_exact * 2 * np.pi)
+
+        plt.figure()
+        for sample in samples:
+            x_fem = sample["nodeSet"].get_coords().flatten()
+            u_fem = sample["state0"]
+            plt.plot(x_fem, u_fem, color="grey", alpha=0.3)
+        plt.plot(x_exact, u_exact, color="black", linewidth=1)
+        plt.plot(x_ref, u_ref)
+        plt.title("Figure 2")
+        plt.xlabel("x")
+        plt.ylabel("Solution")
+        plt.show()
