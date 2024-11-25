@@ -1,12 +1,11 @@
 import numpy as np
 
 from myjive.app import main
-import myjive.util.proputils as pu
 from myjivex.util import QuickViewer
 from myjivex import declare_all as declarex
 from bfem import declare_all as declarebfem
+from plate_props import props
 
-props = pu.parse_file("plate.pro")
 props["model"]["bfem"]["prior"]["latent"]["cov"] = "K"
 
 extra_declares = [declarex, declarebfem]
@@ -14,27 +13,20 @@ globdat = main.jive(props, extra_declares=extra_declares)
 cglobdat = globdat["obs"]["obs"]
 fglobdat = globdat
 
-u_coarse = cglobdat["state0"]
-u = fglobdat["state0"]
+Phi = cglobdat["Phi"]
 f = fglobdat["extForce"]
 
-mean = globdat["gp"]["mean"]
-u_post = mean["posterior"]["state0"]
-
-std = globdat["gp"]["std"]
-std_u_post = std["posterior"]["state0"]
-
-cov = globdat["gp"]["cov"]
-cov_u_post = cov["posterior"]["state0"]
-
-Phi = cglobdat["Phi"]
+mean_u_post = globdat["gp"]["mean"]["posterior"]["state0"]
+std_u_post = globdat["gp"]["std"]["posterior"]["state0"]
+cov_u_post = globdat["gp"]["cov"]["posterior"]["state0"]
 
 QuickViewer(
-    u_post,
+    mean_u_post,
     fglobdat,
     comp=0,
     dpi=600,
     figsize=(7.5, 3),
+    title="Posterior mean (Fig. 5a)",
     fname="img/K/mean_state0-x_posterior.png",
 )
 QuickViewer(
@@ -43,13 +35,12 @@ QuickViewer(
     comp=0,
     dpi=600,
     figsize=(7.5, 3),
+    title="Posterior standard deviation (Fig. 5b)",
     fname="img/K/std_state0-x_posterior.png",
 )
 
-dc = len(u)
 pdNoise = 1e-4
-
-cov_u_post += pdNoise**2 * np.identity(dc)
+cov_u_post += pdNoise**2 * np.identity(len(cov_u_post))
 
 l, Q = np.linalg.eigh(cov_u_post)
 
@@ -64,6 +55,7 @@ QuickViewer(
     comp=0,
     dpi=600,
     figsize=(7.5, 3),
+    title="Error recovery (Fig. 5c)",
     fname="img/K/std_state0-x_error_recovered.png",
 )
 QuickViewer(
@@ -72,5 +64,6 @@ QuickViewer(
     comp=0,
     dpi=600,
     figsize=(7.5, 3),
+    title="Rescaled posterior standard deviation (Fig. 5d)",
     fname="img/K/std_state0-x_posterior_rescaled.png",
 )

@@ -2,10 +2,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from myjive.app import main
-import myjive.util.proputils as pu
 from myjivex import declare_all as declarex
 from bfem import declare_all as declarebfem
 from myjivex.util.plotutils import create_dat
+from tapered_props import props
 
 
 # Function to generate 1D meshes
@@ -23,15 +23,12 @@ def mesher(n, L=1, fname="bar"):
             fmesh.write("%d %d\n" % (i, i + 1))
 
 
-# Load the properties of the run
-props = pu.parse_file("tapered.pro")
-
 # Loop over different covariance matrices
 for covariance in ["K", "M"]:
     props["model"]["bfem"]["prior"]["latent"]["cov"] = covariance
 
     # Loop over different densities of the coarse mesh
-    for N_coarse in [2, 4, 8, 16, 32, 64]:
+    for N_coarse in [4, 16, 64]:
         # Remesh the coarse mesh
         mesher(n=N_coarse, fname="bar_coarse.mesh")
 
@@ -72,7 +69,7 @@ for covariance in ["K", "M"]:
         plt.plot(x, u, label="fine solution")
         plt.ylim((-13, 17))
         plt.legend(loc="upper left")
-        plt.title(r"${}$-prior, $n_c={}$, $n_f=64$".format(covariance, N_coarse))
+        plt.title(r"${}$-prior, $m={}$".format(covariance, N_coarse))
         plt.show()
 
         # Create output files for latex

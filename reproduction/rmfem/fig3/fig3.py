@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from myjive.app import main
-import myjive.util.proputils as pu
 from rmfem import declare_all as declarermfem
 from myjivex import declare_all as declarex
+from fig3_props import fig3_props
 
 
 def mesher_lin(L, n, fname="2nodebar"):
@@ -21,11 +21,8 @@ def mesher_lin(L, n, fname="2nodebar"):
             fmesh.write("%d %d\n" % (i, i + 1))
 
 
-props = pu.parse_file("fig3.pro")
-
 extra_declares = [declarex, declarermfem]
-globdat = main.jive(props, extra_declares=extra_declares)
-
+globdat = main.jive(fig3_props, extra_declares=extra_declares)
 
 nn = len(globdat["state0"])
 ne = nn - 1
@@ -44,5 +41,6 @@ ax.plot(x, eta2, label=r"$\eta_{K,2}$")
 ax.set_yscale("log")
 ax.set_ylim((1e-10, 1e0))
 ax.legend()
+ax.set_title("Error, first iteration")
 # plt.savefig(fname="fig3_midproof-True", dpi=600)
 plt.show()

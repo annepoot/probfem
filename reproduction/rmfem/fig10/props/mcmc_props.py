@@ -1,8 +1,8 @@
 import numpy as np
 
-from fem_props import fem_props
+from .fem_props import fem_props
+from probability.multivariate import Gaussian
 from probability import (
-    Gaussian,
     ProportionalPosterior,
     Likelihood,
     FEMObservationOperator,
