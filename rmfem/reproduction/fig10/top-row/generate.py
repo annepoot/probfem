@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 from mcmc_props import mcmc_props
-from probability import MCMCRunner
+from sampling import MCMCRunner
 
 
 def mesher_lin(L, n, fname="1d-lin"):

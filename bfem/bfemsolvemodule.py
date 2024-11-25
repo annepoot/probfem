@@ -117,24 +117,24 @@ class BFEMSolveModule(Module):
         globdat["gp"]["mean"] = {}
         globdat["gp"]["mean"]["prior"] = {}
         globdat["gp"]["mean"]["prior"]["state0"] = prior.calc_mean()
-        globdat["gp"]["mean"]["prior"]["extForce"] = prior._latent.calc_mean()
+        globdat["gp"]["mean"]["prior"]["extForce"] = prior.latent.calc_mean()
         globdat["gp"]["mean"]["posterior"] = {}
         globdat["gp"]["mean"]["posterior"]["state0"] = posterior.calc_mean()
-        globdat["gp"]["mean"]["posterior"]["extForce"] = posterior._latent.calc_mean()
+        globdat["gp"]["mean"]["posterior"]["extForce"] = posterior.latent.calc_mean()
         globdat["gp"]["cov"] = {}
         globdat["gp"]["cov"]["prior"] = {}
         globdat["gp"]["cov"]["prior"]["state0"] = prior.calc_cov()
-        globdat["gp"]["cov"]["prior"]["extForce"] = prior._latent.calc_cov()
+        globdat["gp"]["cov"]["prior"]["extForce"] = prior.latent.calc_cov()
         globdat["gp"]["cov"]["posterior"] = {}
         globdat["gp"]["cov"]["posterior"]["state0"] = posterior.calc_cov()
-        globdat["gp"]["cov"]["posterior"]["extForce"] = posterior._latent.calc_cov()
+        globdat["gp"]["cov"]["posterior"]["extForce"] = posterior.latent.calc_cov()
         globdat["gp"]["std"] = {}
         globdat["gp"]["std"]["prior"] = {}
         globdat["gp"]["std"]["prior"]["state0"] = prior.calc_std()
-        globdat["gp"]["std"]["prior"]["extForce"] = prior._latent.calc_std()
+        globdat["gp"]["std"]["prior"]["extForce"] = prior.latent.calc_std()
         globdat["gp"]["std"]["posterior"] = {}
         globdat["gp"]["std"]["posterior"]["state0"] = posterior.calc_std()
-        globdat["gp"]["std"]["posterior"]["extForce"] = posterior._latent.calc_std()
+        globdat["gp"]["std"]["posterior"]["extForce"] = posterior.latent.calc_std()
 
         if self._nsample > 0:
             globdat["gp"]["samples"] = {}
@@ -142,7 +142,7 @@ class BFEMSolveModule(Module):
             globdat["gp"]["samples"]["prior"]["state0"] = prior.calc_samples(
                 self._nsample, 0
             )
-            globdat["gp"]["samples"]["prior"]["extForce"] = prior._latent.calc_samples(
+            globdat["gp"]["samples"]["prior"]["extForce"] = prior.latent.calc_samples(
                 self._nsample, 0
             )
             globdat["gp"]["samples"]["posterior"] = {}
@@ -150,7 +150,7 @@ class BFEMSolveModule(Module):
                 self._nsample, 0
             )
             globdat["gp"]["samples"]["posterior"]["extForce"] = (
-                posterior._latent.calc_samples(self._nsample, 0)
+                posterior.latent.calc_samples(self._nsample, 0)
             )
 
         return "ok"

@@ -1,12 +1,12 @@
 import numpy as np
 from warnings import warn
 
-from .distribution import Distribution
+from ..distribution import MultivariateDistribution
 
 __all__ = ["Gaussian", "LinTransGaussian", "LinSolveGaussian", "ConditionalGaussian"]
 
 
-class GaussianLike(Distribution):
+class GaussianLike(MultivariateDistribution):
     """
     This class defines all core functionality for Gaussian distributions.
     All classes that implement some sort of Gaussian are derived from this class
@@ -16,7 +16,9 @@ class GaussianLike(Distribution):
         raise NotImplementedError("This has to be implemented in a child class")
 
     def __add__(self, shift):
-        if np.isscalar(shift):
+        if isinstance(shift, GaussianLike):
+            return GaussianSum(self, shift)
+        elif np.isscalar(shift):
             return LinTransGaussian(self, 1, shift)
         elif isinstance(shift, np.ndarray):
             return LinTransGaussian(self, 1, shift)
@@ -83,6 +85,9 @@ class GaussianLike(Distribution):
     def condition_on(self, operator, measurements, noise):
         return ConditionalGaussian(self, operator, measurements, noise)
 
+    def to_gaussian(self):
+        return Gaussian(self.calc_mean(), self.calc_cov())
+
 
 class Gaussian(GaussianLike):
     def __init__(self, mean, cov):
@@ -96,73 +101,78 @@ class Gaussian(GaussianLike):
 
     def update_mean(self, mean):
         if mean is None:
-            self._mean = np.zeros(self._len)
+            self.mean = np.zeros(self._len)
         elif np.isscalar(mean):
             if mean != 0.0:
                 raise ValueError
-            self._mean = np.zeros(self._len)
+            self.mean = np.zeros(self._len)
         else:
             if not isinstance(mean, np.ndarray):
                 raise TypeError
             if len(mean.shape) != 1:
                 raise ValueError
-            self._mean = mean
+            self.mean = mean
 
-    def update_cov(self, cov):
+    def update_cov(self, cov, tol=1e-12):
         if np.isscalar(cov):
-            self._cov = cov * np.identity(self._len)
+            self.cov = cov * np.identity(self._len)
         else:
             if not isinstance(cov, np.ndarray):
                 raise TypeError
             if len(cov.shape) == 1:
                 if cov.shape[0] != self._len:
                     raise ValueError
-                self._cov = np.diag(cov)
+                self.cov = np.diag(cov)
             elif len(cov.shape) == 2:
                 if cov.shape[0] != self._len or cov.shape[1] != self._len:
                     raise ValueError
-                self._cov = cov
+                self.cov = cov
 
-        self._sqrtcov = np.linalg.cholesky(self._cov)
-        self._logdet = 2 * np.sum(np.log(np.diagonal(self._sqrtcov)))
+        d, Q = np.linalg.eigh(self.cov)
+        for i, d_i in enumerate(d):
+            if d_i < 0:
+                if d_i + tol >= 0:
+                    d[i] = 0.0
+                else:
+                    raise ValueError
+        sqrtd = np.sqrt(d)
+
+        self._sqrtcov = Q @ np.diag(sqrtd)
+        self._logdet = 2 * np.sum(np.log(sqrtd))
         if abs(self._logdet) < 100:
-            assert np.isclose(self._logdet, np.log(np.linalg.det(self._cov)))
+            assert np.isclose(self._logdet, np.log(np.linalg.det(self.cov)))
 
     def calc_mean(self):
-        return self._mean
+        return self.mean
 
     def calc_cov(self):
-        return self._cov
+        return self.cov
 
     def calc_sqrtcov(self):
         return self._sqrtcov
 
     def calc_std(self):
-        return np.sqrt(np.diagonal(self._cov))
+        return np.sqrt(np.diagonal(self.cov))
 
     def calc_sample(self, seed):
         rng = np.random.default_rng(seed)
-        return self._mean + self._sqrtcov @ rng.standard_normal(self._len)
+        return self.mean + self._sqrtcov @ rng.standard_normal(self._len)
 
     def calc_samples(self, n, seed):
         rng = np.random.default_rng(seed)
-        return np.tile(self._mean, (n, 1)).T + self._sqrtcov @ rng.standard_normal(
+        return np.tile(self.mean, (n, 1)).T + self._sqrtcov @ rng.standard_normal(
             (self._len, n)
         )
 
     def calc_pdf(self, x):
-        return np.exp(self.evaluate_logpdf(x))
+        return np.exp(self.calc_logpdf(x))
 
     def calc_logpdf(self, x):
         # TODO: improve efficiency via backsubstitution
         potential = (
-            1 / 2 * (x - self._mean) @ np.linalg.solve(self._cov, (x - self._mean))
+            1 / 2 * (x - self.mean).T @ np.linalg.solve(self.cov, (x - self.mean))
         )
-        return (
-            -self._len / 2 * np.log(2 * np.pi)
-            - self._len / 2 * self._logdet
-            - potential
-        )
+        return -0.5 * self._len * np.log(2 * np.pi) - 0.5 * self._logdet - potential
 
     def _calc_len(self, mean, cov):
         if mean is None:
@@ -187,23 +197,23 @@ class LinTransGaussian(GaussianLike):
         if not isinstance(latent, GaussianLike):
             raise TypeError()
 
-        self._latent = latent
+        self.latent = latent
 
         if np.isscalar(scale):
-            self._scale = np.identity(len(self._latent)) * scale
+            self.scale = np.identity(len(self.latent)) * scale
         else:
-            self._scale = scale
+            self.scale = scale
 
         if np.isscalar(shift):
-            self._shift = np.ones(len(self._latent)) * shift
+            self.shift = np.ones(len(self.latent)) * shift
         else:
-            self._shift = shift
+            self.shift = shift
 
         # check compatibility
-        self._len = self._scale.shape[0]
-        if self._scale.shape[0] != self._shift.shape[0]:
+        self._len = self.scale.shape[0]
+        if self.scale.shape[0] != self.shift.shape[0]:
             raise ValueError("scale and shift have incompatible sizes")
-        if self._scale.shape[1] != len(self._latent):
+        if self.scale.shape[1] != len(self.latent):
             raise ValueError("scale and latent have incompatible sizes")
 
     def __len__(self):
@@ -211,41 +221,38 @@ class LinTransGaussian(GaussianLike):
 
     def __iadd__(self, shift):
         if np.isscalar(shift):
-            self._shift += shift
+            self.shift += shift
             return self
         elif isinstance(shift, np.ndarray):
-            self._shift += shift
+            self.shift += shift
             return self
         else:
             raise ValueError("cannot handle shift of type '{}'".format(type(shift)))
 
     def __imul__(self, scale):
         if np.isscalar(scale):
-            self._scale *= scale
+            self.scale *= scale
             return self
         else:
             raise ValueError("cannot handle scale of type '{}'".format(type(scale)))
 
     def calc_mean(self):
-        return self._scale @ self._latent.calc_mean() + self._shift
+        return self.scale @ self.latent.calc_mean() + self.shift
 
     def calc_cov(self):
-        return self._scale @ self._latent.calc_cov() @ self._scale.T
+        return self.scale @ self.latent.calc_cov() @ self.scale.T
 
     def calc_sqrtcov(self):
-        return self._scale @ self._latent.calc_sqrtcov()
+        return self.scale @ self.latent.calc_sqrtcov()
 
     def calc_sample(self, seed):
-        return self._scale @ self._latent.calc_sample(seed) + self._shift
+        return self.scale @ self.latent.calc_sample(seed) + self.shift
 
     def calc_samples(self, n, seed):
         return (
-            self._scale @ self._latent.calc_samples(n, seed)
-            + np.tile(self._shift, (n, 1)).T
+            self.scale @ self.latent.calc_samples(n, seed)
+            + np.tile(self.shift, (n, 1)).T
         )
-
-    def to_gaussian(self):
-        return Gaussian(self.calc_mean(), self.calc_cov())
 
 
 class LinSolveGaussian(GaussianLike):
@@ -258,56 +265,56 @@ class LinSolveGaussian(GaussianLike):
         if not isinstance(latent, GaussianLike):
             raise TypeError()
 
-        self._latent = latent
-        self._inv = inv
-        self._explicit = explicit
+        self.latent = latent
+        self.inv = inv
+        self.explicit = explicit
 
-        if self._explicit:
+        if self.explicit:
             warn("Explicit inversion of fine-scale matrix!")
-            self._explicitinv = np.linalg.inv(self._inv)
+            self._explicitinv = np.linalg.inv(self.inv)
 
         # check compatibility
-        self._len = self._inv.shape[0]
-        if self._inv.shape[0] != len(self._latent):
+        self._len = self.inv.shape[0]
+        if self.inv.shape[0] != len(self.latent):
             raise ValueError("inv and latent have incompatible sizes")
-        if self._inv.shape[1] != len(self._latent):
+        if self.inv.shape[1] != len(self.latent):
             raise ValueError("inv and latent have incompatible sizes")
 
     def __len__(self):
         return self._len
 
     def calc_mean(self):
-        return np.linalg.solve(self._inv, self._latent.calc_mean())
+        return np.linalg.solve(self.inv, self.latent.calc_mean())
 
     def calc_cov(self):
-        if self._explicit:
-            return self._explicitinv @ self._latent.calc_cov() @ self._explicitinv.T
+        if self.explicit:
+            return self._explicitinv @ self.latent.calc_cov() @ self._explicitinv.T
         else:
             raise ValueError(
                 "Set explicit to True to explicitly compute the posterior covariance!"
             )
 
     def calc_sqrtcov(self):
-        if self._explicit:
-            return self._explicitinv @ self._latent.calc_sqrtcov()
+        if self.explicit:
+            return self._explicitinv @ self.latent.calc_sqrtcov()
         else:
             raise ValueError(
                 "Set explicit to True to explicitly compute the posterior covariance!"
             )
 
     def calc_sample(self, seed):
-        latent_sample = self._latent.calc_sample(seed)
-        if self._explicit:
+        latent_sample = self.latent.calc_sample(seed)
+        if self.explicit:
             return self._explicitinv @ latent_sample
         else:
-            return np.linalg.solve(self._inv, latent_sample)
+            return np.linalg.solve(self.inv, latent_sample)
 
     def calc_samples(self, n, seed):
-        latent_samples = self._latent.calc_samples(n, seed)
-        if self._explicit:
+        latent_samples = self.latent.calc_samples(n, seed)
+        if self.explicit:
             return self._explicitinv @ latent_samples
         else:
-            return np.linalg.solve(self._inv, latent_samples)
+            return np.linalg.solve(self.inv, latent_samples)
 
 
 class ConditionalGaussian(GaussianLike):
@@ -320,25 +327,25 @@ class ConditionalGaussian(GaussianLike):
         if not isinstance(latent, GaussianLike):
             raise TypeError()
 
-        self._latent = latent
+        self.latent = latent
         if np.isscalar(obs):
-            self._linop = np.reshape(linop, (1, -1))
-            self._obs = np.array([obs])
+            self.linop = np.reshape(linop, (1, -1))
+            self.obs = np.array([obs])
         else:
-            self._linop = linop
-            self._obs = obs
+            self.linop = linop
+            self.obs = obs
         self._noise = noise
 
         # check compatibility
-        self._len = len(self._latent)
-        if self._linop.shape[0] != self._obs.shape[0]:
+        self._len = len(self.latent)
+        if self.linop.shape[0] != self.obs.shape[0]:
             raise ValueError("operator and measurements have incompatible sizes")
-        if self._linop.shape[1] != len(self._latent):
+        if self.linop.shape[1] != len(self.latent):
             raise ValueError("operator and latent have incompatible sizes")
 
-        Sigma = self._latent.calc_cov()
+        Sigma = self.latent.calc_cov()
 
-        gram = self._linop @ Sigma @ self._linop.T
+        gram = self.linop @ Sigma @ self.linop.T
 
         if self._noise is None:
             # Compute the pseudoinverse, in case of linearly dependent observations
@@ -365,37 +372,77 @@ class ConditionalGaussian(GaussianLike):
                 graminv = (Q * lamb) @ Q.T
 
         else:
-            gram += np.identity(len(self._obs)) * self._noise
+            gram += np.identity(len(self.obs)) * self._noise
             graminv = np.linalg.inv(gram)
 
-        self._kalgain = Sigma @ self._linop.T @ graminv
+        self._kalgain = Sigma @ self.linop.T @ graminv
 
     def __len__(self):
         return self._len
 
     def calc_mean(self):
-        mean = self._latent.calc_mean()
-        return mean + self._kalgain @ (self._obs - self._linop @ mean)
+        mean = self.latent.calc_mean()
+        return mean + self._kalgain @ (self.obs - self.linop @ mean)
 
     def calc_cov(self):
-        Sigma = self._latent.calc_cov()
-        return Sigma - self._kalgain @ self._linop @ Sigma
+        Sigma = self.latent.calc_cov()
+        return Sigma - self._kalgain @ self.linop @ Sigma
 
     def calc_sqrtcov(self):
         if self._noise is None:
-            P = np.identity(self._len) - self._kalgain @ self._linop
-            return P @ self._latent.calc_sqrtcov()
+            P = np.identity(self._len) - self._kalgain @ self.linop
+            return P @ self.latent.calc_sqrtcov()
         else:
             raise ValueError(
                 "Not sure how to handle calc_sqrtcov in case of observation noise"
             )
 
     def calc_sample(self, seed):
-        sample = self._latent.calc_sample(seed)
-        return sample + self._kalgain @ (self._obs - self._linop @ sample)
+        sample = self.latent.calc_sample(seed)
+        return sample + self._kalgain @ (self.obs - self.linop @ sample)
 
     def calc_samples(self, n, seed):
-        samples = self._latent.calc_samples(n, seed)
+        samples = self.latent.calc_samples(n, seed)
         return samples + self._kalgain @ (
-            np.tile(self._obs, (n, 1)).T - self._linop @ samples
+            np.tile(self.obs, (n, 1)).T - self.linop @ samples
         )
+
+
+class GaussianSum(GaussianLike):
+    def __init__(self, *gaussians):
+        self._len = len(gaussians[0])
+
+        for gaussian in gaussians:
+            if not isinstance(gaussian, GaussianLike):
+                raise TypeError
+            if len(gaussian) != self._len:
+                raise ValueError
+
+        self.gaussians = gaussians
+
+    def __len__(self):
+        return self._len
+
+    def calc_mean(self):
+        mean = np.zeros(self._len)
+        for gaussian in self.gaussians:
+            mean += gaussian.calc_mean()
+        return mean
+
+    def calc_cov(self):
+        cov = np.zeros((self._len, self._len))
+        for gaussian in self.gaussians:
+            cov += gaussian.calc_cov()
+        return cov
+
+    def calc_sample(self, seed):
+        sample = np.zeros(self._len)
+        for gaussian in self.gaussians:
+            sample += gaussian.calc_sample(seed)
+        return sample
+
+    def calc_samples(self, n, seed):
+        samples = np.zeros((self._len, n))
+        for gaussian in self.gaussians:
+            samples += gaussian.calc_samples(n, seed)
+        return samples

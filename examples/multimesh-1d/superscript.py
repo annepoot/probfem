@@ -5,7 +5,7 @@ from myjive.app import main
 import myjive.util.proputils as pu
 from bfem import declare_all as declarebfem
 from myjivex import declare_all as declarex
-from probability import ConditionalGaussian
+from probability.multivariate import ConditionalGaussian
 
 props = pu.parse_file("tapered.pro")
 
@@ -50,8 +50,8 @@ for i in range(n_test - 1):
 
 # Create figure 1 directly using matplotlib
 for posterior in globdat["gp"]["sequence"]:
-    if isinstance(posterior._latent, ConditionalGaussian):
-        linop = posterior._latent._linop
+    if isinstance(posterior.latent, ConditionalGaussian):
+        linop = posterior.latent.linop
         if np.count_nonzero(linop) > 1:
             Kc = linop @ K @ linop.T + 1e-10 * np.identity(len(linop))
             fc = linop @ f

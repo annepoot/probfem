@@ -24,7 +24,6 @@ class BFEMInfSolveModule(Module):
         pass
 
     def run(self, globdat):
-
         models = globdat[gn.MODELS]
 
         globdat["obs"] = {}
