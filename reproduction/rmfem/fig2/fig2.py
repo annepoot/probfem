@@ -49,7 +49,7 @@ for p in [1, 2]:
             plt.plot(x_fem, u_fem, color="grey", alpha=0.3)
         plt.plot(x_exact, u_exact, color="black", linewidth=1)
         plt.plot(x_ref, u_ref)
-        plt.title("Figure 2")
+        plt.title(r"$p = {}$, $N = {}$".format(p, N))
         plt.xlabel("x")
         plt.ylabel("Solution")
         plt.show()
