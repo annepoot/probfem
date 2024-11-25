@@ -2,6 +2,7 @@ import numpy as np
 from myjive.util.proputils import check_dict, split_off_type
 
 from probability.distribution import Distribution
+from probability.multivariate import IsotropicGaussian, DiagonalGaussian
 
 __all__ = ["MCMCRunner"]
 
@@ -56,8 +57,15 @@ class MCMCRunner:
 
                 if not np.isclose(oldscaling, newscaling):
                     factor = newscaling / oldscaling
-                    cov = self._proposal.calc_cov()
-                    self._proposal.update_cov(factor * cov)
+                    if isinstance(self._proposal, IsotropicGaussian):
+                        std = self._proposal.calc_std()
+                        self._proposal.update_std(np.sqrt(factor) * std)
+                    elif isinstance(self._proposal, DiagonalGaussian):
+                        diag = self._proposal.calc_diag()
+                        self._proposal.update_diag(factor * diag)
+                    else:
+                        cov = self._proposal.calc_cov()
+                        self._proposal.update_cov(factor * cov)
                     self._scaling = newscaling
                 accept_rate = 0.0
 

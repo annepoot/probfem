@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from probability import Gaussian, LinTransGaussian, LinSolveGaussian
+from probability.multivariate import Gaussian, LinTransGaussian, LinSolveGaussian
 from myjive.names import GlobNames as gn
 from myjive.model import Model
 from myjive.solver import Constrainer

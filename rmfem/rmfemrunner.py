@@ -13,7 +13,6 @@ from meshing.delaunay import get_patch_around_node
 
 
 class RMFEMRunner:
-
     def __init__(
         self,
         *,

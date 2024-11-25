@@ -15,15 +15,12 @@ __all__ = ["LinearObservationOperator", "FEMObservationOperator"]
 
 
 class ObservationOperator:
-
     def calc_prediction(self, x):
         raise NotImplementedError("This has to be implemented in a child class")
 
 
 class LinearObservationOperator(ObservationOperator):
-
     def __init__(self, *, operator):
-
         if not isinstance(operator, np.ndarray):
             raise TypeError
         if not len(operator.shape) == 2:
@@ -36,7 +33,6 @@ class LinearObservationOperator(ObservationOperator):
 
 
 class FEMObservationOperator(ObservationOperator):
-
     def __init__(
         self,
         forward_props,
