@@ -18,6 +18,7 @@ class MCMCRunner:
         seed=None,
         tune=True,
         tuneInterval=100,
+        recompute_logpdf=False
     ):
         # Validate input arguments
         check_dict(self, target, ["type"])
@@ -39,6 +40,7 @@ class MCMCRunner:
         self._tune = tune
         self._tune_interval = tuneInterval
         self._scaling = 1.0
+        self._recompute_logpdf = recompute_logpdf
 
     def __call__(self):
         xi = self._start
@@ -50,28 +52,37 @@ class MCMCRunner:
         accept_rate = 0.0
 
         for i in range(1, self._nsample + 1):
-            if self._tune and i % self._tune_interval == 0:
+            if i % self._tune_interval == 0:
                 print("MCMC sample {} of {}".format(i, self._nsample))
-                oldscaling = self._scaling
-                newscaling = self._recompute_scaling(oldscaling, accept_rate)
+                print("Accept rate:", accept_rate)
 
-                if not np.isclose(oldscaling, newscaling):
-                    factor = newscaling / oldscaling
-                    if isinstance(self._proposal, IsotropicGaussian):
-                        std = self._proposal.calc_std()
-                        self._proposal.update_std(np.sqrt(factor) * std)
-                    elif isinstance(self._proposal, DiagonalGaussian):
-                        diag = self._proposal.calc_diag()
-                        self._proposal.update_diag(factor * diag)
-                    else:
-                        cov = self._proposal.calc_cov()
-                        self._proposal.update_cov(factor * cov)
-                    self._scaling = newscaling
-                accept_rate = 0.0
+                if self._tune:
+                    oldscaling = self._scaling
+                    newscaling = self._recompute_scaling(oldscaling, accept_rate)
+
+                    if not np.isclose(oldscaling, newscaling):
+                        factor = newscaling / oldscaling
+                        if isinstance(self._proposal, IsotropicGaussian):
+                            std = self._proposal.calc_std()
+                            assert np.allclose(std, std[0])
+                            self._proposal.update_std(np.sqrt(factor) * std[0])
+                        elif isinstance(self._proposal, DiagonalGaussian):
+                            diag = self._proposal.calc_diag()
+                            self._proposal.update_diag(factor * diag)
+                        else:
+                            cov = self._proposal.calc_cov()
+                            self._proposal.update_cov(factor * cov)
+                        self._scaling = newscaling
+
+                    accept_rate = 0.0
 
             self._proposal.update_mean(xi)
             xi_prop = self._proposal.calc_sample(self._rng)
             logpdf_prop = self._target.calc_logpdf(xi_prop)
+
+            if self._recompute_logpdf:
+                logpdf = self._target.calc_logpdf(xi)
+
             logalpha = logpdf_prop - logpdf
 
             if logalpha < 0:
@@ -92,7 +103,6 @@ class MCMCRunner:
         return samples
 
     def _recompute_scaling(self, scaling, accept_rate):
-        print("Accept rate:", accept_rate)
         print("Old scaling:", scaling)
         if accept_rate < 0.001:
             scaling *= 0.1

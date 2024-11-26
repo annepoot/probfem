@@ -13,6 +13,7 @@ def get_kappa(x, xi):
     kappa = exp(theta)
     return kappa
 
+
 for fem_type in ["fem", "rmfem"]:
     for std_noise in [1e-4]:
         x = np.linspace(0, 1, 1000)
@@ -46,6 +47,10 @@ for fem_type in ["fem", "rmfem"]:
             ax.set_ylim((0.5, 2.5))
             ax.set_xlabel(r"$x$")
             ax.set_ylabel(r"$\kappa(x)$")
-            ax.set_title(r"{}, $N = {}$".format({"fem": "FEM", "rmfem": "RM-FEM"}[fem_type], n_elem))
+            ax.set_title(
+                r"{}, $N = {}$".format(
+                    {"fem": "FEM", "rmfem": "RM-FEM"}[fem_type], n_elem
+                )
+            )
             # plt.savefig(fname="img/kappa-plot_N-{}_noise_{}".format(N, noise), dpi=600)
             plt.show()
