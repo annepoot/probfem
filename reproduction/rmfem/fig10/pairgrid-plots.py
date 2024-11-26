@@ -29,11 +29,11 @@ labels_by_var = {
 for fem_type in ["fem", "rmfem"]:
     for width in [0.10]:
         for std_noise in [1e-04]:
-            N_burn = 0
+            N_burn = 5000
             if fem_type == "fem":
-                N_filter = 2
-            elif fem_type == "rmfem":
                 N_filter = 10
+            elif fem_type == "rmfem":
+                N_filter = 200
             else:
                 raise ValueError
 

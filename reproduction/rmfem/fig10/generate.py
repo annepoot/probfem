@@ -74,7 +74,9 @@ for fem_type in ["fem", "rmfem"]:
 
                 subdf_list = []
                 for i, sample in enumerate(samples):
-                    subdf = pd.DataFrame(sample, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
+                    subdf = pd.DataFrame(
+                        sample, columns=["xi_1", "xi_2", "xi_3", "xi_4"]
+                    )
                     subdf["sample"] = subdf.index
                     subdf["n_elem"] = n_elem
                     subdf["std_noise"] = std_noise
