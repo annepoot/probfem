@@ -46,7 +46,7 @@ for fem_type in ["fem", "rmfem"]:
             grid = sns.PairGrid(
                 data=df, vars=variables, hue="n_elem", diag_sharey=False, height=1.5
             )
-            grid.map_upper(sns.scatterplot)
+            grid.map_upper(sns.scatterplot, alpha=0.5, marker=".", edgecolor=None)
             grid.map_lower(sns.kdeplot)
             grid.map_diag(sns.kdeplot)
 

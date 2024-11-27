@@ -19,6 +19,27 @@ def mesher_lin(L, n, fname="1d-lin"):
             fmesh.write("%d %d\n" % (i, i + 1))
 
 
+statfem_hyperparams = {
+    10: {
+        "rho": 1.013586,
+        "l_d": 0.178171,
+        "sigma_d": 0.000063,
+        "sigma_e": 0.000036,
+    },
+    20: {
+        "rho": 0.995205,
+        "l_d": 0.106763,
+        "sigma_d": 0.000130,
+        "sigma_e": 0.000073,
+    },
+    40: {
+        "rho": 0.983613,
+        "l_d": 0.793182,
+        "sigma_d": 0.000773,
+        "sigma_e": 0.000041,
+    },
+}
+
 for fem_type in ["fem", "statfem", "rmfem"]:
     for n_elem in [10, 20, 40]:
         mesher_lin(1, n_elem)
@@ -31,10 +52,10 @@ for fem_type in ["fem", "statfem", "rmfem"]:
                 std_corruption=std_corruption, sigma_e=sigma_e, n_rep_obs=1
             )
         elif fem_type == "statfem":
-            rho = 1.0
-            l_d = 1.0
-            sigma_d = 1e-8
-            sigma_e = std_corruption
+            rho = statfem_hyperparams[n_elem]["rho"]
+            l_d = statfem_hyperparams[n_elem]["l_d"]
+            sigma_d = statfem_hyperparams[n_elem]["sigma_d"]
+            sigma_e = statfem_hyperparams[n_elem]["sigma_e"]
             props = get_rwm_statfem_props(
                 std_corruption=std_corruption,
                 rho=rho,

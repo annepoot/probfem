@@ -1,7 +1,12 @@
 import numpy as np
 from warnings import warn
 
-from myjive.util.proputils import split_off_type, split_key, set_attr_recursive
+from myjive.util.proputils import (
+    split_off_type,
+    split_key,
+    get_attr_recursive,
+    set_attr_recursive,
+)
 
 from probability import Likelihood
 from probability.observation import ObservationOperator
@@ -67,6 +72,7 @@ class ParametrizedStatFEMLikelihood(StatFEMLikelihood):
             keys = split_key(key)
             warn("Very dirty hack!")
             tvalue = np.exp(value)
+            assert get_attr_recursive(self, keys) is not None
             set_attr_recursive(self, keys, tvalue)
 
         return super().calc_pdf(x_param)
@@ -79,6 +85,7 @@ class ParametrizedStatFEMLikelihood(StatFEMLikelihood):
             keys = split_key(key)
             warn("Very dirty hack!")
             tvalue = np.exp(value)
+            assert get_attr_recursive(self, keys) is not None
             set_attr_recursive(self, keys, tvalue)
 
         return super().calc_logpdf(x_param)
