@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from myjive.fem import XElementSet, XNodeSet
-from meshing import write_mesh
+from fem.meshing import write_mesh
 from fem_props import get_fem_props
 from probability.process import (
     GaussianProcess,

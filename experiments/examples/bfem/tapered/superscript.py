@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from myjive.solver import Constrainer
-from meshing import create_phi_from_globdat
+from fem.meshing import create_phi_from_globdat
 from fem_props import get_fem_props
 from probability.process import (
     GaussianProcess,

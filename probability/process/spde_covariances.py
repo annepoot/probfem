@@ -7,8 +7,8 @@ from probability.process.gaussian_process import GaussianProcess
 from .mean_functions import ZeroMeanFunction
 from .covariance_functions import CovarianceFunction
 
-from fem import JiveRunner
-from meshing import create_unit_mass_matrix
+from fem.jive import JiveRunner
+from fem.meshing import create_unit_mass_matrix
 
 from myjive.names import GlobNames as gn
 from myjive.solver import Constrainer

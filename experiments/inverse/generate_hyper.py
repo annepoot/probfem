@@ -3,7 +3,7 @@ import pandas as pd
 
 from props.rwm_fem_hyper_props import get_rwm_fem_hyper_props
 from props.rwm_statfem_hyper_props import get_rwm_statfem_hyper_props
-from sampling import MCMCRunner
+from probability.sampling import MCMCRunner
 
 
 def mesher_lin(L, n, fname="1d-lin"):

@@ -8,8 +8,7 @@ from myjive.names import GlobNames as gn
 from myjive.util.proputils import split_off_type, check_dict, check_list
 from myjivex import declare_all
 
-from meshing import read_mesh, write_mesh, calc_elem_sizes
-from meshing.delaunay import get_patch_around_node
+from fem.meshing import read_mesh, write_mesh, calc_elem_sizes, get_patch_around_node
 
 
 class RMFEMRunner:

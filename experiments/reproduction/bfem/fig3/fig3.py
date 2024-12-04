@@ -9,9 +9,8 @@ from probability.process import (
     ProjectedPrior,
 )
 from bfem.observation import compute_bfem_observations
+from fem.meshing import create_phi_from_globdat
 from fem_props import get_fem_props
-from meshing import create_phi_from_globdat
-
 
 # Function to generate 1D meshes
 def mesher(n, L=1, fname="bar"):
