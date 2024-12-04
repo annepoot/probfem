@@ -1,17 +1,19 @@
-from myjive.app import main
 from myjivex.util import QuickViewer
-from myjivex import declare_all as declarex
-from bfem import declare_all as declarebfem
-from plate_props import props
+from fem import JiveRunner
+from fem_props import get_fem_props
+from meshing import create_phi_from_globdat
 
-extra_declares = [declarex, declarebfem]
-globdat = main.jive(props, extra_declares=extra_declares)
-cglobdat = globdat["obs"]["obs"]
-fglobdat = globdat
+coarse_props = get_fem_props("meshes/plate_r0.msh")
+fine_props = get_fem_props("meshes/plate_r1.msh")
 
+cjive = JiveRunner(coarse_props)
+cglobdat = cjive()
+fjive = JiveRunner(fine_props)
+fglobdat = fjive()
+
+Phi = create_phi_from_globdat(cglobdat, fglobdat)
 u_coarse = cglobdat["state0"]
 u = fglobdat["state0"]
-Phi = cglobdat["Phi"]
 err = u - Phi @ u_coarse
 
 QuickViewer(

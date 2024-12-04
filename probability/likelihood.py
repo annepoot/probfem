@@ -1,3 +1,6 @@
+import numpy as np
+from warnings import warn
+
 from myjive.util.proputils import (
     split_off_type,
     split_key,
@@ -8,8 +11,6 @@ from myjive.util.proputils import (
 from probability.distribution import Distribution
 from probability.observation import ObservationOperator
 
-import numpy as np
-from warnings import warn
 
 __all__ = ["Likelihood", "ParametrizedLikelihood", "ProportionalPosterior"]
 
@@ -87,7 +88,7 @@ class ProportionalPosterior(Distribution):
     def calc_pdf(self, x):
         prior_pdf = self.prior.calc_pdf(x)
         likelihood_pdf = self.likelihood.calc_pdf(x)
-        return prior_pdf + likelihood_pdf
+        return prior_pdf * likelihood_pdf
 
     def calc_logpdf(self, x):
         prior_logpdf = self.prior.calc_logpdf(x)

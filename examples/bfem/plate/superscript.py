@@ -1,23 +1,45 @@
-from myjive.app import main
-import myjive.util.proputils as pu
 from myjivex.util import QuickViewer
-from myjivex import declare_all as declarex
-from bfem import declare_all as declarebfem
+from myjive.solver import Constrainer
 
-props = pu.parse_file("plate.pro")
+from fem_props import get_fem_props
+from probability.process import (
+    GaussianProcess,
+    InverseCovarianceOperator,
+    ProjectedPrior,
+)
+from bfem.observation import compute_bfem_observations
 
-extra_declares = [declarex, declarebfem]
-globdat = main.jive(props, extra_declares=extra_declares)
+cprops = get_fem_props("meshes/plate_r0.msh")
+fprops = get_fem_props("meshes/plate_r1.msh")
 
-prior = globdat["gp"]["sequence"][0]
-u_prior = prior.calc_mean()
-std_u_prior = prior.calc_std()
-posterior = globdat["gp"]["sequence"][-1]
+inf_prior = GaussianProcess(None, InverseCovarianceOperator(fprops["model"]))
+fine_prior = ProjectedPrior(inf_prior, fprops["init"], fprops["solve"])
+coarse_prior = ProjectedPrior(inf_prior, cprops["init"], cprops["solve"])
+
+fine_globdat = fine_prior.globdat
+coarse_globdat = coarse_prior.globdat
+u_fine = fine_globdat["state0"]
+u_coarse = coarse_globdat["state0"]
+
+K = fine_globdat["matrix0"]
+f = fine_globdat["extForce"]
+c = fine_globdat["constraints"]
+conman = Constrainer(c, K)
+Kc = conman.get_output_matrix()
+fc = conman.get_rhs(f)
+
+PhiT = compute_bfem_observations(coarse_prior, fine_prior, fspace=False)
+H_obs = PhiT @ Kc
+f_obs = PhiT @ fc
+
+posterior = fine_prior.condition_on(H_obs, f_obs)
+
+u_prior = fine_prior.calc_mean()
+std_u_prior = fine_prior.calc_std()
 u_post = posterior.calc_mean()
 std_u_post = posterior.calc_std()
 
-cglobdat = globdat["obs"]["obs"]
-
-QuickViewer(cglobdat["state0"], cglobdat, comp=0, title="Coarse solution")
-QuickViewer(u_post, globdat, comp=0, title="Posterior mean")
-QuickViewer(std_u_post, globdat, comp=0, title="Posterior std")
+QuickViewer(u_coarse, coarse_globdat, comp=0, title="Coarse solution")
+QuickViewer(u_fine, fine_globdat, comp=0, title="Coarse solution")
+QuickViewer(u_post, fine_globdat, comp=0, title="Posterior mean")
+QuickViewer(std_u_post, fine_globdat, comp=0, title="Posterior std")

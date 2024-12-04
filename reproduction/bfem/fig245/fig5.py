@@ -1,24 +1,32 @@
 import numpy as np
 
-from myjive.app import main
 from myjivex.util import QuickViewer
-from myjivex import declare_all as declarex
-from bfem import declare_all as declarebfem
-from plate_props import props
+from probability.process import (
+    GaussianProcess,
+    InverseCovarianceOperator,
+    ProjectedPrior,
+)
+from bfem.observation import compute_bfem_observations
+from fem_props import get_fem_props
 
-props["model"]["bfem"]["prior"]["latent"]["cov"] = "K"
+cprops = get_fem_props("meshes/plate_r0.msh")
+fprops = get_fem_props("meshes/plate_r1.msh")
 
-extra_declares = [declarex, declarebfem]
-globdat = main.jive(props, extra_declares=extra_declares)
-cglobdat = globdat["obs"]["obs"]
-fglobdat = globdat
+inf_cov = InverseCovarianceOperator(fprops["model"])
+inf_prior = GaussianProcess(None, inf_cov)
+fine_prior = ProjectedPrior(inf_prior, fprops["init"], fprops["solve"])
+coarse_prior = ProjectedPrior(inf_prior, cprops["init"], cprops["solve"])
 
-Phi = cglobdat["Phi"]
+fglobdat = fine_prior.globdat
 f = fglobdat["extForce"]
+PhiT = compute_bfem_observations(coarse_prior, fine_prior, fspace=False)
+H_obs = PhiT @ fglobdat["matrix0"]
+f_obs = PhiT @ f
 
-mean_u_post = globdat["gp"]["mean"]["posterior"]["state0"]
-std_u_post = globdat["gp"]["std"]["posterior"]["state0"]
-cov_u_post = globdat["gp"]["cov"]["posterior"]["state0"]
+posterior = fine_prior.condition_on(H_obs, f_obs)
+mean_u_post = posterior.calc_mean()
+std_u_post = posterior.calc_std()
+cov_u_post = posterior.calc_cov()
 
 QuickViewer(
     mean_u_post,
