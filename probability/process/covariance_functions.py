@@ -1,6 +1,11 @@
 import numpy as np
 
-__all__ = ["SquaredExponential", "Noise"]
+__all__ = [
+    "CovarianceFunction",
+    "SquaredExponential",
+    "CovarianceFunctionSum",
+    "CovarianceFunctionProduct",
+]
 
 
 class CovarianceFunction:
@@ -24,23 +29,6 @@ class SquaredExponential(CovarianceFunction):
 
         dist = (X1 - X2) ** 2
         return self.sigma**2 * np.exp(-0.5 * dist / self.l**2)
-
-
-class Noise(CovarianceFunction):
-    def __init__(self, *, sigma, tol=1e-8):
-        self.sigma = sigma
-        self.tol = tol
-
-    def calc_cov(self, x1, x2):
-        if np.isscalar(x1):
-            x1 = np.array([x1])
-        if np.isscalar(x2):
-            x2 = np.array([x2])
-
-        X1 = np.tile(x1, (len(x2), 1))
-        X2 = np.tile(x2, (len(x1), 1)).T
-
-        return self.sigma**2 * (abs(X1 - X2) < self.tol)
 
 
 class CovarianceFunctionSum(CovarianceFunction):

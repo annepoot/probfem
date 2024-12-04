@@ -1,10 +1,10 @@
 import numpy as np
 import scipy.sparse as spsp
 
-__all__ = ["xConstrainer"]
+__all__ = ["XConstrainer"]
 
 
-class xConstrainer:
+class XConstrainer:
     def __init__(self, lhsconstraints, rhsconstraints, inputmatrix):
         self.update(lhsconstraints, rhsconstraints, inputmatrix)
 

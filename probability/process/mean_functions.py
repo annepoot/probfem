@@ -1,6 +1,6 @@
 import numpy as np
 
-__all__ = ["ZeroMeanFunction", "MeanFunctionSum"]
+__all__ = ["MeanFunction", "ZeroMeanFunction", "MeanFunctionSum"]
 
 
 class MeanFunction:

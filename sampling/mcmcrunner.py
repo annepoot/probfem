@@ -1,8 +1,10 @@
 import numpy as np
+
 from myjive.util.proputils import check_dict, split_off_type
 
 from probability.distribution import Distribution
 from probability.multivariate import IsotropicGaussian, DiagonalGaussian
+
 
 __all__ = ["MCMCRunner"]
 

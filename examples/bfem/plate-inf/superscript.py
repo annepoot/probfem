@@ -1,36 +1,41 @@
-from myjive.app import main
-import myjive.util.proputils as pu
 from myjivex.util import QuickViewer
-from myjivex import declare_all as declarex
-from bfem import declare_all as declarebfem
+from fem_props import get_fem_props
+from probability.process import (
+    GaussianProcess,
+    InverseCovarianceOperator,
+    ProjectedPrior,
+)
+from bfem.nonhierarchical import compute_nonhierarchical_posterior
 
-props = pu.parse_file("plate.pro")
+obs_props = get_fem_props("meshes/plate_r0.msh")
+ref_props = get_fem_props("meshes/plate_r1.msh")
 
-extra_declares = [declarex, declarebfem]
-globdat = main.jive(props, extra_declares=extra_declares)
+inf_prior = GaussianProcess(None, InverseCovarianceOperator(ref_props["model"]))
+ref_prior = ProjectedPrior(inf_prior, ref_props["init"], ref_props["solve"])
+obs_prior = ProjectedPrior(inf_prior, obs_props["init"], obs_props["solve"])
+posterior = compute_nonhierarchical_posterior(obs_prior, ref_prior)
 
-# Get the prior and posterior means and standard deviations
-u = globdat["ref"]["ref"]["state0"]
-u_coarse = globdat["obs"]["obs"]["state0"]
-# K = globdat["matrix0"].toarray()
-# f = globdat["extForce"]
+refdat = ref_prior.globdat
+obsdat = obs_prior.globdat
 
-obsdat = globdat["obs"]["obs"]
-refdat = globdat["ref"]["ref"]
+x_ref = refdat["nodeSet"].get_coords().flatten()
+x_obs = obsdat["nodeSet"].get_coords().flatten()
+u_ref = refdat["state0"]
+u_obs = obsdat["state0"]
 
-u_prior = refdat["prior"]["mean"]
-std_u_prior = refdat["prior"]["std"]
-samples_u_prior = refdat["prior"]["samples"]
-u_post = refdat["posterior"]["mean"]
-std_u_post = refdat["posterior"]["std"]
-cov_u_post = refdat["posterior"]["cov"]
-samples_u_post = refdat["posterior"]["samples"]
+u_prior = ref_prior.calc_mean()
+std_u_prior = ref_prior.calc_std()
+samples_u_prior = ref_prior.calc_samples(20, 0)
+u_post = posterior.calc_mean()
+std_u_post = posterior.calc_std()
+cov_u_post = posterior.calc_cov()
+samples_u_post = posterior.calc_samples(20, 0)
 
-QuickViewer(u, refdat, comp=0, title="Reference solution")
-QuickViewer(u_coarse, obsdat, comp=0, title="Coarse solution")
+QuickViewer(u_ref, refdat, comp=0, title="Reference solution")
+QuickViewer(u_obs, obsdat, comp=0, title="Coarse solution")
 QuickViewer(u_post, refdat, comp=0, title="Posterior mean")
 QuickViewer(std_u_post, refdat, comp=0, title="Posterior std")
 
 error_est = cov_u_post @ refdat["extForce"]
 
-QuickViewer(error_est, refdat, comp=0, title="Posterior std")
+QuickViewer(error_est, refdat, comp=0, title="Error estimate")

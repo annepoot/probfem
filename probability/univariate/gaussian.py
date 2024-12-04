@@ -1,52 +1,37 @@
-import numpy as np
+from scipy.stats import norm
 
 from ..distribution import UnivariateDistribution
-from ..multivariate import Gaussian as MVGaussian
 
 __all__ = ["Gaussian"]
 
 
 class Gaussian(UnivariateDistribution):
     def __init__(self, mean, std):
-        self.update_mean(mean)
-        self.update_std(std)
+        self.latent = norm(loc=mean, scale=std)
 
     def update_mean(self, mean):
-        if mean is None:
-            self.mean = 0.0
-        elif np.isscalar(mean):
-            self.mean = mean
-        else:
-            raise ValueError
+        self.latent = norm(loc=mean, scale=self.latent.std())
 
     def update_std(self, std):
-        if np.isscalar(std):
-            if std < 0:
-                raise ValueError
-            self.std = std
-        else:
-            raise ValueError
+        self.latent = norm(loc=self.latent.mean(), scale=std)
 
     def calc_mean(self):
-        return self.mean
+        return self.latent.mean()
 
     def calc_var(self):
-        return self.std**2
+        return self.latent.var()
 
     def calc_std(self):
-        return self.std
+        return self.latent.std()
 
     def calc_sample(self, seed):
-        rng = np.random.default_rng(seed)
-        return self.mean + self.std * rng.standard_normal()
+        return self.latent.rvs(random_state=seed)
 
     def calc_samples(self, n, seed):
-        rng = np.random.default_rng(seed)
-        return self.mean + self.std * rng.standard_normal(n)
+        return self.latent.rvs(size=n, random_state=seed)
 
     def calc_pdf(self, x):
-        return np.exp(self.calc_logpdf(x))
+        return self.latent.pdf(x)
 
     def calc_logpdf(self, x):
-        potential = 0.5 * (x - self.mean) ** 2 / self.std**2
-        return -0.5 * np.log(2 * np.pi) - np.log(self.std) - potential
+        return self.latent.logpdf(x)
