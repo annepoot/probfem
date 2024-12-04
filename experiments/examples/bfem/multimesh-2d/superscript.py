@@ -2,7 +2,7 @@ import numpy as np
 
 from myjive.fem import XElementSet, XNodeSet
 from myjivex.util import QuickViewer
-from meshing import write_mesh, create_phi_from_globdat
+from fem.meshing import write_mesh, create_phi_from_globdat
 from fem_props import get_fem_props
 from probability.process import (
     GaussianProcess,

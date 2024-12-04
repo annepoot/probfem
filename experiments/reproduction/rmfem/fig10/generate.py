@@ -3,7 +3,7 @@ import pandas as pd
 
 from props.mcmc_props import mcmc_props
 from props.rmfem_props import mwmc_props
-from sampling import MCMCRunner
+from probability.sampling import MCMCRunner
 from rmfem.rmfemrunner import RMFEMRunner
 
 

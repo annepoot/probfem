@@ -2,7 +2,7 @@ import numpy as np
 from scipy.spatial import Delaunay, ConvexHull
 
 from myjive.fem import XNodeSet, XElementSet, to_xelementset
-from meshing import create_bboxes, list_point_bbox_intersections
+from fem.meshing import create_bboxes, list_point_bbox_intersections
 
 __all__ = [
     "create_convex_triangulation",
@@ -11,6 +11,8 @@ __all__ = [
     "calc_boundary_nodes",
     "invert_convex_mesh",
     "invert_mesh",
+    "check_point_in_polygon",
+    "get_patch_around_node"
 ]
 
 

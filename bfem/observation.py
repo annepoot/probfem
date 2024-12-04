@@ -8,7 +8,7 @@ from probability.process import (
     NaturalCovarianceOperator,
     ZeroMeanFunction,
 )
-from meshing import create_phi_from_globdat
+from fem.meshing import create_phi_from_globdat
 
 __all__ = [
     "compute_bfem_observations",

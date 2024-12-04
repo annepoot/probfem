@@ -6,8 +6,7 @@ from myjive.fem.nodeset import to_xnodeset
 
 from probability.observation import FEMObservationOperator
 from probability.likelihood import Likelihood
-from meshing.delaunay import get_patch_around_node
-from meshing.meshsize import calc_elem_sizes
+from fem.meshing import get_patch_around_node, calc_elem_sizes
 
 import numpy as np
 from warnings import warn

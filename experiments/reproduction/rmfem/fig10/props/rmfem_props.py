@@ -1,4 +1,4 @@
-from sampling import MCMCRunner
+from probability.sampling import MCMCRunner
 from .mcmc_props import mcmc_props
 
 
