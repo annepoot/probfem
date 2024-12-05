@@ -26,10 +26,10 @@ class LinearObservationOperator(ObservationOperator):
         if not len(operator.shape) == 2:
             raise ValueError
 
-        self._operator = operator
+        self.operator = operator
 
     def calc_prediction(self, x):
-        return self._operator @ x
+        return self.operator @ x
 
 
 class FEMObservationOperator(ObservationOperator):
@@ -43,48 +43,53 @@ class FEMObservationOperator(ObservationOperator):
         output_dofs,
         run_modules,
     ):
-        self._forward_props = deepcopy(forward_props)
-        self._input_variables = input_variables
-        self._out_type = output_type
-        self._out_vars = output_variables
-        self._out_locs = output_locations
-        self._out_dofs = output_dofs
+        self.forward_props = deepcopy(forward_props)
+        self.input_variables = input_variables
+        self.output_type = output_type
+        self.output_variables = output_variables
+        self.output_locations = output_locations
+        self.output_dofs = output_dofs
+        self.run_modules = run_modules
 
-        if self._out_type not in ["nodal", "local"]:
+        if self.output_type not in ["nodal", "local"]:
             raise ValueError
 
         # run the full forward model at initialization
-        self._globdat = main.jive(self._forward_props, extra_declares=[declare_all])
-        self._run_modules = [self._globdat[gn.MODULES][name] for name in run_modules]
+        self.globdat = main.jive(self.forward_props, extra_declares=[declare_all])
 
     def calc_prediction(self, x):
-        if len(x) != len(self._input_variables):
+        if len(x) != len(self.input_variables):
             raise ValueError
 
-        modelprops = self._forward_props[gn.MODEL]
+        modelprops = self.forward_props[gn.MODEL]
 
-        for xi, var in zip(x, self._input_variables):
+        for xi, var in zip(x, self.input_variables):
             keys = split_key(var)
             assert get_recursive(modelprops, keys) is not None
             set_recursive(modelprops, keys, xi)
 
-        for name, model in self._globdat[gn.MODELS].items():
+        for name, model in self.globdat[gn.MODELS].items():
             _, props = split_off_type(modelprops[name])
-            model.configure(self._globdat, **props)
+            model.configure(self.globdat, **props)
 
-        for module in self._run_modules:
-            module.run(self._globdat)
+        for name in self.run_modules:
+            module = self.globdat[gn.MODULES][name]
+            module.run(self.globdat)
 
-        output = np.zeros(len(self._out_vars))
-        assert len(self._out_vars) == len(self._out_locs) == len(self._out_dofs)
+        output = np.zeros(len(self.output_variables))
+        assert (
+            len(self.output_variables)
+            == len(self.output_locations)
+            == len(self.output_dofs)
+        )
 
         for i, (var, loc, dof) in enumerate(
-            zip(self._out_vars, self._out_locs, self._out_dofs)
+            zip(self.output_variables, self.output_locations, self.output_dofs)
         ):
-            if self._out_type == "nodal":
-                pred = self._nodal_prediction(self._globdat, var, loc, dof)
-            elif self._out_type == "local":
-                pred = self._local_prediction(self._globdat, var, loc, dof)
+            if self.output_type == "nodal":
+                pred = self._nodal_prediction(self.globdat, var, loc, dof)
+            elif self.output_type == "local":
+                pred = self._local_prediction(self.globdat, var, loc, dof)
             output[i] = pred
 
         return output

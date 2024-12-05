@@ -1,12 +1,7 @@
 import numpy as np
 from warnings import warn
 
-from myjive.util.proputils import (
-    split_off_type,
-    split_key,
-    get_attr_recursive,
-    set_attr_recursive,
-)
+from myjive.util.proputils import split_key, get_attr_recursive, set_attr_recursive
 
 from probability.distribution import Distribution
 from probability.observation import ObservationOperator
@@ -17,16 +12,12 @@ __all__ = ["Likelihood", "ParametrizedLikelihood", "ProportionalPosterior"]
 
 class Likelihood(Distribution):
     def __init__(self, operator, values, noise):
-        operator_cls, operator_kws = split_off_type(operator)
-
-        if not issubclass(operator_cls, ObservationOperator):
-            raise TypeError
-        self.operator = operator_cls(**operator_kws)
+        assert isinstance(operator, ObservationOperator)
+        self.operator = operator
         self.values = values
 
-        noise_cls, noise_kws = split_off_type(noise)
-        assert issubclass(noise_cls, Distribution)
-        self.noise = noise_cls(**noise_kws)
+        assert isinstance(noise, Distribution)
+        self.noise = noise
 
     def calc_pdf(self, x):
         prediction = self.operator.calc_prediction(x)
@@ -73,14 +64,10 @@ class ParametrizedLikelihood(Likelihood):
 
 class ProportionalPosterior(Distribution):
     def __init__(self, prior, likelihood):
-        prior_cls, prior_kws = split_off_type(prior)
-        likelihood_cls, likelihood_kws = split_off_type(likelihood)
-
-        assert issubclass(prior_cls, Distribution)
-        assert issubclass(likelihood_cls, Likelihood)
-
-        self.prior = prior_cls(**prior_kws)
-        self.likelihood = likelihood_cls(**likelihood_kws)
+        assert isinstance(prior, Distribution)
+        assert isinstance(likelihood, Likelihood)
+        self.prior = prior
+        self.likelihood = likelihood
 
     def __len__(self):
         return len(self.prior)

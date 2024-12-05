@@ -1,9 +1,9 @@
-def get_fem_props():
+def get_fem_props(*, n_elem):
     fem_props = {
         "modules": ["init", "solve"],
         "init": {
             "type": "Init",
-            "mesh": {"type": "manual", "file": "1d-lin.mesh"},
+            "mesh": {"type": "manual", "file": "meshes/1d-lin-{}.mesh".format(n_elem)},
             "nodeGroups": ["left", "right"],
             "left": {"xtype": "min"},
             "right": {"xtype": "max"},

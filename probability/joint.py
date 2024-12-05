@@ -1,7 +1,5 @@
 import numpy as np
 
-from myjive.util.proputils import split_off_type
-
 from probability.distribution import (
     Distribution,
     UnivariateDistribution,
@@ -18,10 +16,8 @@ class IndependentJoint(MultivariateDistribution):
         self.distributions = []
 
         for distribution in distributions:
-            dist_cls, dist_kws = split_off_type(distribution)
-            if not issubclass(dist_cls, Distribution):
-                raise TypeError
-            self.distributions.append(dist_cls(**dist_kws))
+            assert isinstance(distribution, Distribution)
+            self.distributions.append(distribution)
 
         self._len = 0
         for dist in self.distributions:

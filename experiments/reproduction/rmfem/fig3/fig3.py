@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from myjive.app import main
-from rmfem import declare_all as declarermfem
+from rmfem.declare import declare_all as declarermfem
 from myjivex import declare_all as declarex
 from fig3_props import fig3_props
 

@@ -12,7 +12,7 @@ __all__ = [
     "invert_convex_mesh",
     "invert_mesh",
     "check_point_in_polygon",
-    "get_patch_around_node"
+    "get_patch_around_node",
 ]
 
 

@@ -1,23 +1,12 @@
+import numpy as np
 import pandas as pd
 
-from props.rwm_fem_props import get_rwm_fem_props
-from props.rwm_statfem_props import get_rwm_statfem_props
-from props.rwm_rmfem_props import get_rwm_rmfem_props
+from probability.multivariate import IsotropicGaussian
 from probability.sampling import MCMCRunner
-
-
-def mesher_lin(L, n, fname="1d-lin"):
-    dx = L / n
-    if not "." in fname:
-        fname += ".mesh"
-    with open(fname, "w") as fmesh:
-        fmesh.write("nodes (ID, x, [y], [z])\n")
-        for i in range(n + 1):
-            fmesh.write("%d %f\n" % (i, i * dx))
-        fmesh.write("elements (node#1, node#2, [node#3, ...])\n")
-        for i in range(n):
-            fmesh.write("%d %d\n" % (i, i + 1))
-
+from props.rwm_fem_props import get_rwm_fem_target
+from props.rwm_statfem_props import get_rwm_statfem_target
+from props.rwm_rmfem_props import get_rwm_rmfem_target
+from props.rwm_bfem_props import get_rwm_bfem_target
 
 statfem_hyperparams = {
     10: {
@@ -40,23 +29,26 @@ statfem_hyperparams = {
     },
 }
 
-for fem_type in ["fem", "statfem", "rmfem"]:
+for fem_type in ["bfem"]:
     for n_elem in [10, 20, 40]:
-        mesher_lin(1, n_elem)
-
         std_corruption = 1e-5
 
         if fem_type == "fem":
             sigma_e = std_corruption
-            props = get_rwm_fem_props(
-                std_corruption=std_corruption, sigma_e=sigma_e, n_rep_obs=1
+            target = get_rwm_fem_target(
+                n_elem=n_elem,
+                std_corruption=std_corruption,
+                sigma_e=sigma_e,
+                n_rep_obs=1,
             )
+            recompute_logpdf = False
         elif fem_type == "statfem":
             rho = statfem_hyperparams[n_elem]["rho"]
             l_d = statfem_hyperparams[n_elem]["l_d"]
             sigma_d = statfem_hyperparams[n_elem]["sigma_d"]
             sigma_e = statfem_hyperparams[n_elem]["sigma_e"]
-            props = get_rwm_statfem_props(
+            target = get_rwm_statfem_target(
+                n_elem=n_elem,
                 std_corruption=std_corruption,
                 rho=rho,
                 l_d=l_d,
@@ -64,19 +56,38 @@ for fem_type in ["fem", "statfem", "rmfem"]:
                 sigma_e=sigma_e,
                 n_rep_obs=1,
             )
+            recompute_logpdf = False
         elif fem_type == "rmfem":
             sigma_e = std_corruption
             n_pseudomarginal = 10
-            props = get_rwm_rmfem_props(
+            target = get_rwm_rmfem_target(
+                n_elem=n_elem,
                 std_corruption=std_corruption,
                 sigma_e=sigma_e,
                 n_rep_obs=1,
                 n_pseudomarginal=n_pseudomarginal,
             )
+            recompute_logpdf = True
+        elif fem_type == "bfem":
+            sigma_e = std_corruption
+            target = get_rwm_bfem_target(
+                n_elem=n_elem,
+                std_corruption=std_corruption,
+                sigma_e=sigma_e,
+                n_rep_obs=1,
+            )
+            recompute_logpdf = False
         else:
             raise ValueError
 
-        mcmc = MCMCRunner(**props)
+        mcmc = MCMCRunner(
+            target=target,
+            proposal=IsotropicGaussian(mean=None, std=1, size=4),
+            n_sample=10000,
+            start_value=np.zeros(4),
+            seed=0,
+            recompute_logpdf=recompute_logpdf,
+        )
         samples = mcmc()
 
         df = pd.DataFrame(samples, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
@@ -96,6 +107,8 @@ for fem_type in ["fem", "statfem", "rmfem"]:
         elif fem_type == "rmfem":
             df["sigma_e"] = sigma_e
             df["n_pseudomarginal"] = n_pseudomarginal
+        elif fem_type == "bfem":
+            df["sigma_e"] = sigma_e
         else:
             raise ValueError
 
@@ -105,5 +118,3 @@ for fem_type in ["fem", "statfem", "rmfem"]:
             df.to_csv(fname, mode="w", header="column_names", index=False)
         else:
             df.to_csv(fname, mode="a", header=False, index=False)
-
-mesher_lin(1, 10)

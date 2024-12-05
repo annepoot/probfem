@@ -1,16 +1,12 @@
 import numpy as np
 
-from .fem_props import get_fem_props
 from probability.multivariate import IsotropicGaussian
-from probability import (
-    ProportionalPosterior,
-    Likelihood,
-    FEMObservationOperator,
-)
+from probability import ProportionalPosterior, Likelihood, FEMObservationOperator
+from .fem_props import get_fem_props
 
 
-def get_rwm_fem_props(*, std_corruption, sigma_e, n_rep_obs):
-    fem_props = get_fem_props()
+def get_rwm_fem_target(*, n_elem, std_corruption, sigma_e, n_rep_obs):
+    fem_props = get_fem_props(n_elem=n_elem)
 
     # ground truth (9 locations, 9 true values)
     ground_locations = np.linspace(0, 1, 11)[1:-1].reshape((-1, 1))
@@ -35,39 +31,26 @@ def get_rwm_fem_props(*, std_corruption, sigma_e, n_rep_obs):
     obs_values = np.tile(ground_truth, n_rep_obs) + corruption
     obs_locations = np.tile(ground_locations, (n_rep_obs, 1))
 
-    rwm_fem_props = {
-        "target": {
-            "type": ProportionalPosterior,
-            "prior": {"type": IsotropicGaussian, "mean": np.zeros(4), "std": 1},
-            "likelihood": {
-                "type": Likelihood,
-                "operator": {
-                    "type": FEMObservationOperator,
-                    "input_variables": [
-                        "solid.material.params.xi_1",
-                        "solid.material.params.xi_2",
-                        "solid.material.params.xi_3",
-                        "solid.material.params.xi_4",
-                    ],
-                    "output_type": "local",
-                    "output_variables": ["state0"] * n_obs,
-                    "output_locations": obs_locations,
-                    "output_dofs": ["dx"] * n_obs,
-                    "forward_props": fem_props,
-                    "run_modules": ["solve"],
-                },
-                "values": obs_values,  # tbd
-                "noise": {
-                    "type": IsotropicGaussian,
-                    "mean": np.zeros(n_obs),
-                    "std": sigma_e,
-                },
-            },
-        },
-        "proposal": {"type": IsotropicGaussian, "mean": np.zeros(4), "std": 1},
-        "nsample": 10000,
-        "startValue": np.zeros(4),
-        "seed": 0,
-    }
+    target = ProportionalPosterior(
+        prior=IsotropicGaussian(mean=None, std=1, size=4),
+        likelihood=Likelihood(
+            operator=FEMObservationOperator(
+                forward_props=fem_props,
+                input_variables=[
+                    "solid.material.params.xi_1",
+                    "solid.material.params.xi_2",
+                    "solid.material.params.xi_3",
+                    "solid.material.params.xi_4",
+                ],
+                output_type="local",
+                output_variables=["state0"] * n_obs,
+                output_locations=obs_locations,
+                output_dofs=["dx"] * n_obs,
+                run_modules=["solve"],
+            ),
+            values=obs_values,
+            noise=IsotropicGaussian(mean=None, std=sigma_e, size=n_obs),
+        ),
+    )
 
-    return rwm_fem_props
+    return target

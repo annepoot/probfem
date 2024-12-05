@@ -4,7 +4,14 @@ from warnings import warn
 
 from ..distribution import MultivariateDistribution
 
-__all__ = ["Gaussian", "ScaledGaussian", "ShiftedGaussian", "ConditionedGaussian"]
+__all__ = [
+    "GaussianLike",
+    "Gaussian",
+    "ScaledGaussian",
+    "ShiftedGaussian",
+    "ConditionedGaussian",
+    "IndependentGaussianSum",
+]
 
 
 class GaussianLike(MultivariateDistribution):
@@ -19,6 +26,9 @@ class GaussianLike(MultivariateDistribution):
     def __add__(self, shift):
         if isinstance(shift, np.ndarray):
             return ShiftedGaussian(self, shift)
+        elif isinstance(shift, GaussianLike):
+            warn("assuming independence between added Gaussians")
+            return IndependentGaussianSum(self, shift)
         else:
             raise ValueError("cannot handle shift of type '{}'".format(type(shift)))
 
@@ -49,6 +59,12 @@ class GaussianLike(MultivariateDistribution):
     def __imul__(self, scale):
         return self.__mul__(scale)
 
+    def __matmul__(self, scale):
+        if isinstance(scale, np.ndarray):
+            return ScaledGaussian(self, scale.T)
+        else:
+            raise ValueError("cannot handle matmul of type '{}'".format(type(scale)))
+
     def __truediv__(self, scale):
         return self.__mul__(1 / scale)
 
@@ -73,8 +89,10 @@ class GaussianLike(MultivariateDistribution):
     def condition_on(self, operator, measurements):
         return ConditionedGaussian(self, operator, measurements)
 
-    def to_gaussian(self):
-        return Gaussian(self.calc_mean(), self.calc_cov())
+    def to_gaussian(self, allow_singular=False):
+        return Gaussian(
+            self.calc_mean(), self.calc_cov(), allow_singular=allow_singular
+        )
 
 
 class Gaussian(GaussianLike):
@@ -220,3 +238,42 @@ class ConditionedGaussian(GaussianLike):
             samples
             + (np.tile(self.obs, (n, 1)) - samples @ self.linop.T) @ self.kalman_gain.T
         )
+
+
+class IndependentGaussianSum(GaussianLike):
+
+    def __init__(self, *gaussians):
+        for gaussian in gaussians:
+            assert isinstance(gaussian, GaussianLike)
+            assert len(gaussian) == len(gaussians[0])
+
+        self.gaussians = gaussians
+
+    def __len__(self):
+        return len(self.gaussians[0])
+
+    def calc_mean(self):
+        mean = np.zeros(len(self))
+        for gaussian in self.gaussians:
+            mean += gaussian.calc_mean()
+        return mean
+
+    def calc_cov(self):
+        cov = np.zeros((len(self), len(self)))
+        for gaussian in self.gaussians:
+            cov += gaussian.calc_cov()
+        return cov
+
+    def calc_sample(self, seed):
+        sample = np.zeros(len(self))
+        rng = np.random.default_rng(seed)
+        for gaussian in self.gaussians:
+            sample += gaussian.calc_sample(rng)
+        return sample
+
+    def calc_samples(self, n, seed):
+        samples = np.zeros((n, len(self)))
+        rng = np.random.default_rng(seed)
+        for gaussian in self.gaussians:
+            samples += gaussian.calc_samples(n, rng)
+        return samples

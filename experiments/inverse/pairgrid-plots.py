@@ -28,11 +28,12 @@ labels_by_var = {
 
 title_map = {
     "fem": "FEM",
+    "bfem": "BFEM",
     "statfem": "StatFEM",
     "rmfem": "RM-FEM",
 }
 
-for fem_type in ["fem", "statfem", "rmfem"]:
+for fem_type in ["fem", "bfem", "statfem", "rmfem"]:
     for width in [0.1]:
         N_burn = 5000
         N_filter = 10
