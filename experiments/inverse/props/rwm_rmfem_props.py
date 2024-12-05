@@ -1,24 +1,35 @@
 from rmfem import PseudoMarginalLikelihood, RMFEMObservationOperator
-from .rwm_fem_props import get_rwm_fem_props
+from .rwm_fem_props import get_rwm_fem_target
 
 
-def get_rwm_rmfem_props(*, std_corruption, sigma_e, n_rep_obs, n_pseudomarginal):
-    rwm_rmfem_props = get_rwm_fem_props(
-        std_corruption=std_corruption, sigma_e=sigma_e, n_rep_obs=n_rep_obs
+def get_rwm_rmfem_target(
+    *, n_elem, std_corruption, sigma_e, n_rep_obs, n_pseudomarginal
+):
+    target = get_rwm_fem_target(
+        n_elem=n_elem,
+        std_corruption=std_corruption,
+        sigma_e=sigma_e,
+        n_rep_obs=n_rep_obs,
     )
 
-    pmlikelihood_props = {
-        "type": PseudoMarginalLikelihood,
-        "likelihood": rwm_rmfem_props["target"].pop("likelihood"),
-        "n_sample": n_pseudomarginal,
-    }
-    rwm_rmfem_props["target"]["likelihood"] = pmlikelihood_props
+    old_likelihood = target.likelihood
+    new_likelihood = PseudoMarginalLikelihood(
+        likelihood=old_likelihood, n_sample=n_pseudomarginal
+    )
+    target.likelihood = new_likelihood
 
-    obsoperator_props = pmlikelihood_props["likelihood"]["operator"]
-    obsoperator_props["type"] = RMFEMObservationOperator
-    obsoperator_props["p"] = 1
-    obsoperator_props["seed"] = 0
+    old_operator = target.likelihood.likelihood.operator
+    new_operator = RMFEMObservationOperator(
+        p=1,
+        seed=0,
+        forward_props=old_operator.forward_props,
+        input_variables=old_operator.input_variables,
+        output_type=old_operator.output_type,
+        output_variables=old_operator.output_variables,
+        output_locations=old_operator.output_locations,
+        output_dofs=old_operator.output_dofs,
+        run_modules=old_operator.run_modules,
+    )
+    target.likelihood.likelihood.operator = new_operator
 
-    rwm_rmfem_props["recompute_logpdf"] = True
-
-    return rwm_rmfem_props
+    return target

@@ -6,8 +6,9 @@ from probability import IndependentJoint
 from statfem.likelihood import ParametrizedStatFEMLikelihood
 
 
-def get_rwm_statfem_hyper_props(*, std_corruption, n_rep_obs):
+def get_rwm_statfem_hyper_props(*, n_elem, std_corruption, n_rep_obs):
     rwm_statfem_hyper_props = get_rwm_statfem_props(
+        n_elem=n_elem,
         std_corruption=std_corruption,
         rho=1.0,
         l_d=1.0,

@@ -12,6 +12,7 @@ from bfem.observation import compute_bfem_observations
 from fem.meshing import create_phi_from_globdat
 from fem_props import get_fem_props
 
+
 # Function to generate 1D meshes
 def mesher(n, L=1, fname="bar"):
     dx = L / n

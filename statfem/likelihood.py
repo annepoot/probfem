@@ -2,7 +2,6 @@ import numpy as np
 from warnings import warn
 
 from myjive.util.proputils import (
-    split_off_type,
     split_key,
     get_attr_recursive,
     set_attr_recursive,
@@ -20,27 +19,19 @@ __all__ = ["StatFEMLikelihood", "ParametrizedStatFEMLikelihood"]
 
 class StatFEMLikelihood(Likelihood):
     def __init__(self, operator, values, rho, d, e, locations):
-        operator_cls, operator_kws = split_off_type(operator)
-
-        if not issubclass(operator_cls, ObservationOperator):
-            raise TypeError
-
-        self.operator = operator_cls(**operator_kws)
+        assert isinstance(operator, ObservationOperator)
+        self.operator = operator
         self.values = values
 
         assert np.isscalar(rho)
         self.rho = rho
 
-        misspec_cls, misspec_kws = split_off_type(d)
-        assert issubclass(misspec_cls, GaussianProcess)
-        dcov_cls, dcov_kws = split_off_type(misspec_kws["cov"])
-        assert issubclass(dcov_cls, CovarianceFunction)
-        dcov = dcov_cls(**dcov_kws)
-        self.d = misspec_cls(mean=None, cov=dcov)
+        assert isinstance(d, GaussianProcess)
+        assert isinstance(d.cov, CovarianceFunction)
+        self.d = d
 
-        noise_cls, noise_kws = split_off_type(e)
-        assert issubclass(noise_cls, GaussianLike)
-        self.e = noise_cls(**noise_kws)
+        assert isinstance(e, GaussianLike)
+        self.e = e
 
         self.locations = locations
 

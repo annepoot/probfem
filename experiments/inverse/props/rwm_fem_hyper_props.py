@@ -5,9 +5,9 @@ from probability.univariate import Gaussian
 from probability import ParametrizedLikelihood, IndependentJoint
 
 
-def get_rwm_fem_hyper_props(*, std_corruption, n_rep_obs):
+def get_rwm_fem_hyper_props(*, n_elem, std_corruption, n_rep_obs):
     rwm_fem_hyper_props = get_rwm_fem_props(
-        std_corruption=std_corruption, sigma_e=1.0, n_rep_obs=n_rep_obs
+        n_elem=n_elem, std_corruption=std_corruption, sigma_e=1.0, n_rep_obs=n_rep_obs
     )
 
     rwm_fem_hyper_props["target"]["prior"] = {

@@ -1,4 +1,3 @@
-from myjive.util.proputils import split_off_type
 from scipy.special import logsumexp
 
 from myjive.names import GlobNames as gn
@@ -22,8 +21,8 @@ class RMFEMObservationOperator(FEMObservationOperator):
         self.p = p
         self.rng = np.random.default_rng(seed)
 
-        self.elems = self._globdat[gn.ESET]
-        self.nodes = self._globdat[gn.NSET]
+        self.elems = self.globdat[gn.ESET]
+        self.nodes = self.globdat[gn.NSET]
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
 
@@ -47,7 +46,7 @@ class RMFEMObservationOperator(FEMObservationOperator):
         to_xnodeset(self.nodes)
         self.nodes.set_coords(new_coords)
         self.nodes.to_nodeset()
-        assert self.nodes == self._globdat[gn.NSET]
+        assert self.nodes == self.globdat[gn.NSET]
 
         self._perturbed = True
 
@@ -98,11 +97,8 @@ class RMFEMObservationOperator(FEMObservationOperator):
 class PseudoMarginalLikelihood(Likelihood):
 
     def __init__(self, likelihood, n_sample):
-        likelihood_cls, likelihood_kws = split_off_type(likelihood)
-
-        assert issubclass(likelihood_cls, Likelihood)
-
-        self.likelihood = likelihood_cls(**likelihood_kws)
+        assert isinstance(likelihood, Likelihood)
+        self.likelihood = likelihood
         self.n_sample = n_sample
 
     def calc_pdf(self, x):
