@@ -10,7 +10,7 @@ from myjive.util.proputils import (
 
 from probability import Likelihood, FEMObservationOperator
 from probability.observation import ObservationOperator
-from probability.multivariate import GaussianLike
+from probability.multivariate import GaussianLike, IndependentGaussianSum
 from probability.process import ProjectedPrior
 from bfem.observation import compute_bfem_observations
 
@@ -19,19 +19,10 @@ __all__ = ["BFEMLikelihood"]
 
 
 class BFEMLikelihood(Likelihood):
-    def __init__(self, operator, values, obs_prior, ref_prior, noise):
+    def __init__(self, operator, values, noise):
         assert isinstance(operator, ObservationOperator)
         self.operator = operator
         self.values = values
-
-        self.PhiT = compute_bfem_observations(obs_prior, ref_prior)
-
-        ref_globdat = ref_prior.globdat
-        H_obs = self.PhiT @ ref_globdat["matrix0"]
-        f_obs = self.PhiT @ ref_globdat["extForce"]
-
-        posterior = ref_prior.condition_on(H_obs, f_obs)
-        self.posterior = posterior.to_gaussian(allow_singular=True)
 
         assert isinstance(noise, GaussianLike)
         self.noise = noise
@@ -43,7 +34,7 @@ class BFEMLikelihood(Likelihood):
 
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        de = (prediction + self.noise).to_gaussian()
+        de = (IndependentGaussianSum(prediction, self.noise)).to_gaussian()
         return de.calc_logpdf(self.values)
 
 

@@ -1,10 +1,8 @@
 import numpy as np
 
-from myjive.util.proputils import check_dict
-
-from probability.distribution import Distribution
-from probability.multivariate import IsotropicGaussian, DiagonalGaussian
-
+from probability import Distribution, IndependentJoint
+from probability.multivariate import IsotropicGaussian, DiagonalGaussian, Gaussian
+from probability.univariate import LogGaussian
 
 __all__ = ["MCMCRunner"]
 
@@ -59,16 +57,7 @@ class MCMCRunner:
 
                     if not np.isclose(oldscaling, newscaling):
                         factor = newscaling / oldscaling
-                        if isinstance(self.proposal, IsotropicGaussian):
-                            std = self.proposal.calc_std()
-                            assert np.allclose(std, std[0])
-                            self.proposal.update_std(np.sqrt(factor) * std[0])
-                        elif isinstance(self.proposal, DiagonalGaussian):
-                            diag = self.proposal.calc_diag()
-                            self.proposal.update_diag(factor * diag)
-                        else:
-                            cov = self.proposal.calc_cov()
-                            self.proposal.update_cov(factor * cov)
+                        self._scale_proposal(self.proposal, factor)
                         self.scaling = newscaling
 
                     accept_rate = 0.0
@@ -117,3 +106,23 @@ class MCMCRunner:
         print("New scaling:", scaling)
         print("")
         return scaling
+
+    def _scale_proposal(self, proposal, factor):
+        if isinstance(proposal, IndependentJoint):
+            for dist in proposal.distributions:
+                self._scale_proposal(dist, factor)
+        elif isinstance(proposal, IsotropicGaussian):
+            std = proposal.calc_std()
+            assert np.allclose(std, std[0])
+            proposal.update_std(np.sqrt(factor) * std[0])
+        elif isinstance(proposal, DiagonalGaussian):
+            diag = proposal.calc_diag()
+            proposal.update_diag(factor * diag)
+        elif isinstance(proposal, Gaussian):
+            cov = proposal.calc_cov()
+            proposal.update_cov(factor * cov)
+        elif isinstance(proposal, LogGaussian):
+            logstd = proposal.calc_latent_std()
+            proposal.update_latent_std(factor * logstd)
+        else:
+            raise ValueError

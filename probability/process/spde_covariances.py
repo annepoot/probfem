@@ -27,8 +27,9 @@ class CovarianceOperator(CovarianceFunction):
 
 
 class InverseCovarianceOperator(CovarianceOperator):
-    def __init__(self, model_props):
+    def __init__(self, *, model_props, scale):
         self.model_props = model_props
+        self.scale = scale
 
     def calc_cov(self, v1, v2):
         # covariance implied by diffop^-1
@@ -38,8 +39,9 @@ class InverseCovarianceOperator(CovarianceOperator):
 
 
 class NaturalCovarianceOperator(CovarianceOperator):
-    def __init__(self, model_props, lumped_mass_matrix):
+    def __init__(self, *, model_props, scale, lumped_mass_matrix):
         self.model_props = model_props
+        self.scale = scale
         self.lumped_mass_matrix = lumped_mass_matrix
 
     def calc_cov(self, v1, v2):
@@ -51,7 +53,7 @@ class NaturalCovarianceOperator(CovarianceOperator):
 
 class ProjectedPrior(Gaussian):
 
-    def __init__(self, prior, init_props, solve_props, sigma_pd=1e-8):
+    def __init__(self, *, prior, init_props, solve_props, sigma_pd=1e-8):
         assert isinstance(prior, GaussianProcess)
         assert isinstance(prior.mean, ZeroMeanFunction)
         assert isinstance(
@@ -88,18 +90,26 @@ class ProjectedPrior(Gaussian):
             c = globdat[gn.CONSTRAINTS]
             if issparse(K):
                 K = K.toarray()
-            Kc = self._constrain_precision(K, c)
-            cov = Covariance.from_precision(Kc)
+
+            scale = self.prior.cov.scale
+            aK = K / scale
+
+            aKc = self._constrain_precision(aK, c)
+            cov = Covariance.from_precision(aKc)
+
         elif isinstance(self.prior.cov, NaturalCovarianceOperator):
             K = globdat[gn.MATRIX0]
             if issparse(K):
                 K = K.toarray()
 
+            scale = self.prior.cov.scale
             lumpM = self.prior.cov.lumped_mass_matrix
             M_inv = self._compute_inv_mass_matrix(globdat, lumped=lumpM)
+            aKMK = (K @ M_inv @ K) / scale
 
-            KMKc = self._constrain_precision(K @ M_inv @ K, globdat[gn.CONSTRAINTS])
-            cov = Covariance.from_precision(KMKc)
+            aKMKc = self._constrain_precision(aKMK, globdat[gn.CONSTRAINTS])
+            cov = Covariance.from_precision(aKMKc)
+
         else:
             assert False
 

@@ -33,9 +33,12 @@ title_map = {
     "rmfem": "RM-FEM",
 }
 
-for fem_type in ["fem", "bfem", "statfem", "rmfem"]:
+for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for width in [0.1]:
-        N_burn = 5000
+        if fem_type == "bfem":
+            N_burn = 45000
+        else:
+            N_burn = 5000
         N_filter = 10
 
         fname = "samples-{}.csv".format(fem_type)

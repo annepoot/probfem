@@ -1,31 +1,24 @@
 import numpy as np
 
-from .rwm_fem_props import get_rwm_fem_props
-from probability.univariate import Gaussian
+from probability.univariate import LogGaussian
 from probability import ParametrizedLikelihood, IndependentJoint
+from .rwm_fem_props import get_rwm_fem_target
 
 
-def get_rwm_fem_hyper_props(*, n_elem, std_corruption, n_rep_obs):
-    rwm_fem_hyper_props = get_rwm_fem_props(
+def get_rwm_fem_hyper_target(*, n_elem, std_corruption, n_rep_obs):
+    target = get_rwm_fem_target(
         n_elem=n_elem, std_corruption=std_corruption, sigma_e=1.0, n_rep_obs=n_rep_obs
     )
+    param_prior = target.prior
+    noise_prior = LogGaussian(np.log(1e-4), np.log(1e1), allow_logscale_access=True)
+    joint_prior = IndependentJoint(param_prior, noise_prior)
+    target.prior = joint_prior
 
-    rwm_fem_hyper_props["target"]["prior"] = {
-        "type": IndependentJoint,
-        "distributions": [
-            rwm_fem_hyper_props["target"].pop("prior"),
-            {"type": Gaussian, "mean": np.log(1e-4), "std": np.log(1e1)},
-        ],
-    }
-    rwm_fem_hyper_props["target"]["likelihood"]["type"] = ParametrizedLikelihood
-    rwm_fem_hyper_props["target"]["likelihood"]["hyperparameters"] = ["noise.std"]
-    rwm_fem_hyper_props["proposal"] = {
-        "type": IndependentJoint,
-        "distributions": [
-            rwm_fem_hyper_props.pop("proposal"),
-            {"type": Gaussian, "mean": np.log(1e-4), "std": np.log(1e1)},
-        ],
-    }
-    rwm_fem_hyper_props["startValue"] = np.zeros(5)
+    old_likelihood = target.likelihood
+    new_likelihood = ParametrizedLikelihood(
+        likelihood=old_likelihood,
+        hyperparameters=["noise.update_std"],
+    )
+    target.likelihood = new_likelihood
 
-    return rwm_fem_hyper_props
+    return target

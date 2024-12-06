@@ -78,4 +78,4 @@ class GaussianProcess(Distribution):
     def evaluate_at(self, x):
         mean = self.calc_mean(x)
         cov = self.calc_cov(x, x)
-        return Gaussian(mean, cov)
+        return Gaussian(mean, cov, allow_singular=True)

@@ -1,7 +1,8 @@
-import numpy as np
-from warnings import warn
-
-from myjive.util.proputils import split_key, get_attr_recursive, set_attr_recursive
+from myjive.util.proputils import (
+    split_key,
+    get_attr_recursive,
+    set_or_call_attr_recursive,
+)
 
 from probability.distribution import Distribution
 from probability.observation import ObservationOperator
@@ -31,8 +32,9 @@ class Likelihood(Distribution):
 
 
 class ParametrizedLikelihood(Likelihood):
-    def __init__(self, operator, values, noise, hyperparameters):
-        super().__init__(operator=operator, values=values, noise=noise)
+    def __init__(self, likelihood, hyperparameters):
+        assert isinstance(likelihood, Likelihood)
+        self.likelihood = likelihood
         self.hyperparameters = hyperparameters
 
     def calc_pdf(self, x):
@@ -41,12 +43,10 @@ class ParametrizedLikelihood(Likelihood):
         x_param, x_hyper = x[:-nhyp], x[-nhyp:]
         for key, value in zip(self.hyperparameters, x_hyper):
             keys = split_key(key)
-            warn("Very dirty hack!")
-            tvalue = np.exp(value)
             assert get_attr_recursive(self, keys) is not None
-            set_attr_recursive(self, keys, tvalue)
+            set_or_call_attr_recursive(self.likelihood, keys, value)
 
-        return super().calc_pdf(x_param)
+        return self.likelihood.calc_pdf(x_param)
 
     def calc_logpdf(self, x):
         # split off hyperparameters from the back, and update them
@@ -54,12 +54,10 @@ class ParametrizedLikelihood(Likelihood):
         x_param, x_hyper = x[:-nhyp], x[-nhyp:]
         for key, value in zip(self.hyperparameters, x_hyper):
             keys = split_key(key)
-            warn("Very dirty hack!")
-            tvalue = np.exp(value)
-            assert get_attr_recursive(self, keys) is not None
-            set_attr_recursive(self, keys, tvalue)
+            assert get_attr_recursive(self.likelihood, keys) is not None
+            set_or_call_attr_recursive(self.likelihood, keys, value)
 
-        return super().calc_logpdf(x_param)
+        return self.likelihood.calc_logpdf(x_param)
 
 
 class ProportionalPosterior(Distribution):

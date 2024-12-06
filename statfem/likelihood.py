@@ -1,20 +1,13 @@
 import numpy as np
-from warnings import warn
-
-from myjive.util.proputils import (
-    split_key,
-    get_attr_recursive,
-    set_attr_recursive,
-)
 
 from probability import Likelihood
 from probability.observation import ObservationOperator
-from probability.multivariate.gaussian import GaussianLike
+from probability.multivariate import GaussianLike, IndependentGaussianSum
 from probability.process.gaussian_process import GaussianProcess
 from probability.process.covariance_functions import CovarianceFunction
 
 
-__all__ = ["StatFEMLikelihood", "ParametrizedStatFEMLikelihood"]
+__all__ = ["StatFEMLikelihood"]
 
 
 class StatFEMLikelihood(Likelihood):
@@ -37,46 +30,14 @@ class StatFEMLikelihood(Likelihood):
 
     def calc_pdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        de = (self.d.evaluate_at(self.locations) + self.e).to_gaussian()
+        de = IndependentGaussianSum(self.d.evaluate_at(self.locations), self.e)
+        de = de.to_gaussian(allow_singular=True)
         de.update_mean(self.rho * prediction)
         return de.calc_pdf(self.values)
 
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        de = (self.d.evaluate_at(self.locations) + self.e).to_gaussian()
+        de = IndependentGaussianSum(self.d.evaluate_at(self.locations), self.e)
+        de = de.to_gaussian(allow_singular=True)
         de.update_mean(self.rho * prediction)
         return de.calc_logpdf(self.values)
-
-
-class ParametrizedStatFEMLikelihood(StatFEMLikelihood):
-    def __init__(self, operator, values, rho, d, e, locations, hyperparameters):
-        super().__init__(
-            operator=operator, values=values, rho=rho, d=d, e=e, locations=locations
-        )
-        self.hyperparameters = hyperparameters
-
-    def calc_pdf(self, x):
-        # split off hyperparameters from the back, and update them
-        nhyp = len(self.hyperparameters)
-        x_param, x_hyper = x[:-nhyp], x[-nhyp:]
-        for key, value in zip(self.hyperparameters, x_hyper):
-            keys = split_key(key)
-            warn("Very dirty hack!")
-            tvalue = np.exp(value)
-            assert get_attr_recursive(self, keys) is not None
-            set_attr_recursive(self, keys, tvalue)
-
-        return super().calc_pdf(x_param)
-
-    def calc_logpdf(self, x):
-        # split off hyperparameters from the back, and update them
-        nhyp = len(self.hyperparameters)
-        x_param, x_hyper = x[:-nhyp], x[-nhyp:]
-        for key, value in zip(self.hyperparameters, x_hyper):
-            keys = split_key(key)
-            warn("Very dirty hack!")
-            tvalue = np.exp(value)
-            assert get_attr_recursive(self, keys) is not None
-            set_attr_recursive(self, keys, tvalue)
-
-        return super().calc_logpdf(x_param)
