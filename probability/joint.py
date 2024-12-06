@@ -12,19 +12,17 @@ __all__ = ["IndependentJoint"]
 
 
 class IndependentJoint(MultivariateDistribution):
-    def __init__(self, distributions):
-        self.distributions = []
+    def __init__(self, *distributions):
+        for dist in distributions:
+            assert isinstance(dist, Distribution)
 
-        for distribution in distributions:
-            assert isinstance(distribution, Distribution)
-            self.distributions.append(distribution)
-
-        self._len = 0
-        for dist in self.distributions:
-            self._len += len(dist)
+        self.distributions = distributions
 
     def __len__(self):
-        return self._len
+        length = 0
+        for dist in self.distributions:
+            length += len(dist)
+        return length
 
     def update_mean(self, mean):
         offset = 0
@@ -36,7 +34,7 @@ class IndependentJoint(MultivariateDistribution):
             else:
                 dist.update_mean(mean[offset : offset + l])
             offset += l
-        assert offset == self._len
+        assert offset == len(self)
 
     def update_cov(self, cov):
         offset = 0
@@ -55,26 +53,28 @@ class IndependentJoint(MultivariateDistribution):
             else:
                 dist.update_cov(cov[offset : offset + l, offset : offset + l])
             offset += l
-        assert offset == self._len
+        assert offset == len(self)
 
     def calc_sample(self, seed):
-        sample = np.zeros(self._len)
+        length = len(self)
+        sample = np.zeros(length)
         offset = 0
         for dist in self.distributions:
             l = len(dist)
             sample[offset : offset + l] = dist.calc_sample(seed)
             offset += l
-        assert offset == self._len
+        assert offset == length
         return sample
 
     def calc_samples(self, n, seed):
-        samples = np.zeros((self._len, n))
+        length = len(self)
+        samples = np.zeros((n, length))
         offset = 0
         for dist in self.distributions:
             l = len(dist)
-            samples[offset : offset + l, :] = dist.calc_samples(n, seed)
+            samples[:, offset : offset + l] = dist.calc_samples(n, seed)
             offset += l
-        assert offset == self._len
+        assert offset == length
         return samples
 
     def calc_pdf(self, x):
@@ -88,7 +88,7 @@ class IndependentJoint(MultivariateDistribution):
             else:
                 pdf *= dist.calc_pdf(x[offset : offset + l])
             offset += l
-        assert offset == self._len
+        assert offset == len(self)
         return pdf
 
     def calc_logpdf(self, x):
@@ -102,21 +102,23 @@ class IndependentJoint(MultivariateDistribution):
             else:
                 logpdf += dist.calc_logpdf(x[offset : offset + l])
             offset += l
-        assert offset == self._len
+        assert offset == len(self)
         return logpdf
 
     def calc_mean(self):
-        mean = np.zeros(self._len)
+        length = len(self)
+        mean = np.zeros(length)
         offset = 0
         for dist in self.distributions:
             l = len(dist)
             mean[offset : offset + l] = dist.calc_mean()
             offset += l
-        assert offset == self._len
+        assert offset == length
         return mean
 
     def calc_cov(self):
-        cov = np.zeros((self._len, self._len))
+        length = len(self)
+        cov = np.zeros((length, length))
         offset = 0
         for dist in self.distributions:
             l = len(dist)
@@ -126,15 +128,16 @@ class IndependentJoint(MultivariateDistribution):
             else:
                 cov[offset : offset + l, offset : offset + l] = dist.calc_cov()
             offset += l
-        assert offset == self._len
+        assert offset == length
         return cov
 
     def calc_std(self):
-        std = np.zeros(self._len)
+        length = len(self)
+        std = np.zeros(length)
         offset = 0
         for dist in self.distributions:
             l = len(dist)
             std[offset : offset + l] = dist.calc_std()
             offset += l
-        assert offset == self._len
+        assert offset == length
         return std

@@ -97,18 +97,23 @@ class GaussianLike(MultivariateDistribution):
 
 class Gaussian(GaussianLike):
     def __init__(self, mean, cov, allow_singular=False):
+        self.allow_singular = allow_singular
         self.latent = multivariate_normal(
-            mean=mean, cov=cov, allow_singular=allow_singular
+            mean=mean, cov=cov, allow_singular=self.allow_singular
         )
 
     def __len__(self):
         return len(self.latent.mean)
 
     def update_mean(self, mean):
-        self.latent = multivariate_normal(mean, self.latent.cov)
+        self.latent = multivariate_normal(
+            mean, self.latent.cov, allow_singular=self.allow_singular
+        )
 
     def update_cov(self, cov):
-        self.latent = multivariate_normal(self.latent.mean, cov)
+        self.latent = multivariate_normal(
+            self.latent.mean, cov, allow_singular=self.allow_singular
+        )
 
     def calc_mean(self):
         return self.latent.mean

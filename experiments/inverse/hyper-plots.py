@@ -5,7 +5,8 @@ import seaborn as sns
 
 variables = {
     "fem": ["sigma_e"],
-    "statfem": ["rho", "l_d", "sigma_d", "sigma_e"],
+    "bfem": ["scale"],
+    "statfem": ["rho", "l_d", "sigma_d"],
 }
 
 labels_by_var = {
@@ -18,7 +19,7 @@ labels_by_var = {
 N_burn = 5000
 N_filter = 1
 
-for fem_type in ["fem", "statfem"]:
+for fem_type in ["fem", "bfem", "statfem"]:
     fname = "samples-{}-hyper.csv".format(fem_type)
     df = pd.read_csv(fname)
     df["n_elem"] = df["n_elem"].astype(str)

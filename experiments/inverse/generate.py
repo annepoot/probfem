@@ -1,7 +1,6 @@
-import numpy as np
 import pandas as pd
+from copy import deepcopy
 
-from probability.multivariate import IsotropicGaussian
 from probability.sampling import MCMCRunner
 from props.rwm_fem_props import get_rwm_fem_target
 from props.rwm_statfem_props import get_rwm_statfem_target
@@ -29,7 +28,7 @@ statfem_hyperparams = {
     },
 }
 
-for fem_type in ["bfem"]:
+for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for n_elem in [10, 20, 40]:
         std_corruption = 1e-5
 
@@ -42,17 +41,12 @@ for fem_type in ["bfem"]:
                 n_rep_obs=1,
             )
             recompute_logpdf = False
-        elif fem_type == "statfem":
-            rho = statfem_hyperparams[n_elem]["rho"]
-            l_d = statfem_hyperparams[n_elem]["l_d"]
-            sigma_d = statfem_hyperparams[n_elem]["sigma_d"]
-            sigma_e = statfem_hyperparams[n_elem]["sigma_e"]
-            target = get_rwm_statfem_target(
+        elif fem_type == "bfem":
+            sigma_e = std_corruption
+            target = get_rwm_bfem_target(
                 n_elem=n_elem,
                 std_corruption=std_corruption,
-                rho=rho,
-                l_d=l_d,
-                sigma_d=sigma_d,
+                scale=0.001044860592586493,  # f_c.T @ u_c / n_c
                 sigma_e=sigma_e,
                 n_rep_obs=1,
             )
@@ -68,11 +62,17 @@ for fem_type in ["bfem"]:
                 n_pseudomarginal=n_pseudomarginal,
             )
             recompute_logpdf = True
-        elif fem_type == "bfem":
-            sigma_e = std_corruption
-            target = get_rwm_bfem_target(
+        elif fem_type == "statfem":
+            rho = statfem_hyperparams[n_elem]["rho"]
+            l_d = statfem_hyperparams[n_elem]["l_d"]
+            sigma_d = statfem_hyperparams[n_elem]["sigma_d"]
+            sigma_e = statfem_hyperparams[n_elem]["sigma_e"]
+            target = get_rwm_statfem_target(
                 n_elem=n_elem,
                 std_corruption=std_corruption,
+                rho=rho,
+                l_d=l_d,
+                sigma_d=sigma_d,
                 sigma_e=sigma_e,
                 n_rep_obs=1,
             )
@@ -80,11 +80,13 @@ for fem_type in ["bfem"]:
         else:
             raise ValueError
 
+        proposal = deepcopy(target.prior)
+        start_value = target.prior.calc_mean()
         mcmc = MCMCRunner(
             target=target,
-            proposal=IsotropicGaussian(mean=None, std=1, size=4),
+            proposal=proposal,
             n_sample=10000,
-            start_value=np.zeros(4),
+            start_value=start_value,
             seed=0,
             recompute_logpdf=recompute_logpdf,
         )
