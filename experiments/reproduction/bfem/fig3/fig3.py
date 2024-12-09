@@ -10,29 +10,14 @@ from probability.process import (
 )
 from bfem.observation import compute_bfem_observations
 from fem.meshing import create_phi_from_globdat
-from fem_props import get_fem_props
+from experiments.reproduction.bfem.fig3.fem_props import get_fem_props
 
 
-# Function to generate 1D meshes
-def mesher(n, L=1, fname="bar"):
-    dx = L / n
-    if not "." in fname:
-        fname += ".mesh"
-
-    with open(fname, "w") as fmesh:
-        fmesh.write("nodes (ID, x, [y], [z])\n")
-        for i in range(n + 1):
-            fmesh.write("%d %f\n" % (i, i * dx))
-        fmesh.write("elements (node#1, node#2, [node#3, ...])\n")
-        for i in range(n):
-            fmesh.write("%d %d\n" % (i, i + 1))
-
-
-cprops = get_fem_props("bar_coarse.mesh")
-fprops = get_fem_props("bar_fine.mesh")
-
-K_cov = InverseCovarianceOperator(fprops["model"])
-M_cov = NaturalCovarianceOperator(fprops["model"], lumped_mass_matrix=False)
+fprops = get_fem_props("meshes/1d-lin-64.mesh")
+K_cov = InverseCovarianceOperator(model_props=fprops["model"], scale=1.0)
+M_cov = NaturalCovarianceOperator(
+    model_props=fprops["model"], scale=1.0, lumped_mass_matrix=False
+)
 
 # Loop over different covariance matrices
 for inf_cov in [M_cov, K_cov]:
@@ -42,15 +27,18 @@ for inf_cov in [M_cov, K_cov]:
         cov_name = "M"
 
     inf_prior = GaussianProcess(None, inf_cov)
-    fine_prior = ProjectedPrior(inf_prior, fprops["init"], fprops["solve"])
+    fine_prior = ProjectedPrior(
+        prior=inf_prior, init_props=fprops["init"], solve_props=fprops["solve"]
+    )
     fglobdat = fine_prior.globdat
 
     # Loop over different densities of the coarse mesh
     for N_coarse in [4, 16, 64]:
-        # Remesh the coarse mesh
-        mesher(n=N_coarse, fname="bar_coarse.mesh")
-
-        coarse_prior = ProjectedPrior(inf_prior, cprops["init"], cprops["solve"])
+        # Switch to a different mesh
+        cprops = get_fem_props("meshes/1d-lin-{}.mesh".format(N_coarse))
+        coarse_prior = ProjectedPrior(
+            prior=inf_prior, init_props=cprops["init"], solve_props=cprops["solve"]
+        )
         cglobdat = coarse_prior.globdat
 
         PhiT = compute_bfem_observations(coarse_prior, fine_prior, fspace=False)

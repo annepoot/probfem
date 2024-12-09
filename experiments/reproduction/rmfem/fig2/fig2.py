@@ -6,7 +6,7 @@ from myjivex import declare_all
 from myjive.util.proputils import split_off_type
 
 from rmfem.rmfemrunner import RMFEMRunner
-from fig2_props import fig2_props
+from experiments.reproduction.rmfem.fig2.fig2_props import fig2_props
 
 
 def mesher_lin(L, n, fname="2nodebar"):
