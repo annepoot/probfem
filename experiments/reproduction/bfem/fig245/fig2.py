@@ -1,7 +1,7 @@
 from myjivex.util import QuickViewer
 from fem.jive import JiveRunner
-from fem_props import get_fem_props
 from fem.meshing import create_phi_from_globdat
+from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
 
 coarse_props = get_fem_props("meshes/plate_r0.msh")
 fine_props = get_fem_props("meshes/plate_r1.msh")

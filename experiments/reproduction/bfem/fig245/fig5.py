@@ -7,15 +7,20 @@ from probability.process import (
     ProjectedPrior,
 )
 from bfem.observation import compute_bfem_observations
-from fem_props import get_fem_props
+from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
 
 cprops = get_fem_props("meshes/plate_r0.msh")
 fprops = get_fem_props("meshes/plate_r1.msh")
 
-inf_cov = InverseCovarianceOperator(fprops["model"])
+inf_cov = InverseCovarianceOperator(model_props=fprops["model"], scale=1.0)
 inf_prior = GaussianProcess(None, inf_cov)
-fine_prior = ProjectedPrior(inf_prior, fprops["init"], fprops["solve"])
-coarse_prior = ProjectedPrior(inf_prior, cprops["init"], cprops["solve"])
+fine_prior = ProjectedPrior(
+    prior=inf_prior, init_props=fprops["init"], solve_props=fprops["solve"]
+)
+coarse_prior = ProjectedPrior(
+    prior=inf_prior, init_props=cprops["init"], solve_props=cprops["solve"]
+)
+
 
 fglobdat = fine_prior.globdat
 f = fglobdat["extForce"]

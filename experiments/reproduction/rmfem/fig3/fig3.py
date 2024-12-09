@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from myjive.app import main
 from rmfem.declare import declare_all as declarermfem
 from myjivex import declare_all as declarex
-from fig3_props import fig3_props
+from experiments.reproduction.rmfem.fig3.fig3_props import fig3_props
 
 
 def mesher_lin(L, n, fname="2nodebar"):
