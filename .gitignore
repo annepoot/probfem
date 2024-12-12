@@ -10,3 +10,6 @@ __pycache__
 *.swp
 interpolation/output-before-fix/*.mesh
 interpolation/output-after-fix/*.mesh
+OBJ/
+*.log
+*.out
