@@ -10,7 +10,7 @@ from myjive.util.proputils import (
 
 from probability import Likelihood, FEMObservationOperator
 from probability.observation import ObservationOperator
-from probability.multivariate import GaussianLike, IndependentGaussianSum
+from probability.multivariate import GaussianLike, IndependentGaussianSum, Gaussian
 from probability.process import ProjectedPrior
 from bfem.observation import compute_bfem_observations
 
@@ -48,6 +48,7 @@ class BFEMObservationOperator(FEMObservationOperator):
         output_locations,
         output_dofs,
         run_modules,
+        rescale
     ):
         assert isinstance(obs_prior, ProjectedPrior)
         assert isinstance(ref_prior, ProjectedPrior)
@@ -58,6 +59,7 @@ class BFEMObservationOperator(FEMObservationOperator):
         self.output_locations = output_locations
         self.output_dofs = output_dofs
         self.run_modules = run_modules
+        self.rescale = rescale
 
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
@@ -92,7 +94,16 @@ class BFEMObservationOperator(FEMObservationOperator):
         H_obs = PhiT @ refdat["matrix0"]
         f_obs = PhiT @ refdat["extForce"]
         posterior = self.ref_prior.condition_on(H_obs, f_obs)
-        self.posterior = posterior.to_gaussian(allow_singular=True)
+
+        if self.rescale:
+            oldmean = posterior.calc_mean()
+            oldcov = posterior.calc_cov()
+            l, Q = np.linalg.eigh(oldcov)
+            newl = l * abs(Q.T @ refdat["extForce"])
+            newcov = Q @ np.diag(newl) @ Q.T
+            self.posterior = Gaussian(oldmean, newcov, allow_singular=True)
+        else:
+            self.posterior = posterior.to_gaussian(allow_singular=True)
 
         n_out = len(self.output_locations)
         assert len(self.output_dofs) == n_out

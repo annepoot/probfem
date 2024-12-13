@@ -3,6 +3,18 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
+def read_csv_from(fname, line, **kwargs):
+    with open(fname) as f:
+        pos = 0
+        cur_line = f.readline()
+        while not cur_line.startswith(line):
+            pos = f.tell()
+            cur_line = f.readline()
+        f.seek(pos)
+        return pd.read_csv(f, **kwargs)
+
+
 variables = {
     "fem": ["sigma_e"],
     "bfem": ["scale"],
@@ -14,14 +26,16 @@ labels_by_var = {
     "l_d": r"$\l_d$",
     "sigma_d": r"$\sigma_d$",
     "sigma_e": r"$\sigma_e$",
+    "scale": r"$\alpha$",
 }
 
+N_filter = 100
 N_burn = 5000
-N_filter = 1
 
 for fem_type in ["fem", "bfem", "statfem"]:
-    fname = "samples-{}-hyper.csv".format(fem_type)
-    df = pd.read_csv(fname)
+    fname = "samples-{}-hyperprior.csv".format(fem_type)
+    df = read_csv_from(fname, "xi_1,xi_2,xi_3,xi_4")
+    df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
     df["n_elem"] = df["n_elem"].astype(str)
 
     for var in variables[fem_type]:
@@ -33,7 +47,6 @@ for fem_type in ["fem", "bfem", "statfem"]:
         plt.show()
 
     df = df[df["n_elem"] == "40"]
-    df = df[df["sample"] > N_burn]
 
     for i, var1 in enumerate(variables[fem_type]):
         for var2 in variables[fem_type][i + 1 :]:
