@@ -2,6 +2,18 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+
+def read_csv_from(fname, line, **kwargs):
+    with open(fname) as f:
+        pos = 0
+        cur_line = f.readline()
+        while not cur_line.startswith(line):
+            pos = f.tell()
+            cur_line = f.readline()
+        f.seek(pos)
+        return pd.read_csv(f, **kwargs)
+
+
 variables = ["xi_1", "xi_2", "xi_3", "xi_4"]
 refs_by_var = {
     "xi_1": 1.0,
@@ -33,16 +45,13 @@ title_map = {
     "rmfem": "RM-FEM",
 }
 
+N_filter = 100
+N_burn = 5000
+
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for width in [0.1]:
-        if fem_type == "bfem":
-            N_burn = 45000
-        else:
-            N_burn = 5000
-        N_filter = 10
-
         fname = "samples-{}.csv".format(fem_type)
-        df = pd.read_csv(fname)
+        df = read_csv_from(fname, "xi_1,xi_2,xi_3,xi_4")
         df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
         df["n_elem"] = df["n_elem"].astype(str)
 
