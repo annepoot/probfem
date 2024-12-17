@@ -1,9 +1,7 @@
-
 #include <jive/app/ChainModule.h>
 #include <jive/app/ControlModule.h>
 #include <jive/app/OutputModule.h>
 #include <jive/app/ReportModule.h>
-#include <jive/app/Application.h>
 #include <jive/app/InfoModule.h>
 #include <jive/app/SampleModule.h>
 #include <jive/app/UserconfModule.h>
@@ -19,13 +17,17 @@
 #include <jive/algebra/declare.h>
 #include <jive/gl/declare.h>
 
+#include <jive/util/DofSpace.h>
+#include <jive/model/StateVector.h>
+#include <jive/fem/NodeSet.h>
+
 #include "models.h"
 #include "modules.h"
 #include "materials.h"
+#include "ExposedApplication.h"
 
 using namespace jem;
 
-using jive::app::Application;
 using jive::app::Module;
 using jive::app::ChainModule;
 using jive::app::OutputModule;
@@ -37,6 +39,15 @@ using jive::app::UserconfModule;
 using jive::fem::InputModule;
 using jive::fem::InitModule;
 using jive::fem::ShapeModule;
+
+using jive::Vector;
+using jive::Matrix;
+using jive::IntMatrix;
+using jive::util::DofSpace;
+using jive::model::STATE0;
+using jive::model::StateVector;
+using jive::fem::NodeSet;
+
 
 //-----------------------------------------------------------------------
 //   mainModule
@@ -118,7 +129,79 @@ Ref<Module> mainModule ()
 //-----------------------------------------------------------------------
 
 
-int main ( int argc, char** argv )
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+void getState0 
+	( double** state0_ptr, 
+	  int* state0_size, 
+	  double** coords_ptr, 
+	  int* coords_rank, 
+	  int* coords_size, 
+	  int** dofs_ptr,
+	  int* dofs_rank,
+	  int* dofs_size,
+	  char* fname )
 {
-  return Application::exec ( argc, argv, & mainModule );
+  int argc = 2;
+  char *argv[] = { "name", fname, NULL };
+
+  Properties globdat ( "globdat" );
+
+  ExposedApplication::exec ( argc, argv, & mainModule, globdat );
+
+  Ref<DofSpace> dofs;
+  dofs = DofSpace::get ( globdat, "" );
+  Vector u ( dofs->dofCount() );
+  StateVector::get ( u, STATE0, dofs, globdat );
+
+  NodeSet nodes = NodeSet::get( globdat, "" );
+  Matrix coords( nodes.rank(), nodes.size() );
+  nodes.getCoords(coords);
+
+  IntMatrix dof_idx ( dofs->typeCount(), nodes.size() );
+
+
+  int nodeCount = nodes.size();
+  int typeCount = dofs->typeCount();
+
+  for ( int inode = 0; inode < nodeCount; inode++ )
+  {
+	for ( int itype = 0; itype < typeCount; itype++ )
+	{
+	  dof_idx[inode][itype] = dofs->getDofIndex(inode, itype);
+	}
+  }
+
+  *state0_ptr = u.addr();
+  *state0_size = u.size();
+  *coords_ptr = coords.addr();
+  *coords_rank = coords.size(0);
+  *coords_size = coords.size(1);
+  *dofs_ptr = dof_idx.addr();
+  *dofs_rank = dof_idx.size(0);
+  *dofs_size = dof_idx.size(1);
 }
+
+
+int run ( char* fname )
+{
+  int argc = 2;
+  char *argv[] = { "name", fname, NULL };
+
+  Properties globdat ( "globdat" );
+
+  return ExposedApplication::exec ( argc, argv, & mainModule, globdat );
+}
+
+int exec ( int argc, char** argv )
+{
+  Properties globdat ( "globdat" );
+
+  return ExposedApplication::exec ( argc, argv, & mainModule, globdat );
+}
+
+#ifdef __cplusplus
+}
+#endif
