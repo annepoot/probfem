@@ -7,28 +7,29 @@ log =
 control =
 {
   runWhile = "i<1";
-  fgMode = false;
 };
 
 userinput =
 {
-  modules = [ "input", "ngroups" ];
+  modules = [ "gmsh", "ngroups" ];
 
-  input =
+  gmsh =
   {
-    type = "Input";
-    file = "simple.mesh";
+    type = "GmshInput";
+    dim = 2;
+    file = "cantilever.msh";
   };
 
   ngroups =
   {
     type = "GroupInput";
-    nodeGroups = [ "left", "right", "top", "bot" ];
+    nodeGroups = [ "left", "topright", "botleft" ];
 
     left.xtype = "min";
-    right.xtype = "max";
-    top.ytype = "max";
-    bot.ytype = "min";
+    botleft.xtype = "min";
+    botleft.ytype = "min";
+    topright.xtype = "max";
+    topright.ytype = "max";
   };
 };
 
@@ -45,11 +46,11 @@ model =
     {
       type = "Dirichlet";
 
-      initDisp = 0.1;
+      initDisp = 1.0;
       dispIncr = 0.0;
 
-      nodeGroups = [ "left", "bot", "right", "top" ];
-      dofs = [ "dx", "dy", "dx", "dy" ];
+      nodeGroups = [ "left", "botleft", "topright" ];
+      dofs = [ "dx", "dy", "dy" ];
       loaded =  2; 
     };
 
@@ -71,8 +72,8 @@ model =
 
       shape =
       {
-        type      = "Quad4";
-        intScheme = "Gauss2*Gauss2";
+        type      = "Triangle3";
+        intScheme = "Gauss3";
       };
     };
   };

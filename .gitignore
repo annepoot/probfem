@@ -13,3 +13,6 @@ interpolation/output-after-fix/*.mesh
 OBJ/
 *.log
 *.out
+*.so
+
+!experiments/inverse/2d/cantilever-hole/ground-truth.csv

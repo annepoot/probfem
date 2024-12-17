@@ -8,7 +8,7 @@
 
 
 void  declareModules            ();
-// void  declareGmshInputModule    ();
+void  declareGmshInputModule    ();
 void  declareGroupInputModule   ();
 void  declareInputModule        ();
 

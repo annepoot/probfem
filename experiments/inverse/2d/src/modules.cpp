@@ -12,7 +12,7 @@
 
 void declareModules ()
 {
-//  declareGmshInputModule    ();
+  declareGmshInputModule    ();
   declareGroupInputModule   ();
   declareInputModule        ();
 }
