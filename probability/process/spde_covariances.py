@@ -7,7 +7,7 @@ from probability.process.gaussian_process import GaussianProcess
 from .mean_functions import ZeroMeanFunction
 from .covariance_functions import CovarianceFunction
 
-from fem.jive import JiveRunner
+from fem.jive import MyJiveRunner
 from fem.meshing import create_unit_mass_matrix
 
 from myjive.names import GlobNames as gn
@@ -70,7 +70,7 @@ class ProjectedPrior(Gaussian):
 
         self.sigma_pd = sigma_pd
 
-        jive = JiveRunner(self.props)
+        jive = MyJiveRunner(self.props)
         self.globdat = jive()
 
         cov = self._compute_covariance(self.globdat)

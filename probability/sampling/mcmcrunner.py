@@ -2,7 +2,7 @@ import numpy as np
 
 from probability import Distribution, IndependentJoint
 from probability.multivariate import IsotropicGaussian, DiagonalGaussian, Gaussian
-from probability.univariate import LogGaussian
+from probability.univariate import LogGaussian, Uniform
 
 __all__ = ["MCMCRunner"]
 
@@ -124,5 +124,8 @@ class MCMCRunner:
         elif isinstance(proposal, LogGaussian):
             logstd = proposal.calc_latent_std()
             proposal.update_latent_std(factor * logstd)
+        elif isinstance(proposal, Uniform):
+            width = proposal.calc_width()
+            proposal.update_width(factor * width)
         else:
             raise ValueError

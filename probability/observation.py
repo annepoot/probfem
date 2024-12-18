@@ -11,7 +11,11 @@ from myjive.util.proputils import (
     split_off_type,
 )
 
-__all__ = ["LinearObservationOperator", "FEMObservationOperator"]
+__all__ = [
+    "LinearObservationOperator",
+    "FEMObservationOperator",
+    "RemeshFEMObservationOperator",
+]
 
 
 class ObservationOperator:
@@ -63,10 +67,10 @@ class FEMObservationOperator(ObservationOperator):
 
         modelprops = self.forward_props[gn.MODEL]
 
-        for xi, var in zip(x, self.input_variables):
+        for x_i, var in zip(x, self.input_variables):
             keys = split_key(var)
             assert get_recursive(modelprops, keys) is not None
-            set_recursive(modelprops, keys, xi)
+            set_recursive(modelprops, keys, x_i)
 
         for name, model in self.globdat[gn.MODELS].items():
             _, props = split_off_type(modelprops[name])
@@ -122,3 +126,60 @@ class FEMObservationOperator(ObservationOperator):
             raise RuntimeError("No matching element found!")
 
         return pred
+
+
+class RemeshFEMObservationOperator(ObservationOperator):
+    def __init__(
+        self,
+        *,
+        jive_runner,
+        mesher,
+        mesh_props,
+        input_variables,
+        output_locations,
+        output_dofs,
+    ):
+        self.jive_runner = jive_runner
+        self.mesher = mesher
+        self.mesh_props = mesh_props
+        self.input_variables = input_variables
+        self.output_locations = output_locations
+        self.output_dofs = output_dofs
+
+    def calc_prediction(self, x):
+        if len(x) != len(self.input_variables):
+            raise ValueError
+
+        for x_i, var in zip(x, self.input_variables):
+            assert var in self.mesh_props
+            self.mesh_props[var] = x_i
+
+        self.mesher(**self.mesh_props)
+
+        globdat = self.jive_runner()
+
+        output = np.zeros(len(self.output_locations))
+        assert len(self.output_locations) == len(self.output_dofs)
+
+        state0 = globdat["state0"]
+        coords = globdat["coords"]
+        dof_idx = globdat["dofs"]
+
+        tol = 1e-8
+
+        for i, (loc, dof) in enumerate(zip(self.output_locations, self.output_dofs)):
+            inodes = np.where(np.all(abs(coords - loc) < tol, axis=1))[0]
+            if len(inodes) == 0:
+                output[i] = np.nan
+            elif len(inodes) == 1:
+                inode = inodes[0]
+                idof = dof_idx[inode, dof]
+                if idof < 0 or idof > len(state0):
+                    print(inode, dof, idof)
+                    print(dof_idx.shape)
+                    print(dof_idx)
+                output[i] = state0[idof]
+            else:
+                assert False
+
+        return output

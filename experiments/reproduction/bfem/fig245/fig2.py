@@ -1,14 +1,14 @@
 from myjivex.util import QuickViewer
-from fem.jive import JiveRunner
+from fem.jive import MyJiveRunner
 from fem.meshing import create_phi_from_globdat
 from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
 
 coarse_props = get_fem_props("meshes/plate_r0.msh")
 fine_props = get_fem_props("meshes/plate_r1.msh")
 
-cjive = JiveRunner(coarse_props)
+cjive = MyJiveRunner(coarse_props)
 cglobdat = cjive()
-fjive = JiveRunner(fine_props)
+fjive = MyJiveRunner(fine_props)
 fglobdat = fjive()
 
 Phi = create_phi_from_globdat(cglobdat, fglobdat)

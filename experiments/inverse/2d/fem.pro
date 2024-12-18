@@ -1,7 +1,8 @@
+
 log =
 {
   pattern = "*.info";
-  file    = "-$(CASE_NAME).log";
+  file    = "$(CASE_NAME).log";
 };
 
 control =

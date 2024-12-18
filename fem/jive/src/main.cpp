@@ -1,3 +1,5 @@
+#include <jem/base/Throwable.h>
+
 #include <jive/app/ChainModule.h>
 #include <jive/app/ControlModule.h>
 #include <jive/app/OutputModule.h>
@@ -134,14 +136,14 @@ extern "C" {
 #endif
 
 void getState0 
-	( double** state0_ptr, 
-	  int* state0_size, 
-	  double** coords_ptr, 
-	  int* coords_rank, 
-	  int* coords_size, 
-	  int** dofs_ptr,
-	  int* dofs_rank,
+	( double* state0_ptr,
+	  int* state0_size,
+	  double* coords_ptr,
+	  int* coords_size,
+	  int* coords_rank,
+	  int* dofs_ptr,
 	  int* dofs_size,
+	  int* dofs_rank,
 	  char* fname )
 {
   int argc = 2;
@@ -151,37 +153,54 @@ void getState0
 
   ExposedApplication::exec ( argc, argv, & mainModule, globdat );
 
-  Ref<DofSpace> dofs;
-  dofs = DofSpace::get ( globdat, "" );
+  NodeSet nodes = NodeSet::get( globdat, "" );
+  Ref<DofSpace> dofs = DofSpace::get ( globdat, "" );
+
+  idx_t nodeCount = nodes.size();
+  idx_t rank = nodes.rank();
+  idx_t typeCount = dofs->typeCount();
+  idx_t dofCount = dofs->dofCount();
+
   Vector u ( dofs->dofCount() );
   StateVector::get ( u, STATE0, dofs, globdat );
-
-  NodeSet nodes = NodeSet::get( globdat, "" );
   Matrix coords( nodes.rank(), nodes.size() );
   nodes.getCoords(coords);
 
-  IntMatrix dof_idx ( dofs->typeCount(), nodes.size() );
-
-
-  int nodeCount = nodes.size();
-  int typeCount = dofs->typeCount();
-
-  for ( int inode = 0; inode < nodeCount; inode++ )
-  {
-	for ( int itype = 0; itype < typeCount; itype++ )
-	{
-	  dof_idx[inode][itype] = dofs->getDofIndex(inode, itype);
-	}
+  // Populate state0 array
+  if (dofCount > *state0_size){
+    throw Exception ( "getState0()", "buffer size insufficient");
   }
 
-  *state0_ptr = u.addr();
-  *state0_size = u.size();
-  *coords_ptr = coords.addr();
-  *coords_rank = coords.size(0);
-  *coords_size = coords.size(1);
-  *dofs_ptr = dof_idx.addr();
-  *dofs_rank = dof_idx.size(0);
-  *dofs_size = dof_idx.size(1);
+  for ( idx_t idof = 0; idof < dofCount ; idof++ ){
+    state0_ptr[idof] = u[idof];
+  }
+  *state0_size = dofCount;
+
+  // Populate coords array
+  if (nodeCount > *coords_size || rank > *coords_rank){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  for ( idx_t inode = 0; inode < nodeCount ; inode++ ){
+    for ( idx_t irank = 0; irank < rank ; irank++ ){
+      coords_ptr[(inode * rank) + irank] = coords[inode][irank];
+    }
+  }
+  *coords_rank = rank;
+  *coords_size = nodeCount;
+
+  // Populate dof_idx array
+  if (nodeCount > *dofs_size || typeCount > *dofs_rank){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  for ( int inode = 0; inode < nodeCount; inode++ ){
+	for ( int itype = 0; itype < typeCount; itype++ ){
+	  dofs_ptr[(inode * typeCount) + itype] = dofs->getDofIndex(inode, itype);
+	}
+  }
+  *dofs_rank = typeCount;
+  *dofs_size = nodeCount;
 }
 
 
