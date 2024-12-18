@@ -174,10 +174,6 @@ class RemeshFEMObservationOperator(ObservationOperator):
             elif len(inodes) == 1:
                 inode = inodes[0]
                 idof = dof_idx[inode, dof]
-                if idof < 0 or idof > len(state0):
-                    print(inode, dof, idof)
-                    print(dof_idx.shape)
-                    print(dof_idx)
                 output[i] = state0[idof]
             else:
                 assert False

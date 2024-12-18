@@ -13,10 +13,18 @@ theta = np.pi / 6
 r_rel = 0.25
 
 create_mesh(
-    lc=lc, L=L, H=H, x=x, y=y, a=a, theta=theta, r_rel=r_rel, fname="cantilever.msh"
+    lc=lc,
+    L=L,
+    H=H,
+    x=x,
+    y=y,
+    a=a,
+    theta=theta,
+    r_rel=r_rel,
+    fname="cantilever.msh",
 )
 
-runner = CJiveRunner("fem.pro")
+runner = CJiveRunner("fem.pro", node_count=45406, rank=2)
 globdat = runner()
 
 state0 = globdat["state0"]
@@ -65,4 +73,16 @@ df = pd.DataFrame(
     }
 )
 
-# df.to_csv("ground-truth.csv", index=False, header=True)
+df.to_csv("ground-truth.csv", index=False, header=True)
+
+create_mesh(
+    lc=0.1,
+    L=L,
+    H=H,
+    x=x,
+    y=y,
+    a=a,
+    theta=theta,
+    r_rel=r_rel,
+    fname="cantilever.msh",
+)

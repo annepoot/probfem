@@ -48,7 +48,7 @@ model =
     {
       type = "Dirichlet";
 
-      initDisp = 1.0;
+      initDisp = -1.0;
       dispIncr = 0.0;
 
       nodeGroups = [ "left", "botleft", "topright" ];
