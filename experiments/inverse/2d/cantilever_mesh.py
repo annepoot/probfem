@@ -1,12 +1,12 @@
 import numpy as np
 import gmsh
 
-occ = gmsh.model.occ
 
-
-def create_mesh(*, lc, L, H, x, y, a, theta, r, tol=1e-8, fname="cantilever.msh"):
+def create_mesh(*, lc, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
     gmsh.initialize()
     gmsh.model.add("example.mesh")
+
+    occ = gmsh.model.occ
 
     points = []
     points_with_dim = []
@@ -17,6 +17,7 @@ def create_mesh(*, lc, L, H, x, y, a, theta, r, tol=1e-8, fname="cantilever.msh"
             points_with_dim.append((0, p))
 
     main_rect = occ.addRectangle(0.0, 0.0, 0.0, L, H)
+    r = a * r_rel
     hole_rect = occ.addRectangle(x - 0.5 * a, y - 0.5 * a, 0.0, a, a, roundedRadius=r)
 
     main_with_dim = [(2, main_rect)]
@@ -32,10 +33,13 @@ def create_mesh(*, lc, L, H, x, y, a, theta, r, tol=1e-8, fname="cantilever.msh"
 
     gmsh.option.setNumber("Mesh.MeshSizeMin", lc)
     gmsh.option.setNumber("Mesh.MeshSizeMax", lc)
+    gmsh.option.setNumber("General.Terminal", 0)
 
     gmsh.model.mesh.generate(2)
 
     # Export and finish
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
     gmsh.write(fname)
+
+    gmsh.model.remove()
     gmsh.finalize()
