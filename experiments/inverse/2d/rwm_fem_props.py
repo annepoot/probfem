@@ -45,16 +45,18 @@ def get_rwm_fem_target(*, h, std_corruption, sigma_e):
         jive_runner=jive_runner,
         mesher=create_mesh,
         mesh_props=mesh_props,
-        input_variables=["x", "a", "theta"],
+        input_variables=["x", "y", "a", "theta", "r_rel"],
         output_locations=obs_locs,
         output_dofs=obs_dofs,
     )
 
     target = ProportionalPosterior(
         prior=IndependentJoint(
-            Uniform(0.0, 4.0),
+            Uniform(0.5, 4.0),
+            Uniform(0.0, 1.0),
             Uniform(0.0, 0.5),
             Uniform(0.0, 2 * np.pi),
+            Uniform(0.0, 0.5),
         ),
         likelihood=Likelihood(
             operator=obs_op,

@@ -1,3 +1,5 @@
+import numpy as np
+
 from myjive.util.proputils import (
     split_key,
     get_attr_recursive,
@@ -22,13 +24,19 @@ class Likelihood(Distribution):
 
     def calc_pdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        self.noise.update_mean(prediction)
-        return self.noise.calc_pdf(self.values)
+        if np.isnan(np.sum(prediction)):
+            return -np.inf
+        else:
+            self.noise.update_mean(prediction)
+            return self.noise.calc_pdf(self.values)
 
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        self.noise.update_mean(prediction)
-        return self.noise.calc_logpdf(self.values)
+        if np.isnan(np.sum(prediction)):
+            return -np.inf
+        else:
+            self.noise.update_mean(prediction)
+            return self.noise.calc_logpdf(self.values)
 
 
 class ParametrizedLikelihood(Likelihood):
@@ -72,10 +80,16 @@ class ProportionalPosterior(Distribution):
 
     def calc_pdf(self, x):
         prior_pdf = self.prior.calc_pdf(x)
-        likelihood_pdf = self.likelihood.calc_pdf(x)
-        return prior_pdf * likelihood_pdf
+        if prior_pdf == 0.0:
+            return 0.0
+        else:
+            likelihood_pdf = self.likelihood.calc_pdf(x)
+            return prior_pdf * likelihood_pdf
 
     def calc_logpdf(self, x):
         prior_logpdf = self.prior.calc_logpdf(x)
-        likelihood_logpdf = self.likelihood.calc_logpdf(x)
-        return prior_logpdf + likelihood_logpdf
+        if prior_logpdf < 0.0 and np.isinf(prior_logpdf):
+            return prior_logpdf
+        else:
+            likelihood_logpdf = self.likelihood.calc_logpdf(x)
+            return prior_logpdf + likelihood_logpdf

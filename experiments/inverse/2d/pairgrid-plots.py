@@ -10,15 +10,19 @@ def read_csv_from(fname, line, **kwargs):
         while not cur_line.startswith(line):
             pos = f.tell()
             cur_line = f.readline()
+            if cur_line == "":
+                raise EOFError("Line not found!")
         f.seek(pos)
         return pd.read_csv(f, **kwargs)
 
 
-variables = ["x", "a", "theta"]
+variables = ["x", "y", "a", "theta", "r_rel"]
 refs_by_var = {
     "x": 1.0,
+    "y": 0.4,
     "a": 0.4,
     "theta": np.pi / 6,
+    "r_rel": 0.25,
 }
 
 
@@ -32,8 +36,10 @@ def lims_by_var(width):
 
 labels_by_var = {
     "x": r"$x$",
+    "y": r"$y$",
     "a": r"$a$",
     "theta": r"$\theta$",
+    "r_rel": r"$r_{rel}$",
 }
 
 title_map = {
@@ -49,9 +55,11 @@ N_burn = 5000
 for fem_type in ["fem"]:
     for width in [0.1]:
         fname = "samples-{}.csv".format(fem_type)
-        df = read_csv_from(fname, "x,a,theta")
+        df = read_csv_from(fname, "x,y,a,theta,r_rel")
         df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
-        df = df[abs(df["h"] - 0.5) < 1e-8]
+        df["theta"] = df["theta"] - (0.5 * np.pi) * np.floor(
+            df["theta"] / (0.5 * np.pi)
+        )
         df["h"] = df["h"].astype(str)
 
         grid = sns.PairGrid(
@@ -78,12 +86,12 @@ for fem_type in ["fem"]:
 
                 xref = refs_by_var[xvar]
                 yref = refs_by_var[yvar]
-                # if i == j:
-                #     grid.axes[j, i].axvline(x=xref, color="k", label="ref", zorder=2)
-                # else:
-                #     grid.axes[j, i].scatter(
-                #         [xref], [yref], color="k", label="ref", zorder=2
-                #     )
+                if i == j:
+                    grid.axes[j, i].axvline(x=xref, color="k", label="ref", zorder=2)
+                else:
+                    grid.axes[j, i].scatter(
+                        [xref], [yref], color="k", label="ref", zorder=2
+                    )
 
         grid.add_legend()
         grid.fig.subplots_adjust(top=0.95)
