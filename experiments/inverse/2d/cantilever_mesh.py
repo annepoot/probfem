@@ -4,6 +4,9 @@ import gmsh
 
 def create_mesh(*, lc, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
     gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 0)
+    gmsh.option.setNumber("General.Verbosity", 2)  # only print errors and warnings
+
     gmsh.model.add("example.mesh")
 
     occ = gmsh.model.occ
@@ -33,7 +36,6 @@ def create_mesh(*, lc, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
 
     gmsh.option.setNumber("Mesh.MeshSizeMin", lc)
     gmsh.option.setNumber("Mesh.MeshSizeMax", lc)
-    gmsh.option.setNumber("General.Terminal", 0)
 
     gmsh.model.mesh.generate(2)
 
