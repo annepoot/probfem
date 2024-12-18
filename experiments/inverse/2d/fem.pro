@@ -2,7 +2,8 @@
 log =
 {
   pattern = "*.info";
-  file    = "$(CASE_NAME).log";
+  rank    = 1; // print warnings, but not log or out
+  file    = "-$(CASE_NAME).log";
 };
 
 control =
