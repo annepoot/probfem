@@ -11,9 +11,10 @@ fem_type = "fem"
 
 fname = "samples-{}.csv".format(fem_type)
 current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
-n_sample = 10000
+n_burn = 10000
+n_sample = 50000
 std_corruption = 1e-3
-h_range = [0.2, 0.1, 0.05]
+h_range = [0.2, 0.1, 0.05, 0.02]
 
 file = open(fname, "w")
 
@@ -52,6 +53,7 @@ for i, h in enumerate(h_range):
         target=target,
         proposal=proposal,
         n_sample=n_sample,
+        n_burn=n_burn,
         start_value=start_value,
         seed=0,
         recompute_logpdf=False,

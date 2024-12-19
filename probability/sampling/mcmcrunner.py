@@ -14,6 +14,7 @@ class MCMCRunner:
         target,
         proposal,
         n_sample,
+        n_burn,
         start_value=None,
         seed=None,
         tune=True,
@@ -26,6 +27,7 @@ class MCMCRunner:
         self.proposal = proposal
 
         self.n_sample = n_sample
+        self.n_burn = n_burn
         if start_value is None:
             self.start_value = np.zeros(len(self.target))
         else:
@@ -50,8 +52,9 @@ class MCMCRunner:
                 print("MCMC sample {} of {}".format(i, self.n_sample))
                 print(xi)
                 print("Accept rate:", accept_rate)
+                print("")
 
-                if self.tune:
+                if self.tune and i <= self.n_burn:
                     oldscaling = self.scaling
                     newscaling = self._recompute_scaling(oldscaling, accept_rate)
 
