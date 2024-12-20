@@ -2,7 +2,7 @@ import numpy as np
 import gmsh
 
 
-def create_mesh(*, lc, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
+def create_mesh(*, h, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("General.Verbosity", 2)  # only print errors and warnings
@@ -34,8 +34,8 @@ def create_mesh(*, lc, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
     occ.synchronize()
     gmsh.model.addPhysicalGroup(2, [diff[0][1]])
 
-    gmsh.option.setNumber("Mesh.MeshSizeMin", lc)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", lc)
+    gmsh.option.setNumber("Mesh.MeshSizeMin", h)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", h)
 
     gmsh.model.mesh.generate(2)
 

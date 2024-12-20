@@ -10,19 +10,16 @@ def read_csv_from(fname, line, **kwargs):
         while not cur_line.startswith(line):
             pos = f.tell()
             cur_line = f.readline()
-            if cur_line == "":
-                raise EOFError("Line not found!")
         f.seek(pos)
         return pd.read_csv(f, **kwargs)
 
 
-variables = ["x", "y", "a", "theta", "r_rel"]
+variables = ["xi_1", "xi_2", "xi_3", "xi_4"]
 refs_by_var = {
-    "x": 1.0,
-    "y": 0.4,
-    "a": 0.4,
-    "theta": np.pi / 6,
-    "r_rel": 0.25,
+    "xi_1": 1.0,
+    "xi_2": 1.0,
+    "xi_3": 0.25,
+    "xi_4": 0.25,
 }
 
 
@@ -35,11 +32,10 @@ def lims_by_var(width):
 
 
 labels_by_var = {
-    "x": r"$x$",
-    "y": r"$y$",
-    "a": r"$a$",
-    "theta": r"$\theta$",
-    "r_rel": r"$r_{rel}$",
+    "xi_1": r"$\theta_1$",
+    "xi_2": r"$\theta_2$",
+    "xi_3": r"$\theta_3$",
+    "xi_4": r"$\theta_4$",
 }
 
 title_map = {
@@ -49,21 +45,18 @@ title_map = {
     "rmfem": "RM-FEM",
 }
 
-N_filter = 10
+N_filter = 100
 N_burn = 5000
 
-for fem_type in ["fem"]:
+for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for width in [0.1]:
-        fname = "samples-{}.csv".format(fem_type)
-        df = read_csv_from(fname, "x,y,a,theta,r_rel")
+        fname = "../samples-{}.csv".format(fem_type)
+        df = read_csv_from(fname, "xi_1,xi_2,xi_3,xi_4")
         df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
-        df["theta"] = df["theta"] - (0.5 * np.pi) * np.floor(
-            df["theta"] / (0.5 * np.pi)
-        )
-        df["h"] = df["h"].astype(str)
+        df["n_elem"] = df["n_elem"].astype(str)
 
         grid = sns.PairGrid(
-            data=df, vars=variables, hue="h", diag_sharey=False, height=1.5
+            data=df, vars=variables, hue="n_elem", diag_sharey=False, height=1.5
         )
         grid.map_upper(sns.scatterplot, alpha=0.5, marker=".", edgecolor=None)
         grid.map_lower(sns.kdeplot)
@@ -72,10 +65,10 @@ for fem_type in ["fem"]:
         nvar = len(variables)
         for i, var in enumerate(variables):
             lims = lims_by_var(width)[var]
-            # grid.axes[(i + 1) % nvar, i].set_xlim(lims)
-            # grid.axes[i, (i + 1) % nvar].set_ylim(lims)
-            # grid.axes[(i + 1) % nvar, i].set_xticks(np.linspace(lims[0], lims[1], 3))
-            # grid.axes[i, (i + 1) % nvar].set_yticks(np.linspace(lims[0], lims[1], 3))
+            grid.axes[(i + 1) % nvar, i].set_xlim(lims)
+            grid.axes[i, (i + 1) % nvar].set_ylim(lims)
+            grid.axes[(i + 1) % nvar, i].set_xticks(np.linspace(lims[0], lims[1], 3))
+            grid.axes[i, (i + 1) % nvar].set_yticks(np.linspace(lims[0], lims[1], 3))
 
         for i, xvar in enumerate(variables):
             for j, yvar in enumerate(variables):

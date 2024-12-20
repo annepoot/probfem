@@ -1,6 +1,9 @@
 from probability.process import GaussianProcess, SquaredExponential
 from statfem.likelihood import StatFEMLikelihood
-from .rwm_fem_props import get_rwm_fem_target
+
+from experiments.inverse.kl_bar.props.rwm_fem_props import get_rwm_fem_target
+
+__all__ = ["get_rwm_statfem_target"]
 
 
 def get_rwm_statfem_target(

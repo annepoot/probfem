@@ -82,43 +82,81 @@ def calc_convex_boundary_nodes(nodes, include_corners=True, sort=False):
 
 def calc_boundary_nodes(elems, include_corners=True, include_sides=True, tol=1e-8):
     nodes = elems.get_nodes()
-    ibnodes = []
-    angles = []
+    rank = nodes.rank()
+    bnodes = {}
+
+    max_node_count = elems.max_elem_node_count()
+    assert max_node_count <= 3
 
     for inode in range(len(nodes)):
         ipatch = get_patch_around_node(inode, elems)
-        angle = 0.0
+        patch_nodes = np.zeros((len(ipatch), max_node_count), dtype=int) - 1
 
         for ie, ielem in enumerate(ipatch):
-            inodes = elems[ielem]
-            coords = nodes.get_some_coords(inodes)
+            patch_nodes[ie] = elems[ielem]
 
-            iB = np.where(inodes == inode)[0][0]
-            iA = (iB - 1) % len(inodes)
-            iC = (iB + 1) % len(inodes)
+        if rank == 1:
+            unique_nodes = np.unique(patch_nodes)
 
-            BA = coords[iA] - coords[iB]
-            BC = coords[iC] - coords[iB]
-            theta = np.arctan2(BA[1], BA[0]) - np.arctan2(BC[1], BC[0])
+            if patch_nodes.shape[0] == 1:
+                if patch_nodes[0, 1] == inode:
+                    curr_coords = nodes.get_node_coords(inode)
+                    prev_coords = nodes.get_node_coords(patch_nodes[0, 0])
 
-            if theta < 0:
-                theta += 2 * np.pi
+                    dist = curr_coords - prev_coords
+                    norm = dist / np.linalg.norm(dist)
 
-            if theta < 0 or theta > np.pi:
-                raise RuntimeError("concave element angle")
+                    bnodes[inode] = np.zeros((1, 1), dtype=float)
+                    bnodes[inode][0] = norm
 
-            angle += theta
+                elif patch_nodes[0, 0] == inode:
+                    curr_coords = nodes.get_node_coords(inode)
+                    next_coords = nodes.get_node_coords(patch_nodes[0, 1])
 
-        if 2 * np.pi - angle > tol:
-            if abs(np.pi - angle) < tol:
-                include = include_sides
-            else:
-                include = include_corners
+                    dist = next_coords - curr_coords
+                    norm = -dist / np.linalg.norm(dist)
 
-            if include:
-                ibnodes.append(inode)
+                    bnodes[inode] = np.zeros((1, 1), dtype=float)
+                    bnodes[inode][0] = norm
 
-    return np.array(ibnodes, dtype=int)
+        elif rank == 2:
+            unique_nodes = np.unique(patch_nodes)
+
+            for unique_inode in unique_nodes:
+                loc = np.where(patch_nodes == unique_inode)
+                count = len(loc[0])
+
+                if count == 1:
+                    if unique_inode not in bnodes:
+                        bnodes[unique_inode] = np.zeros((2, 2), dtype=float)
+
+                    row = loc[0][0]
+                    col = loc[1][0]
+
+                    if patch_nodes[row, (col + 1) % 3] == inode:
+                        prev_coords = nodes.get_node_coords(inode)
+                        curr_coords = nodes.get_node_coords(unique_inode)
+
+                        dist = curr_coords - prev_coords
+                        norm = np.array([-dist[1], dist[0]]) / np.linalg.norm(dist)
+
+                        bnodes[unique_inode][0] = norm
+
+                    elif patch_nodes[row, (col - 1) % 3] == inode:
+                        curr_coords = nodes.get_node_coords(unique_inode)
+                        next_coords = nodes.get_node_coords(inode)
+
+                        dist = next_coords - curr_coords
+                        norm = np.array([-dist[1], dist[0]]) / np.linalg.norm(dist)
+
+                        bnodes[unique_inode][1] = norm
+
+                elif count > 2:
+                    assert unique_inode == inode
+        else:
+            assert False
+
+    return bnodes
 
 
 def invert_convex_mesh(elems):

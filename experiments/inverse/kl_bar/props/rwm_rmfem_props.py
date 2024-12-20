@@ -1,5 +1,8 @@
 from rmfem import PseudoMarginalLikelihood, RMFEMObservationOperator
-from .rwm_fem_props import get_rwm_fem_target
+
+from experiments.inverse.kl_bar.props.rwm_fem_props import get_rwm_fem_target
+
+__all__ = ["get_rwm_rmfem_target"]
 
 
 def get_rwm_rmfem_target(
@@ -13,12 +16,8 @@ def get_rwm_rmfem_target(
     )
 
     old_likelihood = target.likelihood
-    new_likelihood = PseudoMarginalLikelihood(
-        likelihood=old_likelihood, n_sample=n_pseudomarginal
-    )
-    target.likelihood = new_likelihood
 
-    old_operator = target.likelihood.likelihood.operator
+    old_operator = old_likelihood.operator
     new_operator = RMFEMObservationOperator(
         p=1,
         seed=0,
@@ -30,6 +29,11 @@ def get_rwm_rmfem_target(
         output_dofs=old_operator.output_dofs,
         run_modules=old_operator.run_modules,
     )
-    target.likelihood.likelihood.operator = new_operator
+    old_likelihood.operator = new_operator
+
+    new_likelihood = PseudoMarginalLikelihood(
+        likelihood=old_likelihood, n_sample=n_pseudomarginal
+    )
+    target.likelihood = new_likelihood
 
     return target

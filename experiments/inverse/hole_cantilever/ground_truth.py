@@ -1,9 +1,10 @@
 import numpy as np
 import pandas as pd
-from cantilever_mesh import create_mesh
 from fem.jive import CJiveRunner
 
-lc = 0.01
+from experiments.inverse.hole_cantilever.meshing import create_mesh
+
+h = 0.01
 L = 4
 H = 1
 x = 1
@@ -13,7 +14,7 @@ theta = np.pi / 6
 r_rel = 0.25
 
 create_mesh(
-    lc=lc,
+    h=h,
     L=L,
     H=H,
     x=x,
@@ -24,7 +25,7 @@ create_mesh(
     fname="cantilever.msh",
 )
 
-runner = CJiveRunner("fem.pro", node_count=45406, rank=2)
+runner = CJiveRunner("props/fem.pro", node_count=45406, rank=2)
 globdat = runner()
 
 state0 = globdat["state0"]
@@ -76,7 +77,7 @@ df = pd.DataFrame(
 df.to_csv("ground-truth.csv", index=False, header=True)
 
 create_mesh(
-    lc=0.1,
+    h=0.1,
     L=L,
     H=H,
     x=x,

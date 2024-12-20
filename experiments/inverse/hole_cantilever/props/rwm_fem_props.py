@@ -10,7 +10,10 @@ from probability import (
     IndependentJoint,
 )
 from fem.jive import CJiveRunner
-from cantilever_mesh import create_mesh
+
+from experiments.inverse.hole_cantilever.meshing import create_mesh
+
+__all__ = ["get_rwm_fem_target"]
 
 
 def get_rwm_fem_target(*, h, std_corruption, sigma_e):
@@ -27,10 +30,10 @@ def get_rwm_fem_target(*, h, std_corruption, sigma_e):
     obs_locs = ground_locs
     obs_dofs = ground_dofs
 
-    jive_runner = CJiveRunner("fem.pro", node_count=int(1000 / h), rank=2)
+    jive_runner = CJiveRunner("props/fem.pro", node_count=int(1000 / h), rank=2)
 
     mesh_props = {
-        "lc": h,
+        "h": h,
         "L": 4,
         "H": 1,
         "x": 2,
