@@ -2,7 +2,10 @@ import numpy as np
 
 from probability.univariate import LogGaussian
 from probability import ParametrizedLikelihood, IndependentJoint
-from .rwm_statfem_props import get_rwm_statfem_target
+
+from experiments.inverse.kl_bar.props.rwm_statfem_props import get_rwm_statfem_target
+
+__all__ = ["get_rwm_statfem_hyper_target"]
 
 
 def get_rwm_statfem_hyper_target(*, n_elem, std_corruption, n_rep_obs, sigma_e):

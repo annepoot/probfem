@@ -2,7 +2,10 @@ import numpy as np
 
 from probability.multivariate import IsotropicGaussian
 from probability import ProportionalPosterior, Likelihood, FEMObservationOperator
-from .fem_props import get_fem_props
+
+from experiments.inverse.kl_bar.props.fem_props import get_fem_props
+
+__all__ = ["get_rwm_fem_target"]
 
 
 def get_rwm_fem_target(*, n_elem, std_corruption, sigma_e, n_rep_obs):

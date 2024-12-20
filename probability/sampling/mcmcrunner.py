@@ -63,7 +63,7 @@ class MCMCRunner:
                         self._scale_proposal(self.proposal, factor)
                         self.scaling = newscaling
 
-                    accept_rate = 0.0
+                accept_rate = 0.0
 
             self.proposal.update_mean(xi)
             xi_prop = self.proposal.calc_sample(self._rng)
