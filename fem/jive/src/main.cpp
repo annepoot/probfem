@@ -23,6 +23,7 @@
 #include <jive/algebra/MatrixBuilder.h>
 #include <jive/algebra/SparseMatrixObject.h>
 #include <jive/util/DofSpace.h>
+#include <jive/util/Constraints.h>
 #include <jive/model/Names.h>
 #include <jive/model/StateVector.h>
 #include <jive/fem/NodeSet.h>
@@ -54,6 +55,7 @@ using jive::Matrix;
 using jive::IdxVector;
 using jive::IntMatrix;
 using jive::util::DofSpace;
+using jive::util::Constraints;
 using jive::model::STATE0;
 using jive::model::PropertyNames;
 using jive::model::StateVector;
@@ -91,7 +93,7 @@ Ref<Module> mainModule ()
   jive::gl      ::declareModules  ();
 
   declareModules                  ();
-  
+
   // Declare all materials that you want to add dynamically.
 
   declareMaterials                ();
@@ -122,8 +124,8 @@ Ref<Module> mainModule ()
 
   chain->pushBack ( newInstance<UserconfModule> ( "usermodules" ) );
 
-  // The SampleModule is used to generate simple numeric ouput 
-  
+  // The SampleModule is used to generate simple numeric ouput
+
   chain->pushBack ( newInstance<SampleModule> ( ) );
 
   chain->pushBack ( newInstance<ControlModule> ( "control" ) );
@@ -172,11 +174,17 @@ struct SPARSE_MAT_PTR{
   INT_VEC_PTR offsets;
 };
 
+struct CONSTRAINTS_PTR{
+  INT_VEC_PTR dofs;
+  DOUBLE_VEC_PTR values;
+};
+
 struct GLOBDAT {
   DOUBLE_VEC_PTR state0;
   SPARSE_MAT_PTR matrix0;
   DOUBLE_MAT_PTR coords;
   INT_MAT_PTR dofs;
+  CONSTRAINTS_PTR constraints;
 };
 
 void getGlobdat
@@ -192,6 +200,7 @@ void getGlobdat
 
   NodeSet nodes = NodeSet::get( globdat, "" );
   Ref<DofSpace> dofs = DofSpace::get ( globdat, "" );
+  Ref<Constraints> cons = Constraints::get ( dofs, globdat );
 
   idx_t nodeCount = nodes.size();
   idx_t rank = nodes.rank();
@@ -239,12 +248,13 @@ void getGlobdat
   outdat.dofs.size0 = nodeCount;
   outdat.dofs.size1 = typeCount;
 
+  // Populate matrix0 array
   Ref<MatrixBuilder> mbuilder;
   globdat.get( mbuilder, PropertyNames::MATRIX0 );
 
   Ref<AbstractMatrix> mat = mbuilder->getMatrix();
   Ref<SparseMatrixObject> smat = dynamicCast<SparseMatrixObject> ( mat );
-    
+
   Vector values = smat->getValues();
   IdxVector colIndices = smat->getColumnIndices();
   IdxVector rowOffsets = smat->getRowOffsets();
@@ -274,6 +284,27 @@ void getGlobdat
   outdat.matrix0.values.size = indexCount;
   outdat.matrix0.indices.size = indexCount;
   outdat.matrix0.offsets.size = offsetCount;
+
+  // Populate constraints array
+  idx_t cdofCount = cons->slaveDofCount();
+
+  if ( cons->masterDofCount() > 0 ){
+    throw Exception ( "getState0()", "master dofs have not been implemented");
+  }
+
+  if ( cdofCount > outdat.constraints.dofs.size ){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  IdxVector cdofs = cons->getSlaveDofs();
+  Vector cvals;
+  cons->getRvalues(cvals, cdofs);
+
+  for ( idx_t idof = 0; idof < cdofCount ; idof++ ){
+    outdat.constraints.dofs.ptr[idof] = cdofs[idof];
+  }
+  outdat.constraints.dofs.size = cdofCount;
+  outdat.constraints.values.size = cdofCount;
 }
 
 
