@@ -1,6 +1,8 @@
 import os
 import numpy as np
 import ctypes as ct
+from numpy.ctypeslib import as_array
+from scipy.sparse import csr_array
 
 from myjive.app import main
 from myjivex.declare import declare_all
@@ -29,53 +31,127 @@ class CJiveRunner:
         PTR = ct.POINTER
 
         loader = ct.LibraryLoader(ct.CDLL)
-        abspath = os.path.abspath(os.path.join(__file__, "..", "src", "liblinear.so"))
+        abspath = os.path.abspath(
+            os.path.join(__file__, "..", "src", "liblinear.so")
+        )
         liblinear = loader.LoadLibrary(abspath)
 
-        state0_func = liblinear.getState0
-        state0_func.argtypes = (
-            PTR(ct.c_double),
-            PTR(ct.c_int),
-            PTR(ct.c_double),
-            PTR(ct.c_int),
-            PTR(ct.c_int),
-            PTR(ct.c_int),
-            PTR(ct.c_int),
-            PTR(ct.c_int),
+        globdat_func = liblinear.getGlobdat
+        globdat_func.argtypes = (
+            PTR(GLOBDAT),
             PTR(ct.c_char),
         )
 
         dof_count = self.node_count * self.rank
 
-        state0_ptr = (ct.c_double * dof_count)()
-        state0_size = ct.c_int(dof_count)
-        coords_ptr = (ct.c_double * (self.node_count * self.rank))()
-        coords_size = ct.c_int(self.node_count)
-        coords_rank = ct.c_int(self.rank)
-        dofs_ptr = (ct.c_int * (self.node_count * self.rank))()
-        dofs_size = ct.c_int(self.node_count)
-        dofs_rank = ct.c_int(self.rank)
+        globdat = GLOBDAT(
+            DOUBLE_VEC_PTR(  # state0
+                (ct.c_double * dof_count)(), ct.c_int(dof_count)
+            ),
+            SPARSE_MAT_PTR(
+                DOUBLE_VEC_PTR(  # matrix0.values
+                    (ct.c_double * (dof_count * 20))(),
+                    ct.c_int(dof_count * 20),
+                ),
+                INT_VEC_PTR(  # matrix0.indices
+                    (ct.c_int * (dof_count * 20))(), ct.c_int(dof_count * 20)
+                ),
+                INT_VEC_PTR(  # matrix0.offsets
+                    (ct.c_int * (dof_count + 1))(), ct.c_int(dof_count + 1)
+                ),
+            ),
+            DOUBLE_MAT_PTR(  # coords
+                (ct.c_double * (self.node_count * self.rank))(),
+                ct.c_int(self.node_count),
+                ct.c_int(self.rank),
+            ),
+            INT_MAT_PTR(  # dofs
+                (ct.c_int * (self.node_count * self.rank))(),
+                ct.c_int(self.node_count),
+                ct.c_int(self.rank),
+            ),
+        )
 
-        state0_func(
-            state0_ptr,
-            ct.byref(state0_size),
-            coords_ptr,
-            ct.byref(coords_size),
-            ct.byref(coords_rank),
-            dofs_ptr,
-            ct.byref(dofs_size),
-            ct.byref(dofs_rank),
+        globdat_func(
+            ct.byref(globdat),
             self.fname,
         )
 
-        state0 = np.resize(np.ctypeslib.as_array(state0_ptr), state0_size.value)
-        coords = np.resize(
-            np.ctypeslib.as_array(coords_ptr), (coords_size.value, coords_rank.value)
-        )
-        dof_idx = np.resize(
-            np.ctypeslib.as_array(dofs_ptr), (dofs_size.value, dofs_rank.value)
-        )
+        state0 = to_numpy(globdat.state0)
+        coords = to_numpy(globdat.coords)
+        dofs = to_numpy(globdat.dofs)
 
-        globdat = {"state0": state0, "coords": coords, "dofs": dof_idx}
+        matrix0_values = to_numpy(globdat.matrix0.values)
+        matrix0_indices = to_numpy(globdat.matrix0.indices)
+        matrix0_offsets = to_numpy(globdat.matrix0.offsets)
 
-        return globdat
+        matrix0 = csr_array((matrix0_values, matrix0_indices, matrix0_offsets))
+
+        return {
+            "state0": state0,
+            "matrix0": matrix0,
+            "coords": coords,
+            "dofs": dofs,
+        }
+
+
+class INT_VEC_PTR(ct.Structure):
+    _fields_ = [
+        ("ptr", ct.POINTER(ct.c_int)),
+        ("size", ct.c_int),
+    ]
+
+
+class DOUBLE_VEC_PTR(ct.Structure):
+    _fields_ = [
+        ("ptr", ct.POINTER(ct.c_double)),
+        ("size", ct.c_int),
+    ]
+
+
+class INT_MAT_PTR(ct.Structure):
+    _fields_ = [
+        ("ptr", ct.POINTER(ct.c_int)),
+        ("size0", ct.c_int),
+        ("size1", ct.c_int),
+    ]
+
+
+class DOUBLE_MAT_PTR(ct.Structure):
+    _fields_ = [
+        ("ptr", ct.POINTER(ct.c_double)),
+        ("size0", ct.c_int),
+        ("size1", ct.c_int),
+    ]
+
+
+class SPARSE_MAT_PTR(ct.Structure):
+    _fields_ = [
+        ("values", DOUBLE_VEC_PTR),
+        ("indices", INT_VEC_PTR),
+        ("offsets", INT_VEC_PTR),
+    ]
+
+
+class GLOBDAT(ct.Structure):
+    _fields_ = [
+        ("state0", DOUBLE_VEC_PTR),
+        ("matrix0", SPARSE_MAT_PTR),
+        ("coords", DOUBLE_MAT_PTR),
+        ("dofs", INT_MAT_PTR),
+    ]
+
+
+def to_numpy(c_obj):
+    if ("size", ct.c_int) in c_obj._fields_:
+        shape = (c_obj.size,)
+    else:
+        shape = tuple()
+        for i in range(4):
+            size_i = "size" + str(i)
+            if (size_i, ct.c_int) in c_obj._fields_:
+                shape += (getattr(c_obj, size_i),)
+            else:
+                break
+
+    return as_array(c_obj.ptr, shape).copy()
