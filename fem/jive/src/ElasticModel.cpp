@@ -7,6 +7,7 @@
 
 #include <jive/geom/IShapeFactory.h>
 #include <jive/model/Actions.h>
+#include <jive/model/Names.h>
 #include <jive/model/StateVector.h>
 #include <jive/model/ModelFactory.h>
 #include <jive/util/utilities.h>
@@ -193,6 +194,7 @@ bool ElasticModel::takeAction
 {
   using jive::model::Actions;
   using jive::model::ActionParams;
+  using jive::model::PropertyNames;
 
   if ( action == Actions::GET_MATRIX0 
     || action == Actions::GET_INT_VECTOR )
@@ -207,8 +209,10 @@ bool ElasticModel::takeAction
     // Get the matrix builder and the internal force vector.
     params.find( mbuilder, ActionParams::MATRIX0 );
     params.get ( force,    ActionParams::INT_VECTOR );
+    globdat.set ( PropertyNames::MATRIX0, mbuilder );
 
     getMatrix_ ( mbuilder, force, disp );
+
     return true;
   }
 
@@ -216,8 +220,10 @@ bool ElasticModel::takeAction
   {
     Ref<MatrixBuilder> mbuilder;
     params.get ( mbuilder, ActionParams::MATRIX2 );
+    globdat.set ( PropertyNames::MATRIX2, mbuilder );
 
     getMatrix2_( *mbuilder );
+
     return true;
   }
 
