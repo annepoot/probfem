@@ -7,7 +7,6 @@
 
 #include <jive/geom/IShapeFactory.h>
 #include <jive/model/Actions.h>
-#include <jive/model/Names.h>
 #include <jive/model/StateVector.h>
 #include <jive/model/ModelFactory.h>
 #include <jive/util/utilities.h>
@@ -50,7 +49,7 @@ ElasticModel::ElasticModel
 {
 
   // create myTag_ (last part of myName_)
-  
+
   StringVector names ( StringUtils::split( myName_, '.' ) );
   myTag_     = names [ names.size() - 1 ];
 
@@ -115,7 +114,7 @@ ElasticModel::ElasticModel
   );
 
   dofs_ = XDofSpace::get ( nodes_.getData(), globdat );
-  
+
   dofTypes_.resize( rank_ );
 
   for( idx_t i = 0; i < rank_; i++)
@@ -130,7 +129,7 @@ ElasticModel::ElasticModel
 
   // Configure the material
   String matProp = joinNames ( myName_, MATERIAL_PROP );
-  material_ = dynamicCast<LinearMaterial> ( 
+  material_ = dynamicCast<LinearMaterial> (
       MaterialFactory::newInstance ( matProp, conf, props, globdat )
   );
 
@@ -170,7 +169,7 @@ void ElasticModel::configure
 //-----------------------------------------------------------------------
 
 
-void ElasticModel::getConfig 
+void ElasticModel::getConfig
 
   ( const Properties& conf,
     const Properties& globdat ) const
@@ -194,24 +193,25 @@ bool ElasticModel::takeAction
 {
   using jive::model::Actions;
   using jive::model::ActionParams;
-  using jive::model::PropertyNames;
 
-  if ( action == Actions::GET_MATRIX0 
+  if ( action == Actions::GET_MATRIX0
     || action == Actions::GET_INT_VECTOR )
   {
     Ref<MatrixBuilder>  mbuilder;
     Vector  disp;
-    Vector  force;
+    Vector  intForce;
 
     // Get the current displacements.
     StateVector::get ( disp, dofs_, globdat );
 
     // Get the matrix builder and the internal force vector.
     params.find( mbuilder, ActionParams::MATRIX0 );
-    params.get ( force,    ActionParams::INT_VECTOR );
-    globdat.set ( PropertyNames::MATRIX0, mbuilder );
+    params.get ( intForce, ActionParams::INT_VECTOR );
 
-    getMatrix_ ( mbuilder, force, disp );
+    getMatrix_ ( mbuilder, intForce, disp );
+
+    globdat.set ( ActionParams::MATRIX0, mbuilder );
+    globdat.set ( ActionParams::INT_VECTOR, intForce );
 
     return true;
   }
@@ -220,9 +220,18 @@ bool ElasticModel::takeAction
   {
     Ref<MatrixBuilder> mbuilder;
     params.get ( mbuilder, ActionParams::MATRIX2 );
-    globdat.set ( PropertyNames::MATRIX2, mbuilder );
+    globdat.set ( ActionParams::MATRIX2, mbuilder );
 
     getMatrix2_( *mbuilder );
+
+    return true;
+  }
+
+  if ( action == Actions::GET_EXT_VECTOR )
+  {
+    Vector  extForce;
+    params.get ( extForce, ActionParams::EXT_VECTOR );
+    globdat.set ( ActionParams::EXT_VECTOR, extForce );
 
     return true;
   }
@@ -296,7 +305,7 @@ void ElasticModel::getMatrix_
     elemForce = 0.0;
 
     for ( idx_t ip = 0; ip < ipCount_; ip++ )
-    {     
+    {
       // Compute the B-matrix for this integration point.
       // Compute the strain vector of this integration point
       getShapeGrads_(b, ipGrads[ip]);
@@ -321,7 +330,7 @@ void ElasticModel::getMatrix_
 //   getMatrix2_
 //-----------------------------------------------------------------------
 
-// compute the mass matrix 
+// compute the mass matrix
 // current implementation: consistent mass matrix
 
 void ElasticModel::getMatrix2_
@@ -335,7 +344,7 @@ void ElasticModel::getMatrix2_
 
   Matrix      sfuncs     = shape_->getShapeFunctions ();
   Matrix      N          ( rank_, rank_ * nodeCount_ );
-  Matrix      Nt         = N.transpose ( ); 
+  Matrix      Nt         = N.transpose ( );
 
   IdxVector   inodes     ( nodeCount_ );
   IdxVector   idofs      ( dofCount_  );
@@ -347,7 +356,7 @@ void ElasticModel::getMatrix2_
   double      rho = 0.0024;
 
   R = 0.0;
- 
+
   for ( idx_t i = 0; i < rank_ ; i++ )
   {
     R(i,i) = rho;
@@ -369,7 +378,7 @@ void ElasticModel::getMatrix2_
 
     for ( idx_t ip = 0; ip < ipCount_; ip++ )
     {
-      // compute matrix of shape function N       
+      // compute matrix of shape function N
       getShapeFuncs_ ( N, sfuncs(ALL,ip) );
 
       // Add the contribution of this integration point.
@@ -538,7 +547,7 @@ void ElasticModel::getStress_
 
       ndWeights += sfuncs(ALL,ip);
 
-      ++ipoint; 
+      ++ipoint;
     }
 
     select ( weights, inodes ) += ndWeights;
@@ -581,4 +590,3 @@ void declareElasticModel ()
   using jive::model::ModelFactory;
   ModelFactory::declare ( "Elastic", & newElasticModel );
 }
-
