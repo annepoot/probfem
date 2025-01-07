@@ -22,11 +22,12 @@
 #include <jive/algebra/AbstractMatrix.h>
 #include <jive/algebra/MatrixBuilder.h>
 #include <jive/algebra/SparseMatrixObject.h>
-#include <jive/util/DofSpace.h>
-#include <jive/util/Constraints.h>
+#include <jive/fem/NodeSet.h>
+#include <jive/fem/ElementSet.h>
 #include <jive/model/Actions.h>
 #include <jive/model/StateVector.h>
-#include <jive/fem/NodeSet.h>
+#include <jive/util/XDofSpace.h>
+#include <jive/util/Constraints.h>
 
 #include "models.h"
 #include "modules.h"
@@ -47,19 +48,21 @@ using jive::fem::InputModule;
 using jive::fem::InitModule;
 using jive::fem::ShapeModule;
 
-using jive::algebra::AbstractMatrix;
-using jive::algebra::SparseMatrixObject;
-using jive::algebra::MatrixBuilder;
 using jive::Vector;
 using jive::Matrix;
 using jive::IdxVector;
 using jive::IntMatrix;
-using jive::util::DofSpace;
-using jive::util::Constraints;
+using jive::algebra::AbstractMatrix;
+using jive::algebra::SparseMatrixObject;
+using jive::algebra::MatrixBuilder;
+using jive::fem::NodeSet;
+using jive::fem::ElementSet;
 using jive::model::STATE0;
 using jive::model::ActionParams;
 using jive::model::StateVector;
-using jive::fem::NodeSet;
+using jive::util::XDofSpace;
+using jive::util::Constraints;
+
 
 
 //-----------------------------------------------------------------------
@@ -179,13 +182,23 @@ struct CONSTRAINTS_PTR{
   DOUBLE_VEC_PTR values;
 };
 
+struct POINTSET_PTR{
+  DOUBLE_MAT_PTR data;
+};
+
+struct GROUPSET_PTR{
+  INT_MAT_PTR data;
+  INT_VEC_PTR sizes;
+};
+
 struct GLOBDAT {
+  POINTSET_PTR nodeSet;
+  GROUPSET_PTR elemSet;
+  INT_MAT_PTR dofSpace;
   DOUBLE_VEC_PTR state0;
   DOUBLE_VEC_PTR intForce;
   DOUBLE_VEC_PTR extForce;
   SPARSE_MAT_PTR matrix0;
-  DOUBLE_MAT_PTR coords;
-  INT_MAT_PTR dofs;
   CONSTRAINTS_PTR constraints;
 };
 
@@ -200,12 +213,15 @@ void getGlobdat
 
   ExposedApplication::exec ( argc, argv, & mainModule, globdat );
 
-  NodeSet nodes = NodeSet::get( globdat, "" );
-  Ref<DofSpace> dofs = DofSpace::get ( globdat, "" );
+  ElementSet elems = ElementSet::get( globdat, "" );
+  NodeSet nodes = elems.getNodes();
+  Ref<XDofSpace> dofs = XDofSpace::get ( nodes.getData(), globdat );
   Ref<Constraints> cons = Constraints::get ( dofs, globdat );
 
   idx_t nodeCount = nodes.size();
   idx_t rank = nodes.rank();
+  idx_t elemCount = elems.size();
+  idx_t maxElemNodeCount = elems.maxElemNodeCount();
   idx_t typeCount = dofs->typeCount();
   idx_t dofCount = dofs->dofCount();
 
@@ -216,9 +232,6 @@ void getGlobdat
   StateVector::get ( u, STATE0, dofs, globdat );
   globdat.get( fint, ActionParams::INT_VECTOR );
   globdat.get( fext, ActionParams::EXT_VECTOR );
-
-  Matrix coords( nodes.rank(), nodes.size() );
-  nodes.getCoords(coords);
 
   // Populate state0 array
   if ( dofCount > outdat.state0.size ){
@@ -250,31 +263,55 @@ void getGlobdat
   }
   outdat.extForce.size = dofCount;
 
-  // Populate coords array
-  if ( nodeCount > outdat.coords.size0 || rank > outdat.coords.size1 ){
+  // Populate nodeSet
+  if ( nodeCount > outdat.nodeSet.data.size0 || rank > outdat.nodeSet.data.size1 ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
+  Vector coords (rank);
   for ( idx_t inode = 0; inode < nodeCount ; inode++ ){
-    for ( idx_t irank = 0; irank < rank ; irank++ ){
-      outdat.coords.ptr[(inode * rank) + irank] = coords[inode][irank];
+    nodes.getNodeCoords(coords, inode);
+
+    for ( idx_t ir = 0; ir < rank ; ir++ ){
+      outdat.nodeSet.data.ptr[(inode * rank) + ir] = coords[ir];
     }
   }
-  outdat.coords.size0 = nodeCount;
-  outdat.coords.size1 = rank;
+  outdat.nodeSet.data.size0 = nodeCount;
+  outdat.nodeSet.data.size1 = rank;
 
-  // Populate dof_idx array
-  if ( nodeCount > outdat.dofs.size0 || typeCount > outdat.dofs.size1 ){
+  // Populate elemSet
+  if ( elemCount > outdat.elemSet.data.size0 ||
+       maxElemNodeCount > outdat.elemSet.data.size1 ||
+       elemCount > outdat.elemSet.sizes.size ){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  IdxVector inodes (maxElemNodeCount);
+  for ( idx_t ielem = 0; ielem < elemCount; ielem++ ){
+    idx_t elemNodeCount = elems.getElemNodeCount(ielem);
+    elems.getElemNodes(inodes, ielem);
+
+    outdat.elemSet.sizes.ptr[ielem] = elemNodeCount;
+    for ( idx_t in = 0; in < elemNodeCount; in++ ){
+      outdat.elemSet.data.ptr[(ielem * maxElemNodeCount) + in] = inodes[in];
+    }
+  }
+  outdat.elemSet.data.size0 = elemCount;
+  outdat.elemSet.data.size1 = maxElemNodeCount;
+  outdat.elemSet.sizes.size = elemCount;
+
+  // Populate dofSpace array
+  if ( nodeCount > outdat.dofSpace.size0 || typeCount > outdat.dofSpace.size1 ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
   for ( int inode = 0; inode < nodeCount; inode++ ){
 	for ( int itype = 0; itype < typeCount; itype++ ){
-	  outdat.dofs.ptr[(inode * typeCount) + itype] = dofs->getDofIndex(inode, itype);
+	  outdat.dofSpace.ptr[(inode * typeCount) + itype] = dofs->getDofIndex(inode, itype);
 	}
   }
-  outdat.dofs.size0 = nodeCount;
-  outdat.dofs.size1 = typeCount;
+  outdat.dofSpace.size0 = nodeCount;
+  outdat.dofSpace.size1 = typeCount;
 
   // Populate matrix0 array
   Ref<MatrixBuilder> mbuilder;

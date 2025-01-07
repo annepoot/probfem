@@ -5,6 +5,7 @@ from scipy.sparse import csr_array
 
 from myjive.app import main
 from myjivex.declare import declare_all
+from myjive.fem import XNodeSet, XElementSet, DofSpace
 from myjive.solver import Constraints
 
 __all__ = ["MyJiveRunner", "CJiveRunner"]
@@ -22,10 +23,12 @@ class MyJiveRunner:
 
 class CJiveRunner:
 
-    def __init__(self, fname, node_count, rank):
+    def __init__(self, fname, *, node_count, elem_count, rank, max_elem_node_count):
         self.fname = fname.encode("utf-8")
         self.node_count = node_count
+        self.elem_count = elem_count
         self.rank = rank
+        self.max_elem_node_count = max_elem_node_count
 
     def __call__(self):
         PTR = ct.POINTER
@@ -43,10 +46,37 @@ class CJiveRunner:
         dof_count = self.node_count * self.rank
 
         globdat = GLOBDAT(
+            POINTSET_PTR(  # nodeSet
+                DOUBLE_MAT_PTR(  # nodeSet.data
+                    (ct.c_double * (self.node_count * self.rank))(),
+                    ct.c_int(self.node_count),
+                    ct.c_int(self.rank),
+                ),
+            ),
+            GROUPSET_PTR(  # elemSet
+                INT_MAT_PTR(  # elemSet.data
+                    (ct.c_int * (self.elem_count * self.max_elem_node_count))(),
+                    ct.c_int(self.elem_count),
+                    ct.c_int(self.max_elem_node_count),
+                ),
+                INT_VEC_PTR(  # elemSet.sizes
+                    (ct.c_int * self.elem_count)(),
+                    ct.c_int(self.elem_count),
+                ),
+            ),
+            INT_MAT_PTR(  # dofSpace
+                (ct.c_int * (self.node_count * self.rank))(),
+                ct.c_int(self.node_count),
+                ct.c_int(self.rank),
+            ),
             DOUBLE_VEC_PTR((ct.c_double * dof_count)(), ct.c_int(dof_count)),  # state0
-            DOUBLE_VEC_PTR((ct.c_double * dof_count)(), ct.c_int(dof_count)),  # intVector
-            DOUBLE_VEC_PTR((ct.c_double * dof_count)(), ct.c_int(dof_count)),  # extVector
-            SPARSE_MAT_PTR(
+            DOUBLE_VEC_PTR(
+                (ct.c_double * dof_count)(), ct.c_int(dof_count)
+            ),  # intVector
+            DOUBLE_VEC_PTR(
+                (ct.c_double * dof_count)(), ct.c_int(dof_count)
+            ),  # extVector
+            SPARSE_MAT_PTR(  # matrix0
                 DOUBLE_VEC_PTR(  # matrix0.values
                     (ct.c_double * (dof_count * 20))(),
                     ct.c_int(dof_count * 20),
@@ -58,17 +88,7 @@ class CJiveRunner:
                     (ct.c_int * (dof_count + 1))(), ct.c_int(dof_count + 1)
                 ),
             ),
-            DOUBLE_MAT_PTR(  # coords
-                (ct.c_double * (self.node_count * self.rank))(),
-                ct.c_int(self.node_count),
-                ct.c_int(self.rank),
-            ),
-            INT_MAT_PTR(  # dofs
-                (ct.c_int * (self.node_count * self.rank))(),
-                ct.c_int(self.node_count),
-                ct.c_int(self.rank),
-            ),
-            CONSTRAINTS_PTR(
+            CONSTRAINTS_PTR(  # constraints
                 INT_VEC_PTR(  # constraints.dofs
                     (ct.c_int * dof_count)(),
                     ct.c_int(dof_count),
@@ -88,8 +108,11 @@ class CJiveRunner:
         state0 = to_numpy(globdat.state0)
         intForce = to_numpy(globdat.intForce)
         extForce = to_numpy(globdat.extForce)
-        coords = to_numpy(globdat.coords)
-        dofs = to_numpy(globdat.dofs)
+        dofs_data = to_numpy(globdat.dofSpace)
+
+        nodes_data = to_numpy(globdat.nodeSet.data)
+        elems_data = to_numpy(globdat.elemSet.data)
+        elems_sizes = to_numpy(globdat.elemSet.sizes)
 
         matrix0_values = to_numpy(globdat.matrix0.values)
         matrix0_indices = to_numpy(globdat.matrix0.indices)
@@ -104,13 +127,34 @@ class CJiveRunner:
         for cdof, cval in zip(cdofs, cvals):
             constraints.add_constraint(cdof, cval)
 
+        nodes = XNodeSet()
+        for coord in nodes_data:
+            nodes.add_node(coord)
+        nodes.to_nodeset()
+
+        elems = XElementSet(nodes)
+        for inodes, elem_node_count in zip(elems_data, elems_sizes):
+            elems.add_element(inodes[:elem_node_count])
+        elems.to_elementset
+
+        dofs = DofSpace()
+        for it in range(dofs_data.shape[1]):
+            dof_type = ["dx", "dy", "dz"][it]
+            dofs.add_type(dof_type)
+
+            for inode in range(dofs_data.shape[0]):
+                dofs._dofs[dof_type][inode] = dofs_data[inode, it]
+                
+        dofs._count = dofs_data.shape[0] * dofs_data.shape[1]
+
         return {
+            "nodeSet": nodes,
+            "elemSet": elems,
+            "dofSpace": dofs,
             "state0": state0,
             "intForce": intForce,
             "extForce": extForce,
             "matrix0": matrix0,
-            "coords": coords,
-            "dofs": dofs,
             "constraints": constraints,
         }
 
@@ -160,14 +204,28 @@ class CONSTRAINTS_PTR(ct.Structure):
     ]
 
 
+class POINTSET_PTR(ct.Structure):
+    _fields_ = [
+        ("data", DOUBLE_MAT_PTR),
+    ]
+
+
+class GROUPSET_PTR(ct.Structure):
+    _fields_ = [
+        ("data", INT_MAT_PTR),
+        ("sizes", INT_VEC_PTR),
+    ]
+
+
 class GLOBDAT(ct.Structure):
     _fields_ = [
+        ("nodeSet", POINTSET_PTR),
+        ("elemSet", GROUPSET_PTR),
+        ("dofSpace", INT_MAT_PTR),
         ("state0", DOUBLE_VEC_PTR),
         ("intForce", DOUBLE_VEC_PTR),
         ("extForce", DOUBLE_VEC_PTR),
         ("matrix0", SPARSE_MAT_PTR),
-        ("coords", DOUBLE_MAT_PTR),
-        ("dofs", INT_MAT_PTR),
         ("constraints", CONSTRAINTS_PTR),
     ]
 
