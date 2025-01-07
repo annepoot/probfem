@@ -24,7 +24,7 @@
 #include <jive/algebra/SparseMatrixObject.h>
 #include <jive/util/DofSpace.h>
 #include <jive/util/Constraints.h>
-#include <jive/model/Names.h>
+#include <jive/model/Actions.h>
 #include <jive/model/StateVector.h>
 #include <jive/fem/NodeSet.h>
 
@@ -57,7 +57,7 @@ using jive::IntMatrix;
 using jive::util::DofSpace;
 using jive::util::Constraints;
 using jive::model::STATE0;
-using jive::model::PropertyNames;
+using jive::model::ActionParams;
 using jive::model::StateVector;
 using jive::fem::NodeSet;
 
@@ -181,6 +181,8 @@ struct CONSTRAINTS_PTR{
 
 struct GLOBDAT {
   DOUBLE_VEC_PTR state0;
+  DOUBLE_VEC_PTR intForce;
+  DOUBLE_VEC_PTR extForce;
   SPARSE_MAT_PTR matrix0;
   DOUBLE_MAT_PTR coords;
   INT_MAT_PTR dofs;
@@ -208,7 +210,13 @@ void getGlobdat
   idx_t dofCount = dofs->dofCount();
 
   Vector u ( dofs->dofCount() );
+  Vector fint;
+  Vector fext;
+
   StateVector::get ( u, STATE0, dofs, globdat );
+  globdat.get( fint, ActionParams::INT_VECTOR );
+  globdat.get( fext, ActionParams::EXT_VECTOR );
+
   Matrix coords( nodes.rank(), nodes.size() );
   nodes.getCoords(coords);
 
@@ -221,6 +229,26 @@ void getGlobdat
     outdat.state0.ptr[idof] = u[idof];
   }
   outdat.state0.size = dofCount;
+
+  // Populate intForce array
+  if ( dofCount > outdat.intForce.size ){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  for ( idx_t idof = 0; idof < dofCount ; idof++ ){
+    outdat.intForce.ptr[idof] = fint[idof];
+  }
+  outdat.intForce.size = dofCount;
+
+  // Populate extForce array
+  if ( dofCount > outdat.extForce.size ){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  for ( idx_t idof = 0; idof < dofCount ; idof++ ){
+    outdat.extForce.ptr[idof] = fext[idof];
+  }
+  outdat.extForce.size = dofCount;
 
   // Populate coords array
   if ( nodeCount > outdat.coords.size0 || rank > outdat.coords.size1 ){
@@ -250,7 +278,7 @@ void getGlobdat
 
   // Populate matrix0 array
   Ref<MatrixBuilder> mbuilder;
-  globdat.get( mbuilder, PropertyNames::MATRIX0 );
+  globdat.get( mbuilder, ActionParams::MATRIX0 );
 
   Ref<AbstractMatrix> mat = mbuilder->getMatrix();
   Ref<SparseMatrixObject> smat = dynamicCast<SparseMatrixObject> ( mat );
@@ -297,7 +325,7 @@ void getGlobdat
   }
 
   IdxVector cdofs = cons->getSlaveDofs();
-  Vector cvals;
+  Vector cvals ( cdofs.size() );
   cons->getRvalues(cvals, cdofs);
 
   for ( idx_t idof = 0; idof < cdofCount ; idof++ ){

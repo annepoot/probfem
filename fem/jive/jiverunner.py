@@ -44,6 +44,8 @@ class CJiveRunner:
 
         globdat = GLOBDAT(
             DOUBLE_VEC_PTR((ct.c_double * dof_count)(), ct.c_int(dof_count)),  # state0
+            DOUBLE_VEC_PTR((ct.c_double * dof_count)(), ct.c_int(dof_count)),  # intVector
+            DOUBLE_VEC_PTR((ct.c_double * dof_count)(), ct.c_int(dof_count)),  # extVector
             SPARSE_MAT_PTR(
                 DOUBLE_VEC_PTR(  # matrix0.values
                     (ct.c_double * (dof_count * 20))(),
@@ -84,6 +86,8 @@ class CJiveRunner:
         )
 
         state0 = to_numpy(globdat.state0)
+        intForce = to_numpy(globdat.intForce)
+        extForce = to_numpy(globdat.extForce)
         coords = to_numpy(globdat.coords)
         dofs = to_numpy(globdat.dofs)
 
@@ -102,6 +106,8 @@ class CJiveRunner:
 
         return {
             "state0": state0,
+            "intForce": intForce,
+            "extForce": extForce,
             "matrix0": matrix0,
             "coords": coords,
             "dofs": dofs,
@@ -157,6 +163,8 @@ class CONSTRAINTS_PTR(ct.Structure):
 class GLOBDAT(ct.Structure):
     _fields_ = [
         ("state0", DOUBLE_VEC_PTR),
+        ("intForce", DOUBLE_VEC_PTR),
+        ("extForce", DOUBLE_VEC_PTR),
         ("matrix0", SPARSE_MAT_PTR),
         ("coords", DOUBLE_MAT_PTR),
         ("dofs", INT_MAT_PTR),
