@@ -6,6 +6,7 @@
 #include <jem/util/StringUtils.h>
 
 #include <jive/geom/IShapeFactory.h>
+#include <jive/geom/Names.h>
 #include <jive/model/Actions.h>
 #include <jive/model/StateVector.h>
 #include <jive/model/ModelFactory.h>
@@ -47,9 +48,9 @@ ElasticModel::ElasticModel
      const Properties&   props,
      const Properties&   globdat ) : Super(name)
 {
+  using jive::geom::PropertyNames;
 
   // create myTag_ (last part of myName_)
-
   StringVector names ( StringUtils::split( myName_, '.' ) );
   myTag_     = names [ names.size() - 1 ];
 
@@ -83,6 +84,15 @@ ElasticModel::ElasticModel
   }
 
   String shapeProp = joinNames ( myName_, SHAPE_PROP );
+
+  String shapeType;
+  String shapeScheme;
+  props.getProps(shapeProp).get(shapeType, PropertyNames::TYPE);
+  props.getProps(shapeProp).get(shapeScheme, PropertyNames::ISCHEME);
+
+  globdat.set(joinNames(PropertyNames::SHAPE, PropertyNames::TYPE), shapeType);
+  globdat.set(joinNames(PropertyNames::SHAPE, PropertyNames::ISCHEME), shapeScheme);
+
   shape_  = IShapeFactory::newInstance ( shapeProp, conf, props );
 
   nodeCount_  = shape_->nodeCount   ();

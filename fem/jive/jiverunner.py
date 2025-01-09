@@ -98,6 +98,16 @@ class CJiveRunner:
                     ct.c_int(dof_count),
                 ),
             ),
+            SHAPE_PTR(  # shape
+                STRING_PTR(  # shape.type
+                    (ct.c_char * 64)(),
+                    ct.c_int(64),
+                ),
+                STRING_PTR(  # shape.ischeme
+                    (ct.c_char * 64)(),
+                    ct.c_int(64),
+                ),
+            ),
         )
 
         globdat_func(
@@ -147,6 +157,10 @@ class CJiveRunner:
                 
         dofs._count = dofs_data.shape[0] * dofs_data.shape[1]
 
+        shape = globdat.shape
+        shape_type = shape.type.ptr[: shape.type.size].decode("UTF-8")
+        shape_ischeme = shape.ischeme.ptr[: shape.ischeme.size].decode("UTF-8")
+
         return {
             "nodeSet": nodes,
             "elemSet": elems,
@@ -156,6 +170,7 @@ class CJiveRunner:
             "extForce": extForce,
             "matrix0": matrix0,
             "constraints": constraints,
+            "shape": {"type": shape_type, "ischeme": shape_ischeme},
         }
 
 
@@ -169,6 +184,13 @@ class INT_VEC_PTR(ct.Structure):
 class DOUBLE_VEC_PTR(ct.Structure):
     _fields_ = [
         ("ptr", ct.POINTER(ct.c_double)),
+        ("size", ct.c_int),
+    ]
+
+
+class STRING_PTR(ct.Structure):
+    _fields_ = [
+        ("ptr", ct.POINTER(ct.c_char)),
         ("size", ct.c_int),
     ]
 
@@ -194,6 +216,13 @@ class SPARSE_MAT_PTR(ct.Structure):
         ("values", DOUBLE_VEC_PTR),
         ("indices", INT_VEC_PTR),
         ("offsets", INT_VEC_PTR),
+    ]
+
+
+class SHAPE_PTR(ct.Structure):
+    _fields_ = [
+        ("type", STRING_PTR),
+        ("ischeme", STRING_PTR),
     ]
 
 
@@ -227,6 +256,7 @@ class GLOBDAT(ct.Structure):
         ("extForce", DOUBLE_VEC_PTR),
         ("matrix0", SPARSE_MAT_PTR),
         ("constraints", CONSTRAINTS_PTR),
+        ("shape", SHAPE_PTR),
     ]
 
 

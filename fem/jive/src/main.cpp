@@ -22,12 +22,14 @@
 #include <jive/algebra/AbstractMatrix.h>
 #include <jive/algebra/MatrixBuilder.h>
 #include <jive/algebra/SparseMatrixObject.h>
+#include <jive/geom/Names.h>
 #include <jive/fem/NodeSet.h>
 #include <jive/fem/ElementSet.h>
 #include <jive/model/Actions.h>
 #include <jive/model/StateVector.h>
 #include <jive/util/XDofSpace.h>
 #include <jive/util/Constraints.h>
+#include <jive/util/utilities.h>
 
 #include "models.h"
 #include "modules.h"
@@ -55,6 +57,7 @@ using jive::IntMatrix;
 using jive::algebra::AbstractMatrix;
 using jive::algebra::SparseMatrixObject;
 using jive::algebra::MatrixBuilder;
+using jive::geom::PropertyNames;
 using jive::fem::NodeSet;
 using jive::fem::ElementSet;
 using jive::model::STATE0;
@@ -62,6 +65,7 @@ using jive::model::ActionParams;
 using jive::model::StateVector;
 using jive::util::XDofSpace;
 using jive::util::Constraints;
+using jive::util::joinNames;
 
 
 
@@ -159,6 +163,12 @@ struct DOUBLE_VEC_PTR{
   int size;
 };
 
+
+struct STRING_PTR{
+  char* ptr;
+  int size;
+};
+
 struct INT_MAT_PTR{
   int* ptr;
   int size0;
@@ -175,6 +185,11 @@ struct SPARSE_MAT_PTR{
   DOUBLE_VEC_PTR values;
   INT_VEC_PTR indices;
   INT_VEC_PTR offsets;
+};
+
+struct SHAPE_PTR{
+  STRING_PTR type;
+  STRING_PTR ischeme;
 };
 
 struct CONSTRAINTS_PTR{
@@ -200,6 +215,7 @@ struct GLOBDAT {
   DOUBLE_VEC_PTR extForce;
   SPARSE_MAT_PTR matrix0;
   CONSTRAINTS_PTR constraints;
+  SHAPE_PTR shape;
 };
 
 void getGlobdat
@@ -370,6 +386,29 @@ void getGlobdat
   }
   outdat.constraints.dofs.size = cdofCount;
   outdat.constraints.values.size = cdofCount;
+
+  // Populate shape string
+  String shapeType;
+  String shapeScheme;
+
+  globdat.get(shapeType, joinNames(PropertyNames::SHAPE, PropertyNames::TYPE));
+  globdat.get(shapeScheme, joinNames(PropertyNames::SHAPE, PropertyNames::ISCHEME));
+
+  int shapeTypeSize = shapeType.size();
+  int shapeSchemeSize = shapeScheme.size();
+
+  if ( shapeTypeSize > outdat.shape.type.size || shapeSchemeSize > outdat.shape.ischeme.size ){
+    throw Exception ( "getState0()", "buffer size insufficient");
+  }
+
+  for ( idx_t is = 0; is < shapeTypeSize; is++ ){
+    outdat.shape.type.ptr[is] = shapeType[is];
+  }
+  for ( idx_t is = 0; is < shapeSchemeSize; is++ ){
+    outdat.shape.ischeme.ptr[is] = shapeScheme[is];
+  }
+  outdat.shape.type.size = shapeTypeSize;
+  outdat.shape.ischeme.size = shapeSchemeSize;
 }
 
 
