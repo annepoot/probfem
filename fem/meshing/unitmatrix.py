@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.sparse import csr_array
 
-
 __all__ = ["create_unit_mass_matrix", "create_phi_matrix", "create_phi_from_globdat"]
 
 
@@ -122,9 +121,15 @@ def create_phi_from_globdat(coarse_globdat, fine_globdat):
     elemsf = fine_globdat["elemSet"]
     dofsc = coarse_globdat["dofSpace"]
     dofsf = fine_globdat["dofSpace"]
-    shape_name = coarse_globdat["meshShape"]
-    assert shape_name == fine_globdat["meshShape"]
-    shapec = coarse_globdat["shapeFactory"].get_shape(shape_name, "Gauss1")
+
+    if "shape" in coarse_globdat:
+        shapec = coarse_globdat["shape"]
+        assert type(shapec) == type(fine_globdat["shape"])
+    else:
+        shape_type = coarse_globdat["meshShape"]
+        assert shape_type == fine_globdat["meshShape"]
+        shape_ischeme = "Gauss1"
+        shapec = coarse_globdat["shapeFactory"].get_shape(shape_type, shape_ischeme)
 
     Phi = create_phi_matrix(elemsc, elemsf, dofsc, dofsf, shapec)
     return Phi

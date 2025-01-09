@@ -2,11 +2,14 @@ import os
 import numpy as np
 import ctypes as ct
 from scipy.sparse import csr_array
+import time
 
 from myjive.app import main
-from myjivex.declare import declare_all
+from myjive.declare import declare_shapes
 from myjive.fem import XNodeSet, XElementSet, DofSpace
 from myjive.solver import Constraints
+from myjive.util.proputils import write_to_file
+from myjivex.declare import declare_all
 
 __all__ = ["MyJiveRunner", "CJiveRunner"]
 
@@ -23,8 +26,8 @@ class MyJiveRunner:
 
 class CJiveRunner:
 
-    def __init__(self, fname, *, node_count, elem_count, rank, max_elem_node_count):
-        self.fname = fname.encode("utf-8")
+    def __init__(self, props, *, node_count, elem_count, rank, max_elem_node_count):
+        self.props = props
         self.node_count = node_count
         self.elem_count = elem_count
         self.rank = rank
@@ -110,10 +113,23 @@ class CJiveRunner:
             ),
         )
 
+        assert isinstance(self.props, (str, dict))
+        tmp_file = isinstance(self.props, dict)
+
+        if tmp_file:
+            fname = "tmp" + time.strftime("%Y%m%d%H%M%S") + ".pro"
+            write_to_file(self.props, fname)
+        else:
+            fname = self.props
+        fname = fname.encode("utf-8")
+
         globdat_func(
             ct.byref(globdat),
-            self.fname,
+            fname,
         )
+
+        if tmp_file:
+            os.remove(fname)
 
         state0 = to_numpy(globdat.state0)
         intForce = to_numpy(globdat.intForce)
@@ -154,14 +170,14 @@ class CJiveRunner:
 
             for inode in range(dofs_data.shape[0]):
                 dofs._dofs[dof_type][inode] = dofs_data[inode, it]
-                
+
         dofs._count = dofs_data.shape[0] * dofs_data.shape[1]
 
         shape = globdat.shape
         shape_type = shape.type.ptr[: shape.type.size].decode("UTF-8")
         shape_ischeme = shape.ischeme.ptr[: shape.ischeme.size].decode("UTF-8")
 
-        return {
+        globdat_ = {
             "nodeSet": nodes,
             "elemSet": elems,
             "dofSpace": dofs,
@@ -172,6 +188,11 @@ class CJiveRunner:
             "constraints": constraints,
             "shape": {"type": shape_type, "ischeme": shape_ischeme},
         }
+        declare_shapes(globdat_)
+        factory = globdat_["shapeFactory"]
+        globdat_["shape"] = factory.get_shape(shape_type, shape_ischeme)
+
+        return globdat_
 
 
 class INT_VEC_PTR(ct.Structure):

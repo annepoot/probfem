@@ -8,19 +8,40 @@ from probability.process import (
 )
 from bfem.observation import compute_bfem_observations
 from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
+from experiments.reproduction.bfem.fig245.cfem_props import get_cfem_props
+from fem.jive import CJiveRunner
 
-cprops = get_fem_props("meshes/plate_r0.msh")
-fprops = get_fem_props("meshes/plate_r1.msh")
+# cmodule_props = get_fem_props("meshes/plate_r0.msh")
+# fmodule_props = get_fem_props("meshes/plate_r1.msh")
+# jive_runner = None
+# cjive_kws = None
+# fjive_kws = None
 
-inf_cov = InverseCovarianceOperator(model_props=fprops["model"], scale=1.0)
+cmodule_props = get_cfem_props("meshes/plate_r0.msh")
+fmodule_props = get_cfem_props("meshes/plate_r1.msh")
+jive_runner = CJiveRunner
+cjive_kws = {"node_count": 254, "elem_count": 416, "rank": 2, "max_elem_node_count": 3}
+fjive_kws = {"node_count": 924, "elem_count": 1664, "rank": 2, "max_elem_node_count": 3}
+
+cmodel_props = cmodule_props.pop("model")
+fmodel_props = fmodule_props.pop("model")
+
+assert cmodel_props == fmodel_props
+
+inf_cov = InverseCovarianceOperator(model_props=fmodel_props, scale=1.0)
 inf_prior = GaussianProcess(None, inf_cov)
 fine_prior = ProjectedPrior(
-    prior=inf_prior, init_props=fprops["init"], solve_props=fprops["solve"]
+    prior=inf_prior,
+    module_props=fmodule_props,
+    jive_runner=jive_runner,
+    jive_runner_kws=fjive_kws,
 )
 coarse_prior = ProjectedPrior(
-    prior=inf_prior, init_props=cprops["init"], solve_props=cprops["solve"]
+    prior=inf_prior,
+    module_props=cmodule_props,
+    jive_runner=jive_runner,
+    jive_runner_kws=cjive_kws,
 )
-
 
 fglobdat = fine_prior.globdat
 f = fglobdat["extForce"]
