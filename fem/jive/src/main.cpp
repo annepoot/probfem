@@ -383,6 +383,7 @@ void getGlobdat
 
   for ( idx_t idof = 0; idof < cdofCount ; idof++ ){
     outdat.constraints.dofs.ptr[idof] = cdofs[idof];
+    outdat.constraints.values.ptr[idof] = cvals[idof];
   }
   outdat.constraints.dofs.size = cdofCount;
   outdat.constraints.values.size = cdofCount;

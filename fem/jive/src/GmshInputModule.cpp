@@ -224,11 +224,11 @@ void GmshInputModule::readMesh_
 
   for ( idx_t in = 0; in < numNodes_; ++in)
   {
-    nodeID = iFile_->parseInt();;
+    nodeID = iFile_->parseInt();
 
-    coords[0] = iFile_->parseFloat();
-    coords[1] = iFile_->parseFloat();
-    coords[2] = iFile_->parseFloat();
+    coords[0] = iFile_->parseDouble();
+    coords[1] = iFile_->parseDouble();
+    coords[2] = iFile_->parseDouble();
 
     nodes_.addNode( nodeID, coords[slice(BEGIN,rank_)] );
   }

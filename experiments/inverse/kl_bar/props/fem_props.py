@@ -1,5 +1,6 @@
 __all__ = ["get_fem_props"]
 
+
 def get_fem_props(*, n_elem):
     fem_props = {
         "modules": ["init", "solve"],
