@@ -154,13 +154,11 @@ class CJiveRunner:
             constraints.add_constraint(cdof, cval)
 
         nodes = XNodeSet()
-        for coord in nodes_data:
-            nodes.add_node(coord)
+        nodes.add_nodes(nodes_data)
         nodes.to_nodeset()
 
         elems = XElementSet(nodes)
-        for inodes, elem_node_count in zip(elems_data, elems_sizes):
-            elems.add_element(inodes[:elem_node_count])
+        elems.add_elements(elems_data, elems_sizes)
         elems.to_elementset
 
         dofs = DofSpace()
