@@ -12,6 +12,7 @@ y = 0.4
 a = 0.4
 theta = np.pi / 6
 r_rel = 0.25
+h_meas = 1.0
 
 create_mesh(
     h=h,
@@ -22,44 +23,51 @@ create_mesh(
     a=a,
     theta=theta,
     r_rel=r_rel,
+    h_meas=h_meas,
     fname="cantilever.msh",
 )
 
-runner = CJiveRunner("props/fem.pro", node_count=45406, rank=2)
+runner = CJiveRunner(
+    "props/fem.pro", node_count=45406, elem_count=89668, rank=2, max_elem_node_count=3
+)
+
 globdat = runner()
 
 state0 = globdat["state0"]
-coords = globdat["coords"]
-dof_idx = globdat["dofs"]
+coords = globdat["nodeSet"].get_coords()
+dofs = globdat["dofSpace"]
 
-from myjive.fem import DofSpace
 from fem.meshing import read_mesh
-
-dofs = DofSpace()
 
 nodes, elems = read_mesh("cantilever.msh")
 types = np.array(["dx", "dy"])
-for doftype in types:
-    dofs.add_type(doftype)
 
-for idof in range(dof_idx.shape[0] * dof_idx.shape[1]):
-    inodes, itypes = np.where(dof_idx == idof)
-    assert len(inodes) == len(itypes) == 1
-    dofs.add_dof(inodes[0], types[itypes[0]])
+obs_locsx = []
+obs_locsy = []
+for x_point in np.linspace(0, L, int(L / h_meas) + 1)[1:]:
+    for y_point in [0.0, H]:
+        obs_locsx.append(x_point)
+        obs_locsy.append(y_point)
 
-obs_locsx = np.repeat(np.linspace(1, 4, 4), 4)
-obs_locsy = np.tile(np.repeat(np.linspace(0, 1, 2), 2), 4)
-obs_inodes = np.zeros(16, dtype=int)
-for i, (locx, locy) in enumerate(zip(obs_locsx, obs_locsy)):
+for y_point in np.linspace(0, H, int(H / h_meas) + 1)[1:-1]:
+    x_point = L
+    obs_locsx.append(x_point)
+    obs_locsy.append(y_point)
+
+obs_inodes = np.arange(2, len(obs_locsx) + 2)
+
+for inode, locx, locy in zip(obs_inodes, obs_locsx, obs_locsy):
     tol = 1e-8
     coord = np.array([locx, locy])
-    inodes = np.where(np.all(abs(coords - coord) < tol, axis=1))[0]
-    assert len(inodes) == 1
-    obs_inodes[i] = inodes[0]
+    assert np.allclose(nodes[inode], coord)
 
-obs_dofs = np.tile(np.arange(0, 2), 8)
+obs_dofs = np.tile(np.arange(0, 2), len(obs_inodes))
+obs_locsx = np.repeat(obs_locsx, 2)
+obs_locsy = np.repeat(obs_locsy, 2)
+obs_inodes = np.repeat(obs_inodes, 2)
+
 obs_tdofs = types[obs_dofs]
-obs_idofs = dof_idx[obs_inodes, obs_dofs]
+obs_idofs = [dofs.get_dof(inode, dof) for inode, dof in zip(obs_inodes, obs_tdofs)]
 obs_vals = state0[obs_idofs]
 
 df = pd.DataFrame(
@@ -85,5 +93,6 @@ create_mesh(
     a=a,
     theta=theta,
     r_rel=r_rel,
+    h_meas=h_meas,
     fname="cantilever.msh",
 )

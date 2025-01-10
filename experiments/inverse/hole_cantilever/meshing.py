@@ -2,7 +2,7 @@ import numpy as np
 import gmsh
 
 
-def create_mesh(*, h, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
+def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, fname, tol=1e-8):
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("General.Verbosity", 2)  # only print errors and warnings
@@ -13,11 +13,17 @@ def create_mesh(*, h, L, H, x, y, a, theta, r_rel, fname, tol=1e-8):
 
     points = []
     points_with_dim = []
-    for x_point in np.linspace(0, L, 5):
-        for y_point in np.linspace(0, H, 2):
+    for x_point in np.linspace(0, L, int(L / h_meas) + 1):
+        for y_point in [0.0, H]:
             p = occ.addPoint(x_point, y_point, 0.0)
             points.append(p)
             points_with_dim.append((0, p))
+
+    for y_point in np.linspace(0, H, int(H / h_meas) + 1)[1:-1]:
+        x_point = L
+        p = occ.addPoint(x_point, y_point, 0.0)
+        points.append(p)
+        points_with_dim.append((0, p))
 
     main_rect = occ.addRectangle(0.0, 0.0, 0.0, L, H)
     r = a * r_rel
