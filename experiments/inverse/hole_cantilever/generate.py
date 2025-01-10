@@ -13,8 +13,9 @@ from experiments.inverse.hole_cantilever.meshing import create_mesh
 
 n_burn = 10000
 n_sample = 20000
-std_corruption = 1e-3
-h_range = [0.2, 0.1, 0.05, 0.02]
+std_corruption_range = [1e-3, 1e-4, 1e-5]
+h_range = [0.2, 0.1, 0.05]
+h_meas = 1.0
 
 for fem_type in ["fem", "rmfem"]:
     fname = "samples-{}.csv".format(fem_type)
@@ -26,71 +27,75 @@ for fem_type in ["fem", "rmfem"]:
     file.write(f"date, time = {current_time}\n")
     file.write(f"n_sample = {n_sample}\n")
     file.write(f"h = {h_range}\n")
-    file.write(f"std_corruption = fixed at {std_corruption}\n")
+    file.write(f"h_meas = fixed at {h_meas}\n")
+    file.write(f"std_corruption = {std_corruption_range}\n")
 
     if fem_type == "fem":
-        sigma_e = std_corruption
+        sigma_e_range = std_corruption_range
         recompute_logpdf = False
-        file.write(f"sigma_e = fixed at {sigma_e}\n")
+        file.write(f"sigma_e = {sigma_e_range}\n")
 
     elif fem_type == "rmfem":
-        sigma_e = std_corruption
+        sigma_e_range = std_corruption_range
         n_pseudomarginal = 10
         recompute_logpdf = True
-        file.write(f"sigma_e = fixed at {sigma_e}\n")
+        file.write(f"sigma_e = {sigma_e_range}\n")
         file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
 
     file.close()
 
-    for i, h in enumerate(h_range):
-        if fem_type == "fem":
-            target = get_rwm_fem_target(
-                h=h,
-                std_corruption=std_corruption,
-                sigma_e=sigma_e,
+    for std_corruption, sigma_e in zip(std_corruption_range, sigma_e_range):
+        for i, h in enumerate(h_range):
+            if fem_type == "fem":
+                target = get_rwm_fem_target(
+                    h=h,
+                    h_meas=h_meas,
+                    std_corruption=std_corruption,
+                    sigma_e=sigma_e,
+                )
+            elif fem_type == "rmfem":
+                target = get_rwm_rmfem_target(
+                    h=h,
+                    h_meas=h_meas,
+                    std_corruption=std_corruption,
+                    sigma_e=sigma_e,
+                    n_pseudomarginal=n_pseudomarginal,
+                )
+            else:
+                raise ValueError
+
+            proposal = deepcopy(target.prior)
+            for dist in proposal.distributions:
+                dist.update_width(0.1 * dist.calc_width())
+            start_value = target.prior.calc_mean()
+            mcmc = MCMCRunner(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample,
+                n_burn=n_burn,
+                start_value=start_value,
+                seed=0,
+                recompute_logpdf=recompute_logpdf,
             )
-        elif fem_type == "rmfem":
-            target = get_rwm_rmfem_target(
-                h=h,
-                std_corruption=std_corruption,
-                sigma_e=sigma_e,
-                n_pseudomarginal=n_pseudomarginal,
-            )
-        else:
-            raise ValueError
+            samples = mcmc()
 
-        proposal = deepcopy(target.prior)
-        for dist in proposal.distributions:
-            dist.update_width(0.1 * dist.calc_width())
-        start_value = target.prior.calc_mean()
-        mcmc = MCMCRunner(
-            target=target,
-            proposal=proposal,
-            n_sample=n_sample,
-            n_burn=n_burn,
-            start_value=start_value,
-            seed=0,
-            recompute_logpdf=recompute_logpdf,
-        )
-        samples = mcmc()
+            df = pd.DataFrame(samples, columns=["x", "y", "a", "theta", "r_rel"])
 
-        df = pd.DataFrame(samples, columns=["x", "y", "a", "theta", "r_rel"])
+            df["sample"] = df.index
+            df["h"] = h
+            df["r"] = df["r_rel"] * df["a"]
+            df["std_corruption"] = std_corruption
 
-        df["sample"] = df.index
-        df["h"] = h
-        df["r"] = df["r_rel"] * df["a"]
-        df["std_corruption"] = std_corruption
+            if fem_type == "fem":
+                df["sigma_e"] = sigma_e
+            elif fem_type == "rmfem":
+                df["sigma_e"] = sigma_e
+                df["n_pseudomarginal"] = n_pseudomarginal
+            else:
+                raise ValueError
 
-        if fem_type == "fem":
-            df["sigma_e"] = sigma_e
-        elif fem_type == "rmfem":
-            df["sigma_e"] = sigma_e
-            df["n_pseudomarginal"] = n_pseudomarginal
-        else:
-            raise ValueError
-
-        write_header = h == h_range[0]
-        df.to_csv(fname, mode="a", header=write_header, index=False)
+            write_header = (h == h_range[0]) and (sigma_e == sigma_e_range[0])
+            df.to_csv(fname, mode="a", header=write_header, index=False)
 
 create_mesh(
     h=0.1,
@@ -101,5 +106,6 @@ create_mesh(
     a=0.4,
     theta=np.pi / 6,
     r_rel=0.25,
+    h_meas=1.0,
     fname="cantilever.msh",
 )
