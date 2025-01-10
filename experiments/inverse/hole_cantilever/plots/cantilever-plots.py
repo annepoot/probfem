@@ -31,7 +31,6 @@ def get_hole_patch(x, y, a, theta, r):
     return patch
 
 
-variables = ["x", "y", "a", "theta", "r_rel"]
 refs_by_var = {
     "x": 1.0,
     "y": 0.4,
@@ -41,52 +40,29 @@ refs_by_var = {
     "r": 0.1,
 }
 
-
-def lims_by_var(width):
-    lims_by_var = {}
-    for var in variables:
-        ref = refs_by_var[var]
-        lims_by_var[var] = (ref - width, ref + width)
-    return lims_by_var
-
-
-labels_by_var = {
-    "x": r"$x$",
-    "y": r"$y$",
-    "a": r"$a$",
-    "theta": r"$\theta$",
-    "r_rel": r"$r_{rel}$",
-}
-
-title_map = {
-    "fem": "FEM",
-    "bfem": "BFEM",
-    "statfem": "StatFEM",
-    "rmfem": "RM-FEM",
-}
-
 N_filter = 100
 N_start = 10000
 N_end = 20000
 
+std_corruption = 1e-4
+
 for fem_type in ["fem", "rmfem"]:
+
+    fname = "../samples-{}.csv".format(fem_type)
+
+    df = read_csv_from(fname, "x,y,a,theta,r_rel")
+    df = df[df["sample"] >= N_start]
+    df = df[df["sample"] <= N_end]
+    df = df[df["sample"] % N_filter == 0]
+    df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
+    df["theta"] = df["theta"] - (0.5 * np.pi) * np.floor(df["theta"] / (0.5 * np.pi))
 
     # Create figure and axis
     fig, ax = plt.subplots()
 
-    for h, c in zip([0.2, 0.1, 0.05], ["C0", "C1", "C2"]):
-        fname = "../samples-{}.csv".format(fem_type)
-        df = read_csv_from(fname, "x,y,a,theta,r_rel")
-        df = df[df["sample"] >= N_start]
-        df = df[df["sample"] <= N_end]
-        df = df[df["sample"] % N_filter == 0]
-        df = df[abs(df["h"] - h) < 1e-8]
-
-        df["theta"] = df["theta"] - (0.5 * np.pi) * np.floor(
-            df["theta"] / (0.5 * np.pi)
-        )
-
-        row = df.iloc[0]
+    for h in [0.2, 0.1, 0.05]:
+        c = {0.2: "C0", 0.1: "C1", 0.05: "C2", 0.02: "C3"}[h]
+        df_h = df[abs(df["h"] - h) < 1e-8]
 
         # Create a rounded rectangle
         rect = patches.FancyBboxPatch(
@@ -100,7 +76,7 @@ for fem_type in ["fem", "rmfem"]:
         )
         ax.add_patch(rect)
 
-        for idx, row in df.iterrows():
+        for idx, row in df_h.iterrows():
             x, y, a, theta, r = row[["x", "y", "a", "theta", "r"]]
             hole_patch = get_hole_patch(x, y, a, theta, r)
             hole_patch.set_edgecolor(c)
