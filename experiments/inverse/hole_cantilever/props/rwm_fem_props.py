@@ -16,8 +16,8 @@ from experiments.inverse.hole_cantilever.meshing import create_mesh
 __all__ = ["get_rwm_fem_target"]
 
 
-def get_rwm_fem_target(*, h, std_corruption, sigma_e):
-    df = pd.read_csv("ground-truth.csv", skiprows=9)
+def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
+    df = pd.read_csv("ground-truth.csv", skiprows=10)
     ground_locs = df[["loc_x", "loc_y"]].to_numpy()
     ground_dofs = df["dof_idx"].to_numpy()
     ground_truth = df["value"].to_numpy()
@@ -41,6 +41,7 @@ def get_rwm_fem_target(*, h, std_corruption, sigma_e):
         "a": 0.4,
         "theta": 0.0,
         "r_rel": 0.0,
+        "h_meas": h_meas,
         "fname": "cantilever.msh",
     }
 
