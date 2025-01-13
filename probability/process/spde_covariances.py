@@ -1,12 +1,13 @@
-from copy import deepcopy
 from warnings import warn
 import numpy as np
 from scipy.sparse import issparse
 from scipy.sparse.linalg import spsolve
-from scipy.stats import Covariance
+
+from copy import deepcopy
 
 from ..multivariate.gaussian import Gaussian
 from probability.process.gaussian_process import GaussianProcess
+from probability.multivariate import Covariance
 from .mean_functions import ZeroMeanFunction
 from .covariance_functions import CovarianceFunction
 
@@ -94,25 +95,20 @@ class ProjectedPrior(Gaussian):
         assert "model" not in self.props
         self.props["model"] = self.prior.cov.model_props
 
+        if jive_runner is None:
+            self.jive_runner = MyJiveRunner
+        else:
+            self.jive_runner = jive_runner
+        self.jive_runner_kws = jive_runner_kws
         self.sigma_pd = sigma_pd
 
-        if jive_runner is None:
-            jive = MyJiveRunner(self.props)
-        else:
-            jive = jive_runner(self.props, **jive_runner_kws)
-
+        jive = self.jive_runner(self.props, **self.jive_runner_kws)
         self.globdat = jive()
 
         mean = self._compute_mean(self.globdat)
         cov = self._compute_covariance(self.globdat)
 
-        super().__init__(mean, cov)
-
-    def update_mean(self):
-        assert False
-
-    def update_cov(self):
-        assert False
+        super().__init__(mean, cov, use_scipy_latent=False)
 
     def _compute_mean(self, globdat):
         K = globdat[gn.MATRIX0].copy()
@@ -147,27 +143,22 @@ class ProjectedPrior(Gaussian):
         if isinstance(self.prior.cov, InverseCovarianceOperator):
             K = globdat[gn.MATRIX0]
             c = globdat[gn.CONSTRAINTS]
-            if issparse(K):
-                K = K.toarray()
 
             scale = self.prior.cov.scale
             aK = K / scale
 
             aKc = self._constrain_precision(aK, c)
-            cov = Covariance.from_precision(aKc)
+            cov = Covariance(aKc, cov_type="precision")
 
         elif isinstance(self.prior.cov, NaturalCovarianceOperator):
             K = globdat[gn.MATRIX0]
-            if issparse(K):
-                K = K.toarray()
-
             scale = self.prior.cov.scale
             lumpM = self.prior.cov.lumped_mass_matrix
             M_inv = self._compute_inv_mass_matrix(globdat, lumped=lumpM)
             aKMK = (K @ M_inv @ K) / scale
 
             aKMKc = self._constrain_precision(aKMK, globdat[gn.CONSTRAINTS])
-            cov = Covariance.from_precision(aKMKc)
+            cov = Covariance(aKMKc, cov_type="precision")
 
         else:
             assert False
@@ -179,8 +170,6 @@ class ProjectedPrior(Gaussian):
         output_matrix = conman.get_output_matrix()
         cdofs = constraints.get_constraints()[0]
         output_matrix[cdofs, cdofs] = self.sigma_pd**-2
-        if issparse(output_matrix):
-            output_matrix = output_matrix.toarray()
         return output_matrix
 
     def _compute_inv_mass_matrix(self, globdat, lumped):

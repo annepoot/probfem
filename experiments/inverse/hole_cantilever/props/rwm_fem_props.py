@@ -12,6 +12,7 @@ from probability import (
 from fem.jive import CJiveRunner
 
 from experiments.inverse.hole_cantilever.meshing import create_mesh
+from experiments.inverse.hole_cantilever.props.fem_props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
 
@@ -19,7 +20,7 @@ __all__ = ["get_rwm_fem_target"]
 def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
     df = pd.read_csv("ground-truth.csv", skiprows=10)
     ground_locs = df[["loc_x", "loc_y"]].to_numpy()
-    ground_dofs = df["dof_idx"].to_numpy()
+    ground_dofs = df["dof_type"].to_numpy()
     ground_truth = df["value"].to_numpy()
 
     # generate repeated noisy observations
@@ -30,7 +31,18 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
     obs_locs = ground_locs
     obs_dofs = ground_dofs
 
-    jive_runner = CJiveRunner("props/fem.pro", node_count=int(1000 / h), rank=2)
+    node_count_estimate = int(1000 / h)
+
+    fname_mesh = "cantilever.msh"
+    props = get_fem_props(fname_mesh)
+
+    jive_runner = CJiveRunner(
+        props,
+        node_count=node_count_estimate,
+        elem_count=2 * node_count_estimate,
+        rank=2,
+        max_elem_node_count=3,
+    )
 
     mesh_props = {
         "h": h,

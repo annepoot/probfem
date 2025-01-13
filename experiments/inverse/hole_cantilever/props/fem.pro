@@ -1,9 +1,8 @@
-
 log =
 {
   pattern = "*.info";
-  rank    = 1; // print warnings, but not log or out
-  file    = "-$(CASE_NAME).log";
+  rank = 1;
+  file = "-$(CASE_NAME).log";
 };
 
 control =
@@ -14,7 +13,6 @@ control =
 userinput =
 {
   modules = [ "gmsh", "ngroups" ];
-
   gmsh =
   {
     type = "GmshInput";
@@ -26,7 +24,6 @@ userinput =
   {
     type = "GroupInput";
     nodeGroups = [ "left", "topright", "botleft" ];
-
     left.xtype = "min";
     botleft.xtype = "min";
     botleft.ytype = "min";
@@ -37,44 +34,37 @@ userinput =
 
 model =
 {
-  type   = "Matrix";
-
+  type = "Matrix";
   model =
   {
-    type   = "Multi";
+    type = "Multi";
     models = [ "elastic", "diri" ];
-
     diri =
     {
       type = "Dirichlet";
-
       initDisp = -0.01;
       dispIncr = 0.0;
-
       nodeGroups = [ "left", "botleft", "topright" ];
       dofs = [ "dx", "dy", "dy" ];
-      loaded =  2; 
+      loaded = 2;
     };
 
     elastic =
     {
-      type     = "Elastic";
+      type = "Elastic";
       elements = "all";
-
       material =
       {
         type = "LinearIsotropic";
-
         anmodel = "PLANE_STRAIN";
         rank = 2;
-
-        E = 1000.;
+        E = 1000.0;
         nu = 0.2;
       };
 
       shape =
       {
-        type      = "Triangle3";
+        type = "Triangle3";
         intScheme = "Gauss3";
       };
     };
@@ -84,7 +74,6 @@ model =
 usermodules =
 {
   modules = [ "solver" ];
-
   solver =
   {
     type = "Linsolve";
