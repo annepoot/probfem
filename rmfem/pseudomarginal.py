@@ -143,11 +143,6 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         self.rng = np.random.default_rng(seed)
         self.omit_nodes = omit_nodes
 
-        # self.nodes, self.elems = read_mesh(self.mesh_props["fname"])
-        # self._ref_coords = np.copy(self.nodes.get_coords())
-        # self._ref_elem_sizes = calc_elem_sizes(self.elems)
-        # self._boundary = calc_boundary_nodes(self.elems)
-
     def restore_ref(self, x):
         for x_i, var in zip(x, self.input_variables):
             assert var in self.mesh_props
@@ -176,8 +171,8 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         assert len(self.output_locations) == len(self.output_dofs)
 
         state0 = globdat["state0"]
-        coords = globdat["coords"]
-        dof_idx = globdat["dofs"]
+        coords = globdat["nodeSet"].get_coords()
+        dofs = globdat["dofSpace"]
 
         tol = 1e-8
 
@@ -187,7 +182,7 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
                 output[i] = np.nan
             elif len(inodes) == 1:
                 inode = inodes[0]
-                idof = dof_idx[inode, dof]
+                idof = dofs.get_dof(inode, dof)
                 output[i] = state0[idof]
             else:
                 assert False
