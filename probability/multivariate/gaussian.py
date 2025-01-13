@@ -3,6 +3,8 @@ from scipy.stats import multivariate_normal
 from warnings import warn
 
 from ..distribution import MultivariateDistribution
+from .covariance import Covariance
+
 
 __all__ = [
     "GaussianLike",
@@ -71,6 +73,9 @@ class GaussianLike(MultivariateDistribution):
     def calc_mean(self):
         raise NotImplementedError("This has to be implemented in a child class")
 
+    def get_cov(self):
+        return Covariance(self.calc_cov(), cov_type="covariance")
+
     def calc_cov(self):
         raise NotImplementedError("This has to be implemented in a child class")
 
@@ -90,54 +95,126 @@ class GaussianLike(MultivariateDistribution):
         return ConditionedGaussian(self, operator, measurements)
 
     def to_gaussian(self, allow_singular=False):
+        cov = self.get_cov()
+        use_scipy_latent = not isinstance(cov, Covariance)
         return Gaussian(
-            self.calc_mean(), self.calc_cov(), allow_singular=allow_singular
+            self.calc_mean(),
+            cov,
+            allow_singular=allow_singular,
+            use_scipy_latent=use_scipy_latent,
         )
 
 
 class Gaussian(GaussianLike):
-    def __init__(self, mean, cov, allow_singular=False):
+    def __init__(self, mean, cov, allow_singular=False, use_scipy_latent=True):
         self.allow_singular = allow_singular
-        self.latent = multivariate_normal(
-            mean=mean, cov=cov, allow_singular=self.allow_singular
-        )
+        self.use_scipy_latent = use_scipy_latent
+
+        if self.use_scipy_latent:
+            self.latent = multivariate_normal(
+                mean=mean, cov=cov, allow_singular=self.allow_singular
+            )
+        else:
+            self._len = self._get_len(mean, cov)
+            self.update_mean(mean)
+            self.update_cov(cov)
 
     def __len__(self):
-        return len(self.latent.mean)
+        if self.use_scipy_latent:
+            return len(self.latent.mean)
+        else:
+            return len(self.mean)
 
     def update_mean(self, mean):
-        self.latent = multivariate_normal(
-            mean, self.latent.cov, allow_singular=self.allow_singular
-        )
+        if self.use_scipy_latent:
+            self.latent = multivariate_normal(
+                mean, self.latent.cov, allow_singular=self.allow_singular
+            )
+        else:
+            if mean is None:
+                self.mean = np.zeros(self._len)
+            else:
+                assert len(mean.shape) == 1
+                assert mean.shape[0] == self._len
+                self.mean = mean
 
     def update_cov(self, cov):
-        self.latent = multivariate_normal(
-            self.latent.mean, cov, allow_singular=self.allow_singular
-        )
+        if self.use_scipy_latent:
+            self.latent = multivariate_normal(
+                self.latent.mean, cov, allow_singular=self.allow_singular
+            )
+        else:
+            if isinstance(cov, Covariance):
+                self.cov = cov
+            else:
+                assert len(cov.shape) == 2
+                assert cov.shape[0] == cov.shape[1] == self._len
+                self.cov = Covariance(cov, cov_type="covariance")
 
     def calc_mean(self):
-        return self.latent.mean
+        if self.use_scipy_latent:
+            return self.latent.mean
+        else:
+            return self.mean
+
+    def get_cov(self):
+        if self.use_scipy_latent:
+            return self.latent.cov
+        else:
+            return self.cov
 
     def calc_cov(self):
-        return self.latent.cov
+        if self.use_scipy_latent:
+            return self.latent.cov
+        else:
+            return self.cov.calc_cov()
 
     def calc_diag(self):
-        return np.diagonal(self.latent.cov)
+        return self.calc_cov().diagonal()
 
     def calc_std(self):
-        return np.sqrt(np.diagonal(self.latent.cov))
+        return np.sqrt(self.calc_diag())
 
     def calc_sample(self, seed):
-        return self.latent.rvs(random_state=seed).flatten()
+        if self.use_scipy_latent:
+            return self.latent.rvs(random_state=seed).flatten()
+        else:
+            return self.mean + self.cov.calc_sample(seed)
 
     def calc_samples(self, n, seed):
-        return self.latent.rvs(size=n, random_state=seed)
+        if self.use_scipy_latent:
+            return self.latent.rvs(size=n, random_state=seed)
+        else:
+            return self.mean + self.cov.calc_samples(n, seed)
 
     def calc_pdf(self, x):
-        return self.latent.pdf(x)
+        if self.use_scipy_latent:
+            return self.latent.pdf(x)
+        else:
+            logpdf = self.calc_logpdf(x)
+            if logpdf <= 0.0:
+                return -np.inf
+            else:
+                return np.exp(logpdf)
 
     def calc_logpdf(self, x):
-        return self.latent.logpdf(x)
+        if self.use_scipy_latent:
+            return self.latent.logpdf(x)
+        else:
+            return (
+                -0.5 * len(self) * np.log(2 * np.pi)
+                - 0.5 * self.cov.calc_logdet()
+                - 0.5 * self.cov.calc_mahal_squared(x - self.mean)
+            )
+
+    def _get_len(self, mean, cov):
+        if mean is None:
+            return cov.shape[0]
+        elif cov is None:
+            return mean.shape[0]
+        else:
+            assert mean.shape[0] == cov.shape[0] == cov.shape[1]
+            return mean.shape[0]
 
 
 class ScaledGaussian(GaussianLike):
@@ -217,32 +294,41 @@ class ConditionedGaussian(GaussianLike):
         assert obs.shape[0] == linop.shape[0]
         self.obs = obs
 
-        prior_cov = self.prior.calc_cov()
-        inv_gram = np.linalg.pinv(self.linop @ prior_cov @ self.linop.T)
-        self.kalman_gain = prior_cov @ self.linop.T @ inv_gram
+        prior_cov = self.prior.get_cov()
+        self.gram = prior_cov.calc_gram(self.linop)
 
     def __len__(self):
         return len(self.prior)
 
     def calc_mean(self):
         prior_mean = self.prior.calc_mean()
-        return prior_mean + self.kalman_gain @ (self.obs - self.linop @ prior_mean)
+        prior_cov = self.prior.get_cov()
+        vec = np.linalg.solve(self.gram, (self.obs - self.linop @ prior_mean))
+        return prior_mean + prior_cov @ (self.linop.T @ vec)
 
     def calc_cov(self):
-        Q = np.identity(len(self.prior)) - self.kalman_gain @ self.linop
-        return Q @ self.prior.calc_cov() @ Q.T
+        warn("computing full covariance matrix")
+        prior_cov = self.prior.get_cov()
+        inv_gram = np.linalg.inv(self.gram)
+        P = prior_cov @ (self.linop.T @ (inv_gram @ self.linop))
+        Q = np.identity(len(self.prior)) - P
+        return Q @ (prior_cov @ Q.T)
 
     def calc_sample(self, seed):
         raise NotImplementedError("Not tested yet!")
         sample = self.prior.calc_sample(seed)
-        return sample + self.kalman_gain @ (self.obs - self.linop @ sample)
+        prior_cov = self.prior.get_cov()
+        vec = np.linalg.solve(self.gram, (self.obs - self.linop @ sample))
+        return sample + prior_cov @ (self.linop.T @ vec)
 
     def calc_samples(self, n, seed):
+        raise NotImplementedError("Not tested yet!")
         samples = self.prior.calc_samples(n, seed)
-        return (
-            samples
-            + (np.tile(self.obs, (n, 1)) - samples @ self.linop.T) @ self.kalman_gain.T
+        prior_cov = self.prior.get_cov()
+        vecs = np.linalg.solve(
+            self.gram, (np.tile(self.obs, (n, 1)) - self.linop @ samples)
         )
+        return samples + prior_cov @ (self.linop.T @ vecs)
 
 
 class IndependentGaussianSum(GaussianLike):
