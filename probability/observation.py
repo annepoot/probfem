@@ -162,8 +162,8 @@ class RemeshFEMObservationOperator(ObservationOperator):
         assert len(self.output_locations) == len(self.output_dofs)
 
         state0 = globdat["state0"]
-        coords = globdat["coords"]
-        dof_idx = globdat["dofs"]
+        coords = globdat["nodeSet"].get_coords()
+        dofs = globdat["dofSpace"]
 
         tol = 1e-8
 
@@ -173,7 +173,7 @@ class RemeshFEMObservationOperator(ObservationOperator):
                 output[i] = np.nan
             elif len(inodes) == 1:
                 inode = inodes[0]
-                idof = dof_idx[inode, dof]
+                idof = dofs.get_dof(inode, dof)
                 output[i] = state0[idof]
             else:
                 assert False

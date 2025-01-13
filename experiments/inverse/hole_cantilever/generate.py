@@ -4,8 +4,9 @@ from copy import deepcopy
 from datetime import datetime
 
 from probability.sampling import MCMCRunner
-from experiments.inverse.hole_cantilever.props.rwm_rmfem_props import (
+from experiments.inverse.hole_cantilever.props import (
     get_rwm_fem_target,
+    get_rwm_bfem_target,
     get_rwm_rmfem_target,
 )
 from experiments.inverse.hole_cantilever.meshing import create_mesh
@@ -17,7 +18,7 @@ std_corruption_range = [1e-3, 1e-4, 1e-5]
 h_range = [0.2, 0.1, 0.05]
 h_meas = 1.0
 
-for fem_type in ["fem", "rmfem"]:
+for fem_type in ["bfem"]:
     fname = "samples-{}.csv".format(fem_type)
 
     file = open(fname, "w")
@@ -31,6 +32,11 @@ for fem_type in ["fem", "rmfem"]:
     file.write(f"std_corruption = {std_corruption_range}\n")
 
     if fem_type == "fem":
+        sigma_e_range = std_corruption_range
+        recompute_logpdf = False
+        file.write(f"sigma_e = {sigma_e_range}\n")
+
+    elif fem_type == "bfem":
         sigma_e_range = std_corruption_range
         recompute_logpdf = False
         file.write(f"sigma_e = {sigma_e_range}\n")
@@ -51,6 +57,15 @@ for fem_type in ["fem", "rmfem"]:
                     h=h,
                     h_meas=h_meas,
                     std_corruption=std_corruption,
+                    sigma_e=sigma_e,
+                )
+            elif fem_type == "bfem":
+                target = get_rwm_bfem_target(
+                    h=h,
+                    h_meas=h_meas,
+                    std_corruption=std_corruption,
+                    scale=9.105562473643324e-07,  # f_c.T @ u_c / n_c
+                    rescale=False,
                     sigma_e=sigma_e,
                 )
             elif fem_type == "rmfem":
@@ -77,6 +92,7 @@ for fem_type in ["fem", "rmfem"]:
                 seed=0,
                 recompute_logpdf=recompute_logpdf,
             )
+
             samples = mcmc()
 
             df = pd.DataFrame(samples, columns=["x", "y", "a", "theta", "r_rel"])

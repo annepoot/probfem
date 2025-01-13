@@ -1,8 +1,9 @@
+import os
 import numpy as np
 import gmsh
 
 
-def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, fname, tol=1e-8):
+def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, fname, n_refine=0, tol=1e-8):
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("General.Verbosity", 2)  # only print errors and warnings
@@ -45,9 +46,17 @@ def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, fname, tol=1e-8):
 
     gmsh.model.mesh.generate(2)
 
-    # Export and finish
+    # Export in msh22 format
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
     gmsh.write(fname)
 
+    # Refine the mesh n times
+    for i in range(n_refine):
+        gmsh.model.mesh.refine()
+        name, ext = os.path.splitext(fname)
+        rname = name + "-r" + str(i+1) + ext
+        gmsh.write(rname)
+
     gmsh.model.remove()
+
     gmsh.finalize()

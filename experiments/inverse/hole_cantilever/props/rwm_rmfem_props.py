@@ -1,7 +1,7 @@
 from rmfem import PseudoMarginalLikelihood, RemeshRMFEMObservationOperator
 from experiments.inverse.hole_cantilever.props.rwm_fem_props import get_rwm_fem_target
 
-__all__ = ["get_rwm_fem_target"]
+__all__ = ["get_rwm_rmfem_target"]
 
 
 def get_rwm_rmfem_target(*, h, h_meas, std_corruption, sigma_e, n_pseudomarginal):
