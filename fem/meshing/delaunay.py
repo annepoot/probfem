@@ -13,6 +13,7 @@ __all__ = [
     "invert_mesh",
     "check_point_in_polygon",
     "get_patch_around_node",
+    "get_patches_around_nodes",
 ]
 
 
@@ -80,7 +81,9 @@ def calc_convex_boundary_nodes(nodes, include_corners=True, sort=False):
         return boundaries
 
 
-def calc_boundary_nodes(elems, include_corners=True, include_sides=True, tol=1e-8):
+def calc_boundary_nodes(
+    elems, include_corners=True, include_sides=True, tol=1e-8, patches=None
+):
     nodes = elems.get_nodes()
     rank = nodes.rank()
     bnodes = {}
@@ -88,8 +91,11 @@ def calc_boundary_nodes(elems, include_corners=True, include_sides=True, tol=1e-
     max_node_count = elems.max_elem_node_count()
     assert max_node_count <= 3
 
+    if patches is None:
+        patches = get_patches_around_nodes(elems)
+
     for inode in range(len(nodes)):
-        ipatch = get_patch_around_node(inode, elems)
+        ipatch = patches[inode]
         patch_nodes = np.zeros((len(ipatch), max_node_count), dtype=int) - 1
 
         for ie, ielem in enumerate(ipatch):
@@ -247,3 +253,14 @@ def check_point_in_polygon(point, coords, tol=1e-8):
 def get_patch_around_node(inode, elems):
     idx0, idx1 = np.where(elems._data == inode)
     return idx0[np.where(elems._groupsizes[idx0] > idx1)]
+
+
+def get_patches_around_nodes(elems):
+    nodes = elems.get_nodes()
+    patches = [[] for _ in nodes]
+
+    for ielem, inodes in enumerate(elems):
+        for inode in inodes:
+            patches[inode].append(ielem)
+
+    return patches

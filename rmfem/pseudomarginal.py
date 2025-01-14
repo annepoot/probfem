@@ -6,7 +6,7 @@ from myjive.fem.nodeset import to_xnodeset
 from probability.observation import FEMObservationOperator, RemeshFEMObservationOperator
 from probability.likelihood import Likelihood
 from fem.meshing import (
-    get_patch_around_node,
+    get_patches_around_nodes,
     calc_elem_sizes,
     read_mesh,
     write_mesh,
@@ -24,28 +24,44 @@ __all__ = [
 
 
 def calc_perturbed_coords(
-    *, ref_coords, elems, elem_sizes, p, boundary, rng, omit_nodes=[], tol=1e-8
+    *,
+    ref_coords,
+    elems,
+    elem_sizes,
+    p,
+    boundary,
+    rng,
+    omit_nodes=[],
+    tol=1e-8,
+    patches=None
 ):
     h = np.max(elem_sizes)
+    node_count = ref_coords.shape[0]
     rank = ref_coords.shape[1]
     pert_coords = np.copy(ref_coords)
+
+    # rng generation beforehand is more efficient
+    std_uniform = rng.uniform(size=node_count * rank)
+
+    if patches is None:
+        patches = get_patches_around_nodes(elems)
 
     for inode, coords in enumerate(pert_coords):
         if inode in omit_nodes:
             continue
 
         if rank == 1:
-            alpha_i_bar = np.array([rng.uniform(-0.5, 0.5)])
+            alpha_i_bar = np.array([std_uniform[inode] - 0.5])
         elif rank == 2:
-            r = 0.25 * np.sqrt(rng.uniform(0.0, 1.0))
-            theta = rng.uniform(0.0, 2 * np.pi)
+            r = 0.25 * np.sqrt(std_uniform[inode])
+            theta = std_uniform[inode + node_count] * 2 * np.pi
             alpha_i_bar = r * np.array([np.cos(theta), np.sin(theta)])
         else:
             raise NotImplementedError(
                 "RandomMeshModel has not been implemented for 3D yet"
             )
 
-        patch = get_patch_around_node(inode, elems)
+        patch = patches[inode]
         h_i_bar = np.min(elem_sizes[patch])
         alpha_i = (h_i_bar / h) ** p * alpha_i_bar
 
@@ -81,6 +97,7 @@ class RMFEMObservationOperator(FEMObservationOperator):
 
         self.elems = self.globdat[gn.ESET]
         self.nodes = self.globdat[gn.NSET]
+        self._patches = get_patches_around_nodes(self.elems)
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
         self._boundary = calc_boundary_nodes(self.elems)
@@ -106,6 +123,7 @@ class RMFEMObservationOperator(FEMObservationOperator):
             rng=self.rng,
             boundary=self._boundary,
             omit_nodes=self.omit_nodes,
+            patches=self._patches,
         )
 
         to_xnodeset(self.nodes)
@@ -138,6 +156,7 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         self.mesher(**self.mesh_props)
 
         self.nodes, self.elems = read_mesh(self.mesh_props["fname"])
+        self._patches = get_patches_around_nodes(self.elems)
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
         self._boundary = calc_boundary_nodes(self.elems)
@@ -187,6 +206,7 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
             rng=self.rng,
             boundary=self._boundary,
             omit_nodes=self.omit_nodes,
+            patches=self._patches,
         )
 
         to_xnodeset(self.nodes)

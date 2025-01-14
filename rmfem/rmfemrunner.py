@@ -8,7 +8,7 @@ from myjive.names import GlobNames as gn
 from myjive.util.proputils import split_off_type, check_dict, check_list
 from myjivex import declare_all
 
-from fem.meshing import read_mesh, write_mesh, calc_elem_sizes, get_patch_around_node
+from fem.meshing import read_mesh, write_mesh, calc_elem_sizes, get_patches_around_nodes
 
 
 class RMFEMRunner:
@@ -123,6 +123,8 @@ class RMFEMRunner:
         rank = ref_coords.shape[1]
         pert_coords = np.copy(ref_coords)
 
+        patches = get_patches_around_nodes(elems)
+
         for inode, coords in enumerate(pert_coords):
             # if inode in self._omit_nodes:
             #     continue
@@ -138,7 +140,7 @@ class RMFEMRunner:
                     "RandomMeshModel has not been implemented for 3D yet"
                 )
 
-            patch = get_patch_around_node(inode, elems)
+            patch = patches[inode]
             h_i_bar = np.min(elem_sizes[patch])
             alpha_i = (h_i_bar / h) ** self._p * alpha_i_bar
 

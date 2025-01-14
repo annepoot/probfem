@@ -39,15 +39,20 @@ def _write_manual(elems, fname):
         file.write("nodes (ID, x, [y], [z])\n")
         for inode, coords in enumerate(nodes):
             node_id = nodes.get_node_id(inode)
-            file.write("{} ".format(node_id))
-            file.write(" ".join(["{}".format(coord) for coord in coords]))
-            file.write("\n")
+            line = str(node_id)
+            for coord in coords:
+                line += " " + str(coord)
+            line += "\n"
+            file.write(line)
 
         file.write("elements (node#1, node#2, [node#3, ...])\n")
         for ielem, inodes in enumerate(elems):
             node_ids = nodes.get_node_ids(inodes)
-            file.write(" ".join(["{}".format(node_id) for node_id in node_ids]))
-            file.write("\n")
+            line = str(node_ids[0])
+            for node_id in node_ids[1:]:
+                line += " " + str(node_ids)
+            line += "\n"
+            file.write(line)
 
 
 def _write_gmsh(elems, fname):
@@ -69,9 +74,12 @@ def _write_gmsh(elems, fname):
         for inode, coords in enumerate(nodes):
             node_id = nodes.get_node_id(inode)
             rank3coords[:rank] = coords
-            file.write("{} ".format(node_id))
-            file.write(" ".join(str(coord) for coord in rank3coords))
-            file.write("\n")
+            line = str(node_id)
+            line += " " + str(rank3coords[0])
+            line += " " + str(rank3coords[1])
+            line += " " + str(rank3coords[2])
+            line += "\n"
+            file.write(line)
         file.write("$EndNodes\n")
 
         file.write("$Elements\n")
@@ -80,9 +88,11 @@ def _write_gmsh(elems, fname):
             node_ids = nodes.get_node_ids(inodes)
             elem_id = elems.get_elem_id(ielem)
             elem_type = get_gmsh_elem_type(rank, len(inodes))
-            file.write("{} {} 2 1 1 ".format(elem_id, elem_type))
-            file.write(" ".join(str(node_id) for node_id in node_ids))
-            file.write("\n")
+            line = str(elem_id) + " " + str(elem_type) + " 2 1 1"
+            for node_id in node_ids:
+                line += " " + str(node_id)
+            line += "\n"
+            file.write(line)
         file.write("$EndElements\n")
 
 
