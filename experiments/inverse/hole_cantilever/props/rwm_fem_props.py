@@ -12,7 +12,6 @@ from probability import (
 from fem.jive import CJiveRunner
 
 from experiments.inverse.hole_cantilever.meshing import create_mesh
-from experiments.inverse.hole_cantilever.props.fem_props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
 
@@ -33,11 +32,8 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
 
     node_count_estimate = int(1000 / h)
 
-    fname_mesh = "cantilever.msh"
-    props = get_fem_props(fname_mesh)
-
     jive_runner = CJiveRunner(
-        props,
+        props="props/fem.pro",
         node_count=node_count_estimate,
         elem_count=2 * node_count_estimate,
         rank=2,
