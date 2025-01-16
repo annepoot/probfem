@@ -3,6 +3,7 @@ import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
+from fem.meshing.readwrite import write_mesh
 from probability.sampling import MCMCRunner
 from experiments.inverse.hole_cantilever.props import (
     get_rwm_fem_target,
@@ -113,7 +114,7 @@ for fem_type in ["bfem"]:
             write_header = (h == h_range[0]) and (sigma_e == sigma_e_range[0])
             df.to_csv(fname, mode="a", header=write_header, index=False)
 
-create_mesh(
+_, elems = create_mesh(
     h=0.1,
     L=4,
     H=1,
@@ -123,5 +124,6 @@ create_mesh(
     theta=np.pi / 6,
     r_rel=0.25,
     h_meas=1.0,
-    fname="cantilever.msh",
-)
+)[0]
+
+write_mesh(elems, "cantilever.msh")

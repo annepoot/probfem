@@ -87,13 +87,19 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
             assert var in self.mesh_props
             self.mesh_props[var] = x_i
 
-        self.mesher(**self.mesh_props)
+        output = self.mesher(**self.mesh_props)
+        assert len(output) == 1
+        self.nodes, self.elems = output[0]
 
-        self.nodes, self.elems = read_mesh(self.mesh_props["fname"])
         self._patches = get_patches_around_nodes(self.elems)
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
         self._boundary = calc_boundary_nodes(self.elems)
+
+        self.write_ref()
+
+    def write_ref(self):
+        write_mesh(self.elems, self.mesh_props["fname"])
 
     def calc_prediction(self, x):
         if not hasattr(self, "_perturbed") or not self._perturbed:

@@ -3,7 +3,7 @@ import numpy as np
 
 from myjive.fem import XNodeSet, XElementSet
 
-__all__ = ["write_mesh", "read_mesh"]
+__all__ = ["write_mesh", "read_mesh", "get_gmsh_elem_info", "get_gmsh_elem_type"]
 
 
 def write_mesh(elems, fname):
