@@ -1,3 +1,5 @@
+import numpy as np
+from warnings import warn
 from scipy.special import logsumexp
 
 from myjive.names import GlobNames as gn
@@ -13,77 +15,14 @@ from fem.meshing import (
     calc_boundary_nodes,
 )
 
-import numpy as np
-from warnings import warn
+from .perturbation import calc_perturbed_coords, calc_perturbed_coords_cpp
+
 
 __all__ = [
     "RMFEMObservationOperator",
     "RemeshRMFEMObservationOperator",
     "PseudoMarginalLikelihood",
 ]
-
-
-def calc_perturbed_coords(
-    *,
-    ref_coords,
-    elems,
-    elem_sizes,
-    p,
-    boundary,
-    rng,
-    omit_nodes=[],
-    tol=1e-8,
-    patches=None
-):
-    h = np.max(elem_sizes)
-    node_count = ref_coords.shape[0]
-    rank = ref_coords.shape[1]
-    pert_coords = np.copy(ref_coords)
-
-    # rng generation beforehand is more efficient
-    std_uniform = rng.uniform(size=node_count * rank)
-
-    if patches is None:
-        patches = get_patches_around_nodes(elems)
-
-    for inode, coords in enumerate(pert_coords):
-        if inode in omit_nodes:
-            continue
-
-        if rank == 1:
-            alpha_i_bar = np.array([std_uniform[inode] - 0.5])
-        elif rank == 2:
-            r = 0.25 * np.sqrt(std_uniform[inode])
-            theta = std_uniform[inode + node_count] * 2 * np.pi
-            alpha_i_bar = r * np.array([np.cos(theta), np.sin(theta)])
-        else:
-            raise NotImplementedError(
-                "RandomMeshModel has not been implemented for 3D yet"
-            )
-
-        patch = patches[inode]
-        h_i_bar = np.min(elem_sizes[patch])
-        alpha_i = (h_i_bar / h) ** p * alpha_i_bar
-
-        if inode in boundary:
-            if rank == 1:
-                alpha_i *= 0.0
-
-            elif rank == 2:
-                norm1, norm2 = boundary[inode]
-
-                if abs(norm1[0] * norm2[1] - norm1[1] * norm2[0]) < tol:
-                    basis = np.array([-norm1[1], norm2[0]])
-                    alpha_i = np.dot(alpha_i, basis) * basis
-                else:
-                    alpha_i *= 0.0
-            else:
-                assert False
-
-        coords += h**p * alpha_i
-        pert_coords[inode] = coords
-
-    return pert_coords
 
 
 class RMFEMObservationOperator(FEMObservationOperator):
@@ -115,7 +54,7 @@ class RMFEMObservationOperator(FEMObservationOperator):
         if hasattr(self, "_perturbed") and self._perturbed:
             warn("nodes have already been perturbed since the last prediction")
 
-        new_coords = calc_perturbed_coords(
+        new_coords = calc_perturbed_coords_cpp(
             ref_coords=self._ref_coords,
             elems=self.elems,
             elem_sizes=self._ref_elem_sizes,
@@ -193,7 +132,7 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         if hasattr(self, "_perturbed") and self._perturbed:
             warn("nodes have already been perturbed since the last prediction")
 
-        new_coords = calc_perturbed_coords(
+        new_coords = calc_perturbed_coords_cpp(
             ref_coords=self._ref_coords,
             elems=self.elems,
             elem_sizes=self._ref_elem_sizes,
