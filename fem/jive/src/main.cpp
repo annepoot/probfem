@@ -153,66 +153,60 @@ Ref<Module> mainModule ()
 extern "C" {
 #endif
 
-struct INT_VEC_PTR{
-  int* ptr;
-  int size;
+struct LONG_ARRAY_PTR{
+  long* ptr;
+  long* shape;
+  long dim;
 };
 
-struct DOUBLE_VEC_PTR{
+struct DOUBLE_ARRAY_PTR{
   double* ptr;
-  int size;
+  long* shape;
+  long dim;
 };
 
-
-struct STRING_PTR{
-  char* ptr;
-  int size;
-};
-
-struct INT_MAT_PTR{
-  int* ptr;
-  int size0;
-  int size1;
-};
-
-struct DOUBLE_MAT_PTR{
+struct CHAR_ARRAY_PTR{
   double* ptr;
-  int size0;
-  int size1;
+  long* shape;
+  long dim;
 };
 
 struct SPARSE_MAT_PTR{
-  DOUBLE_VEC_PTR values;
-  INT_VEC_PTR indices;
-  INT_VEC_PTR offsets;
+  DOUBLE_ARRAY_PTR values;
+  LONG_ARRAY_PTR indices;
+  LONG_ARRAY_PTR offsets;
 };
 
 struct SHAPE_PTR{
-  STRING_PTR type;
-  STRING_PTR ischeme;
+  char* type;
+  char* ischeme;
 };
 
 struct CONSTRAINTS_PTR{
-  INT_VEC_PTR dofs;
-  DOUBLE_VEC_PTR values;
+  LONG_ARRAY_PTR dofs;
+  DOUBLE_ARRAY_PTR values;
 };
 
 struct POINTSET_PTR{
-  DOUBLE_MAT_PTR data;
+  DOUBLE_ARRAY_PTR data;
 };
 
 struct GROUPSET_PTR{
-  INT_MAT_PTR data;
-  INT_VEC_PTR sizes;
+  LONG_ARRAY_PTR data;
+  LONG_ARRAY_PTR sizes;
+};
+
+struct DOFSPACE_PTR{
+  LONG_ARRAY_PTR data;
 };
 
 struct GLOBDAT {
   POINTSET_PTR nodeSet;
   GROUPSET_PTR elemSet;
-  INT_MAT_PTR dofSpace;
-  DOUBLE_VEC_PTR state0;
-  DOUBLE_VEC_PTR intForce;
-  DOUBLE_VEC_PTR extForce;
+  DOFSPACE_PTR dofSpace;
+  DOUBLE_ARRAY_PTR state0;
+  DOUBLE_ARRAY_PTR intForce;
+  DOUBLE_ARRAY_PTR extForce;
   SPARSE_MAT_PTR matrix0;
   CONSTRAINTS_PTR constraints;
   SHAPE_PTR shape;
@@ -250,37 +244,37 @@ void getGlobdat
   globdat.get( fext, ActionParams::EXT_VECTOR );
 
   // Populate state0 array
-  if ( dofCount > outdat.state0.size ){
+  if ( dofCount > outdat.state0.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
   for ( idx_t idof = 0; idof < dofCount ; idof++ ){
     outdat.state0.ptr[idof] = u[idof];
   }
-  outdat.state0.size = dofCount;
+  outdat.state0.shape[0] = dofCount;
 
   // Populate intForce array
-  if ( dofCount > outdat.intForce.size ){
+  if ( dofCount > outdat.intForce.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
   for ( idx_t idof = 0; idof < dofCount ; idof++ ){
     outdat.intForce.ptr[idof] = fint[idof];
   }
-  outdat.intForce.size = dofCount;
+  outdat.intForce.shape[0] = dofCount;
 
   // Populate extForce array
-  if ( dofCount > outdat.extForce.size ){
+  if ( dofCount > outdat.extForce.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
   for ( idx_t idof = 0; idof < dofCount ; idof++ ){
     outdat.extForce.ptr[idof] = fext[idof];
   }
-  outdat.extForce.size = dofCount;
+  outdat.extForce.shape[0] = dofCount;
 
   // Populate nodeSet
-  if ( nodeCount > outdat.nodeSet.data.size0 || rank > outdat.nodeSet.data.size1 ){
+  if ( nodeCount > outdat.nodeSet.data.shape[0] || rank > outdat.nodeSet.data.shape[1] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
@@ -292,13 +286,13 @@ void getGlobdat
       outdat.nodeSet.data.ptr[(inode * rank) + ir] = coords[ir];
     }
   }
-  outdat.nodeSet.data.size0 = nodeCount;
-  outdat.nodeSet.data.size1 = rank;
+  outdat.nodeSet.data.shape[0] = nodeCount;
+  outdat.nodeSet.data.shape[1] = rank;
 
   // Populate elemSet
-  if ( elemCount > outdat.elemSet.data.size0 ||
-       maxElemNodeCount > outdat.elemSet.data.size1 ||
-       elemCount > outdat.elemSet.sizes.size ){
+  if ( elemCount > outdat.elemSet.data.shape[0] ||
+       maxElemNodeCount > outdat.elemSet.data.shape[1] ||
+       elemCount > outdat.elemSet.sizes.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
@@ -312,22 +306,22 @@ void getGlobdat
       outdat.elemSet.data.ptr[(ielem * maxElemNodeCount) + in] = inodes[in];
     }
   }
-  outdat.elemSet.data.size0 = elemCount;
-  outdat.elemSet.data.size1 = maxElemNodeCount;
-  outdat.elemSet.sizes.size = elemCount;
+  outdat.elemSet.data.shape[0] = elemCount;
+  outdat.elemSet.data.shape[1] = maxElemNodeCount;
+  outdat.elemSet.sizes.shape[0] = elemCount;
 
   // Populate dofSpace array
-  if ( nodeCount > outdat.dofSpace.size0 || typeCount > outdat.dofSpace.size1 ){
+  if ( nodeCount > outdat.dofSpace.data.shape[0] || typeCount > outdat.dofSpace.data.shape[1] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
   for ( int inode = 0; inode < nodeCount; inode++ ){
 	for ( int itype = 0; itype < typeCount; itype++ ){
-	  outdat.dofSpace.ptr[(inode * typeCount) + itype] = dofs->getDofIndex(inode, itype);
+	  outdat.dofSpace.data.ptr[(inode * typeCount) + itype] = dofs->getDofIndex(inode, itype);
 	}
   }
-  outdat.dofSpace.size0 = nodeCount;
-  outdat.dofSpace.size1 = typeCount;
+  outdat.dofSpace.data.shape[0] = nodeCount;
+  outdat.dofSpace.data.shape[1] = typeCount;
 
   // Populate matrix0 array
   Ref<MatrixBuilder> mbuilder;
@@ -347,9 +341,9 @@ void getGlobdat
     throw Exception( "getState0()", "matrix0 and state0 have incompatible sizes" );
   }
 
-  if ( indexCount > outdat.matrix0.values.size ||
-       indexCount > outdat.matrix0.indices.size ||
-       offsetCount > outdat.matrix0.offsets.size ){
+  if ( indexCount > outdat.matrix0.values.shape[0] ||
+       indexCount > outdat.matrix0.indices.shape[0] ||
+       offsetCount > outdat.matrix0.offsets.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
@@ -362,9 +356,9 @@ void getGlobdat
     outdat.matrix0.offsets.ptr[i] = rowOffsets[i];
   }
 
-  outdat.matrix0.values.size = indexCount;
-  outdat.matrix0.indices.size = indexCount;
-  outdat.matrix0.offsets.size = offsetCount;
+  outdat.matrix0.values.shape[0] = indexCount;
+  outdat.matrix0.indices.shape[0] = indexCount;
+  outdat.matrix0.offsets.shape[0] = offsetCount;
 
   // Populate constraints array
   idx_t cdofCount = cons->slaveDofCount();
@@ -373,7 +367,7 @@ void getGlobdat
     throw Exception ( "getState0()", "master dofs have not been implemented");
   }
 
-  if ( cdofCount > outdat.constraints.dofs.size ){
+  if ( cdofCount > outdat.constraints.dofs.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
@@ -385,8 +379,8 @@ void getGlobdat
     outdat.constraints.dofs.ptr[idof] = cdofs[idof];
     outdat.constraints.values.ptr[idof] = cvals[idof];
   }
-  outdat.constraints.dofs.size = cdofCount;
-  outdat.constraints.values.size = cdofCount;
+  outdat.constraints.dofs.shape[0] = cdofCount;
+  outdat.constraints.values.shape[0] = cdofCount;
 
   // Populate shape string
   String shapeType;
@@ -398,18 +392,12 @@ void getGlobdat
   int shapeTypeSize = shapeType.size();
   int shapeSchemeSize = shapeScheme.size();
 
-  if ( shapeTypeSize > outdat.shape.type.size || shapeSchemeSize > outdat.shape.ischeme.size ){
-    throw Exception ( "getState0()", "buffer size insufficient");
-  }
-
   for ( idx_t is = 0; is < shapeTypeSize; is++ ){
-    outdat.shape.type.ptr[is] = shapeType[is];
+    outdat.shape.type[is] = shapeType[is];
   }
   for ( idx_t is = 0; is < shapeSchemeSize; is++ ){
-    outdat.shape.ischeme.ptr[is] = shapeScheme[is];
+    outdat.shape.ischeme[is] = shapeScheme[is];
   }
-  outdat.shape.type.size = shapeTypeSize;
-  outdat.shape.ischeme.size = shapeSchemeSize;
 }
 
 
