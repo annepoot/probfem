@@ -12,6 +12,7 @@
 
 void declareModules ()
 {
+  declareGlobdatInputModule ();
   declareGmshInputModule    ();
   declareGroupInputModule   ();
   declareInputModule        ();
