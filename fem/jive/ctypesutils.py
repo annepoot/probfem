@@ -2,7 +2,7 @@ import numpy as np
 import ctypes as ct
 from scipy.sparse import csr_array
 
-from myjive.fem import XNodeSet, XElementSet, DofSpace
+from myjive.fem import NodeSet, XNodeSet, ElementSet, XElementSet, DofSpace
 from myjive.solver import Constraints
 from myjive.declare import declare_shapes
 
@@ -35,42 +35,57 @@ class CHAR_ARRAY_PTR(ct.Structure):
 
 class LONG_VEC_PTR(LONG_ARRAY_PTR):
     def __init__(self, *args, **kw):
-        assert len(args) == 2
-        assert args[0]._type_ is ct.c_long
-        assert args[1]._length_ == 1
-        super().__init__(*args, 1, **kw)
+        if len(args) == 0:
+            super().__init__(*args, **kw)
+        else:
+            assert len(args) == 2
+            assert args[0]._type_ is ct.c_long
+            assert args[1]._length_ == 1
+            super().__init__(*args, 1, **kw)
 
 
 class LONG_MAT_PTR(LONG_ARRAY_PTR):
     def __init__(self, *args, **kw):
-        assert len(args) == 2
-        assert args[0]._type_ is ct.c_long
-        assert args[1]._length_ == 2
-        super().__init__(*args, 2, **kw)
+        if len(args) == 0:
+            super().__init__(*args, **kw)
+        else:
+            assert len(args) == 2
+            assert args[0]._type_ is ct.c_long
+            assert args[1]._length_ == 2
+            super().__init__(*args, 2, **kw)
 
 
 class DOUBLE_VEC_PTR(DOUBLE_ARRAY_PTR):
     def __init__(self, *args, **kw):
-        assert len(args) == 2
-        assert args[0]._type_ is ct.c_double
-        assert args[1]._length_ == 1
-        super().__init__(*args, 1, **kw)
+        if len(args) == 0:
+            super().__init__(*args, **kw)
+        else:
+            assert len(args) == 2
+            assert args[0]._type_ is ct.c_double
+            assert args[1]._length_ == 1
+            super().__init__(*args, 1, **kw)
 
 
 class DOUBLE_MAT_PTR(DOUBLE_ARRAY_PTR):
     def __init__(self, *args, **kw):
-        assert len(args) == 2
-        assert args[0]._type_ is ct.c_double
-        assert args[1]._length_ == 2
-        super().__init__(*args, 2, **kw)
+        if len(args) == 0:
+            super().__init__(*args, **kw)
+        else:
+            assert len(args) == 2
+            assert args[0]._type_ is ct.c_double
+            assert args[1]._length_ == 2
+            super().__init__(*args, 2, **kw)
 
 
 class STRING_PTR(CHAR_ARRAY_PTR):
     def __init__(self, *args, **kw):
-        assert len(args) == 2
-        assert args[0]._type_ is ct.c_char
-        assert args[1]._length_ == 1
-        super().__init__(*args, 1, **kw)
+        if len(args) == 0:
+            super().__init__(*args, **kw)
+        else:
+            assert len(args) == 2
+            assert args[0]._type_ is ct.c_char
+            assert args[1]._length_ == 1
+            super().__init__(*args, 1, **kw)
 
 
 class SPARSE_MAT_PTR(ct.Structure):
@@ -189,25 +204,38 @@ def to_numpy(c_obj, *args):
         assert False
 
 
-def to_ctypes(arr):
-    ctype = np.ctypeslib.as_ctypes_type(arr.dtype)
-    ptr = arr.ctypes.data_as(ct.POINTER(ctype))
-    shape = arr.ctypes.shape_as(ct.c_long)
+def to_ctypes(py_obj):
+    if py_obj is None:
+        return None
 
-    if shape._length_ == 1:
-        if ptr._type_ is ct.c_long:
-            return LONG_VEC_PTR(ptr, shape)
-        elif ptr._type_ is ct.c_double:
-            return DOUBLE_VEC_PTR(ptr, shape)
+    elif isinstance(py_obj, np.ndarray):
+        ctype = np.ctypeslib.as_ctypes_type(py_obj.dtype)
+        ptr = py_obj.ctypes.data_as(ct.POINTER(ctype))
+        shape = py_obj.ctypes.shape_as(ct.c_long)
+
+        if shape._length_ == 1:
+            if ptr._type_ is ct.c_long:
+                return LONG_VEC_PTR(ptr, shape)
+            elif ptr._type_ is ct.c_double:
+                return DOUBLE_VEC_PTR(ptr, shape)
+            else:
+                assert False
+        elif shape._length_ == 2:
+            if ptr._type_ is ct.c_long:
+                return LONG_MAT_PTR(ptr, shape)
+            elif ptr._type_ is ct.c_double:
+                return DOUBLE_MAT_PTR(ptr, shape)
+            else:
+                assert False
         else:
             assert False
-    elif shape._length_ == 2:
-        if ptr._type_ is ct.c_long:
-            return LONG_MAT_PTR(ptr, shape)
-        elif ptr._type_ is ct.c_double:
-            return DOUBLE_MAT_PTR(ptr, shape)
-        else:
-            assert False
+
+    elif isinstance(py_obj, NodeSet):
+        return POINTSET_PTR(to_ctypes(py_obj.get_coords()))
+
+    elif isinstance(py_obj, ElementSet):
+        return GROUPSET_PTR(to_ctypes(py_obj._data), to_ctypes(py_obj._groupsizes))
+
     else:
         assert False
 
@@ -251,38 +279,65 @@ def initialize_globdat(*, node_count, elem_count, rank, max_elem_node_count):
 
 
 def numpy_globdat_to_ctypes(np_globdat):
-    ct_nodes_data = to_ctypes(np_globdat["nodeSet"]["data"])
-    ct_nodes = POINTSET_PTR(ct_nodes_data)
+    if "nodeSet" in np_globdat:
+        ct_nodes = to_ctypes(np_globdat.get("nodeSet"))
+    else:
+        ct_nodes = POINTSET_PTR()
 
-    ct_elems_data = to_ctypes(np_globdat["elemSet"]["data"])
-    ct_elems_sizes = to_ctypes(np_globdat["elemSet"]["sizes"])
-    ct_elems = GROUPSET_PTR(ct_elems_data, ct_elems_sizes)
+    if "elemSet" in np_globdat:
+        ct_elems = to_ctypes(np_globdat.get("elemSet"))
+    else:
+        ct_nodes = GROUPSET_PTR()
 
-    ct_dofs_data = to_ctypes(np_globdat["dofSpace"]["data"])
-    ct_dofs = DOFSPACE_PTR(ct_dofs_data)
+    if "dofSpace" in np_globdat:
+        ct_dofs = DOFSPACE_PTR(to_ctypes(np_globdat["dofSpace"]["data"]))
+    else:
+        ct_dofs = DOFSPACE_PTR()
 
-    ct_state0 = to_ctypes(np_globdat["state0"])
-    ct_intForce = to_ctypes(np_globdat["intForce"])
-    ct_extForce = to_ctypes(np_globdat["extForce"])
+    if "state0" in np_globdat:
+        ct_state0 = to_ctypes(np_globdat.get("state0"))
+    else:
+        ct_state0 = DOUBLE_VEC_PTR()
 
-    ct_matrix0_values = to_ctypes(np_globdat["matrix0"]["values"])
-    ct_matrix0_indices = to_ctypes(np_globdat["matrix0"]["indices"])
-    ct_matrix0_offsets = to_ctypes(np_globdat["matrix0"]["offsets"])
-    ct_matrix0 = SPARSE_MAT_PTR(
-        ct_matrix0_values, ct_matrix0_indices, ct_matrix0_offsets
-    )
+    if "intForce" in np_globdat:
+        ct_intForce = to_ctypes(np_globdat.get("intForce"))
+    else:
+        ct_intForce = DOUBLE_VEC_PTR()
 
-    ct_constraints_dofs = to_ctypes(np_globdat["constraints"]["dofs"])
-    ct_constraints_values = to_ctypes(np_globdat["constraints"]["values"])
-    ct_constraints = CONSTRAINTS_PTR(ct_constraints_dofs, ct_constraints_values)
+    if "extForce" in np_globdat:
+        ct_extForce = to_ctypes(np_globdat.get("extForce"))
+    else:
+        ct_extForce = DOUBLE_VEC_PTR()
 
-    ct_shape_type = ct.create_string_buffer(np_globdat["shape"]["type"].encode(), 64)
-    ct_shape_ischeme = ct.create_string_buffer(
-        np_globdat["shape"]["ischeme"].encode(), 64
-    )
-    ct_shape = SHAPE_PTR(
-        ct.cast(ct_shape_type, ct.c_char_p), ct.cast(ct_shape_ischeme, ct.c_char_p)
-    )
+    if "matrix0" in np_globdat:
+        ct_matrix0_values = to_ctypes(np_globdat["matrix0"]["values"])
+        ct_matrix0_indices = to_ctypes(np_globdat["matrix0"]["indices"])
+        ct_matrix0_offsets = to_ctypes(np_globdat["matrix0"]["offsets"])
+        ct_matrix0 = SPARSE_MAT_PTR(
+            ct_matrix0_values, ct_matrix0_indices, ct_matrix0_offsets
+        )
+    else:
+        ct_matrix0 = SPARSE_MAT_PTR()
+
+    if "constraints" in np_globdat:
+        ct_constraints_dofs = to_ctypes(np_globdat["constraints"]["dofs"])
+        ct_constraints_values = to_ctypes(np_globdat["constraints"]["values"])
+        ct_constraints = CONSTRAINTS_PTR(ct_constraints_dofs, ct_constraints_values)
+    else:
+        ct_constraints = CONSTRAINTS_PTR()
+
+    if "shape" in np_globdat:
+        ct_shape_type = ct.create_string_buffer(
+            np_globdat["shape"]["type"].encode(), 64
+        )
+        ct_shape_ischeme = ct.create_string_buffer(
+            np_globdat["shape"]["ischeme"].encode(), 64
+        )
+        ct_shape = SHAPE_PTR(
+            ct.cast(ct_shape_type, ct.c_char_p), ct.cast(ct_shape_ischeme, ct.c_char_p)
+        )
+    else:
+        ct_shape = SHAPE_PTR()
 
     ct_globdat = GLOBDAT(
         ct_nodes,

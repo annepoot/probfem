@@ -60,6 +60,10 @@ class CJiveRunner:
             max_elem_node_count=self.max_elem_node_count,
         )
 
+        for key, val in input_globdat.items():
+            assert key in np_globdat
+            np_globdat[key] = val
+
         ct_globdat = ctutil.numpy_globdat_to_ctypes(np_globdat)
         globdat_func(ct.byref(ct_globdat), fname)
         np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat)

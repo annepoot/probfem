@@ -8,6 +8,7 @@
 
 
 void  declareModules            ();
+void  declareGlobdatInputModule ();
 void  declareGmshInputModule    ();
 void  declareGroupInputModule   ();
 void  declareInputModule        ();
