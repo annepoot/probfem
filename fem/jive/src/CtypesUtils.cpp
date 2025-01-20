@@ -104,10 +104,10 @@ void globdatToCtypes
   iodat.nodeSet.data.shape[0] = nodeCount;
   iodat.nodeSet.data.shape[1] = rank;
 
-  // Populate elemSet
-  if ( elemCount > iodat.elemSet.data.shape[0] ||
-       maxElemNodeCount > iodat.elemSet.data.shape[1] ||
-       elemCount > iodat.elemSet.sizes.shape[0] ){
+  // Populate elementSet
+  if ( elemCount > iodat.elementSet.data.shape[0] ||
+       maxElemNodeCount > iodat.elementSet.data.shape[1] ||
+       elemCount > iodat.elementSet.sizes.shape[0] ){
     throw Exception ( "getState0()", "buffer size insufficient");
   }
 
@@ -116,14 +116,14 @@ void globdatToCtypes
     idx_t elemNodeCount = elems.getElemNodeCount(ielem);
     elems.getElemNodes(inodes, ielem);
 
-    iodat.elemSet.sizes.ptr[ielem] = elemNodeCount;
+    iodat.elementSet.sizes.ptr[ielem] = elemNodeCount;
     for ( idx_t in = 0; in < elemNodeCount; in++ ){
-      iodat.elemSet.data.ptr[(ielem * maxElemNodeCount) + in] = inodes[in];
+      iodat.elementSet.data.ptr[(ielem * maxElemNodeCount) + in] = inodes[in];
     }
   }
-  iodat.elemSet.data.shape[0] = elemCount;
-  iodat.elemSet.data.shape[1] = maxElemNodeCount;
-  iodat.elemSet.sizes.shape[0] = elemCount;
+  iodat.elementSet.data.shape[0] = elemCount;
+  iodat.elementSet.data.shape[1] = maxElemNodeCount;
+  iodat.elementSet.sizes.shape[0] = elemCount;
 
   // Populate dofSpace array
   if ( nodeCount > iodat.dofSpace.data.shape[0] || typeCount > iodat.dofSpace.data.shape[1] ){

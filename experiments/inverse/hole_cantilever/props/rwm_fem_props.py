@@ -50,7 +50,6 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
         "theta": 0.0,
         "r_rel": 0.0,
         "h_meas": h_meas,
-        "fname": "cantilever.msh",
     }
 
     obs_op = RemeshFEMObservationOperator(
@@ -64,7 +63,7 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
 
     target = ProportionalPosterior(
         prior=IndependentJoint(
-            Uniform(0.5, 4.0),
+            Uniform(0.5, 3.5),
             Uniform(0.0, 1.0),
             Uniform(0.0, 0.5),
             Uniform(0.0, 2 * np.pi),
