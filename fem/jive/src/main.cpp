@@ -136,7 +136,7 @@ void getGlobdat
   Properties globdat ( "globdat" );
 
   globdat.set("input.nodeSet", ObjectTraits<POINTSET_PTR>::toObject(iodat.nodeSet));
-  globdat.set("input.elementSet", ObjectTraits<GROUPSET_PTR>::toObject(iodat.elemSet));
+  globdat.set("input.elementSet", ObjectTraits<GROUPSET_PTR>::toObject(iodat.elementSet));
 
   ExposedApplication::exec ( argc, argv, & mainModule, globdat );
 

@@ -58,7 +58,7 @@ struct DOFSPACE_PTR{
 
 struct GLOBDAT {
   POINTSET_PTR nodeSet;
-  GROUPSET_PTR elemSet;
+  GROUPSET_PTR elementSet;
   DOFSPACE_PTR dofSpace;
   DOUBLE_ARRAY_PTR state0;
   DOUBLE_ARRAY_PTR intForce;

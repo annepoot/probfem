@@ -30,7 +30,7 @@ runner = CJiveRunner(
     "props/fem.pro", node_count=45406, elem_count=89668, rank=2, max_elem_node_count=3
 )
 
-globdat = runner(input_globdat={"nodeSet": nodes, "elemSet": elems})
+globdat = runner(input_globdat={"nodeSet": nodes, "elementSet": elems})
 
 state0 = globdat["state0"]
 coords = globdat["nodeSet"].get_coords()

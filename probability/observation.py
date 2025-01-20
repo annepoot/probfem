@@ -154,9 +154,10 @@ class RemeshFEMObservationOperator(ObservationOperator):
             assert var in self.mesh_props
             self.mesh_props[var] = x_i
 
-        self.mesher(**self.mesh_props)
-
-        globdat = self.jive_runner()
+        nodes, elems = self.mesher(**self.mesh_props)[0]
+        globdat = self.jive_runner(
+            input_globdat={"nodeSet": nodes, "elementSet": elems}
+        )
 
         output = np.zeros(len(self.output_locations))
         assert len(self.output_locations) == len(self.output_dofs)

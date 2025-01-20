@@ -12,12 +12,10 @@ control =
 
 userinput =
 {
-  modules = [ "gmsh", "ngroups" ];
-  gmsh =
+  modules = [ "globdat", "ngroups" ];
+  globdat =
   {
-    type = "GmshInput";
-    dim = 2;
-    file = "cantilever.msh";
+    type = "GlobdatInput";
   };
 
   ngroups =

@@ -53,7 +53,7 @@ class CJiveRunner:
             fname = self.props
         fname = fname.encode("utf-8")
 
-        np_globdat = ctutil.initialize_globdat(
+        buffers = ctutil.initialize_buffers(
             node_count=self.node_count,
             elem_count=self.elem_count,
             rank=self.rank,
@@ -61,10 +61,10 @@ class CJiveRunner:
         )
 
         for key, val in input_globdat.items():
-            assert key in np_globdat
-            np_globdat[key] = val
+            assert key in buffers
+            buffers[key] = ctutil.to_buffer(val)
 
-        ct_globdat = ctutil.numpy_globdat_to_ctypes(np_globdat)
+        ct_globdat = ctutil.buffers_as_ctypes(buffers)
         globdat_func(ct.byref(ct_globdat), fname)
         np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat)
 

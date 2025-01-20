@@ -10,12 +10,10 @@ from probability.likelihood import Likelihood
 from fem.meshing import (
     get_patches_around_nodes,
     calc_elem_sizes,
-    read_mesh,
-    write_mesh,
     calc_boundary_nodes,
 )
 
-from .perturbation import calc_perturbed_coords, calc_perturbed_coords_cpp
+from .perturbation import calc_perturbed_coords_cpp
 
 
 __all__ = [
@@ -87,19 +85,11 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
             assert var in self.mesh_props
             self.mesh_props[var] = x_i
 
-        output = self.mesher(**self.mesh_props)
-        assert len(output) == 1
-        self.nodes, self.elems = output[0]
-
+        self.nodes, self.elems = self.mesher(**self.mesh_props)[0]
         self._patches = get_patches_around_nodes(self.elems)
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
         self._boundary = calc_boundary_nodes(self.elems)
-
-        self.write_ref()
-
-    def write_ref(self):
-        write_mesh(self.elems, self.mesh_props["fname"])
 
     def calc_prediction(self, x):
         if not hasattr(self, "_perturbed") or not self._perturbed:
@@ -110,7 +100,8 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         if len(x) != len(self.input_variables):
             raise ValueError
 
-        globdat = self.jive_runner()
+        input_globdat = {"nodeSet": self.nodes, "elementSet": self.elems}
+        globdat = self.jive_runner(input_globdat=input_globdat)
 
         output = np.zeros(len(self.output_locations))
         assert len(self.output_locations) == len(self.output_dofs)
@@ -154,7 +145,6 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         self.nodes.to_nodeset()
 
         assert self.nodes == self.elems.get_nodes()
-        write_mesh(self.elems, self.mesh_props["fname"])
 
         self._perturbed = True
 
