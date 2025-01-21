@@ -20,6 +20,7 @@
 #include <jive/gl/declare.h>
 
 #include <jem/base/ObjectTraits.h>
+#include <jem/util/Tokenizer.h>
 
 #include "models.h"
 #include "modules.h"
@@ -41,6 +42,7 @@ using jive::fem::InputModule;
 using jive::fem::InitModule;
 using jive::fem::ShapeModule;
 
+using jem::util::Tokenizer;
 
 //-----------------------------------------------------------------------
 //   mainModule
@@ -126,7 +128,7 @@ Ref<Module> mainModule ()
 extern "C" {
 #endif
 
-void getGlobdat
+void runFromFile
 	( GLOBDAT& iodat,
 	  char* fname )
 {
@@ -139,6 +141,26 @@ void getGlobdat
   globdat.set("input.elementSet", ObjectTraits<GROUPSET_PTR>::toObject(iodat.elementSet));
 
   ExposedApplication::exec ( argc, argv, & mainModule, globdat );
+
+  globdatToCtypes( iodat, globdat );
+}
+
+void runFromProps
+	( GLOBDAT& iodat,
+	  char* strProps )
+{
+  Ref<Tokenizer>  tokenizer = newInstance<Tokenizer> ( strProps );
+
+  Properties props;
+  props.set ( Module::CASE_NAME, "tmp" );
+  props.parseFrom ( *tokenizer, "tmp", Properties::PARSE_INCLUDE );
+
+  Properties globdat ( "globdat" );
+
+  globdat.set("input.nodeSet", ObjectTraits<POINTSET_PTR>::toObject(iodat.nodeSet));
+  globdat.set("input.elementSet", ObjectTraits<GROUPSET_PTR>::toObject(iodat.elementSet));
+
+  ExposedApplication::execProps ( props, & mainModule, globdat );
 
   globdatToCtypes( iodat, globdat );
 }
