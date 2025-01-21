@@ -1,10 +1,8 @@
-import numpy as np
 import os
 import ctypes as ct
-import time
 
 from myjive.app import main
-from myjive.util.proputils import write_to_file
+from myjive.util.proputils import props_to_string
 from myjivex.declare import declare_all
 
 from fem.jive import ctypesutils as ctutil
@@ -33,26 +31,6 @@ class CJiveRunner:
 
     def __call__(self, input_globdat={}):
 
-        loader = ct.LibraryLoader(ct.CDLL)
-        abspath = os.path.abspath(os.path.join(__file__, "..", "src", "liblinear.so"))
-        liblinear = loader.LoadLibrary(abspath)
-
-        globdat_func = liblinear.getGlobdat
-        globdat_func.argtypes = (
-            ct.POINTER(ctutil.GLOBDAT),
-            ct.POINTER(ct.c_char),
-        )
-
-        assert isinstance(self.props, (str, dict))
-        tmp_file = isinstance(self.props, dict)
-
-        if tmp_file:
-            fname = "tmp" + time.strftime("%Y%m%d%H%M%S") + ".pro"
-            write_to_file(self.props, fname)
-        else:
-            fname = self.props
-        fname = fname.encode("utf-8")
-
         buffers = ctutil.initialize_buffers(
             node_count=self.node_count,
             elem_count=self.elem_count,
@@ -65,10 +43,29 @@ class CJiveRunner:
             buffers[key] = ctutil.to_buffer(val)
 
         ct_globdat = ctutil.buffers_as_ctypes(buffers)
-        globdat_func(ct.byref(ct_globdat), fname)
-        np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat)
 
-        if tmp_file:
-            os.remove(fname)
+        loader = ct.LibraryLoader(ct.CDLL)
+        abspath = os.path.abspath(os.path.join(__file__, "..", "src", "liblinear.so"))
+        liblinear = loader.LoadLibrary(abspath)
+
+        assert isinstance(self.props, (str, dict))
+
+        if isinstance(self.props, dict):
+            # pass the props directly to jive
+            str_props = props_to_string(self.props).encode()
+
+            runFromProps = liblinear.runFromProps
+            runFromProps.argtypes = (ct.POINTER(ctutil.GLOBDAT), ct.POINTER(ct.c_char))
+            runFromProps(ct.byref(ct_globdat), str_props)
+
+        else:
+            # get the props from a file
+            fname = self.props.encode()
+
+            runFromFile = liblinear.runFromFile
+            runFromFile.argtypes = (ct.POINTER(ctutil.GLOBDAT), ct.POINTER(ct.c_char))
+            runFromFile(ct.byref(ct_globdat), fname)
+
+        np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat)
 
         return np_globdat

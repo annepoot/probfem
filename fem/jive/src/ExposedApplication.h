@@ -22,6 +22,12 @@ class ExposedApplication : Application
       char**                  argv,
       ModuleConstructor       ctor,
       Properties              outdat );
+
+  static int                execProps
+
+    ( Properties              props,
+      ModuleConstructor       ctor,
+      Properties              outdat );
 };
 
 #endif

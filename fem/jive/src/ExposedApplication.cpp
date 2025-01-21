@@ -32,6 +32,43 @@ int ExposedApplication::exec
     Properties         globdat )
 
 {
+  String  phase  = "initialization";
+  int     result = 1;
+
+  try
+  {
+    Properties props;
+    loadProperties  ( props, argc, argv  );
+    result = execProps( props, ctor, globdat );
+  }
+  catch ( const jem::Throwable& ex )
+  {
+    String  where = ex.where ();
+
+    if ( ! where.size() && argc > 0 )
+    {
+      where = argv[0];
+    }
+
+    printError ( phase, ex.name(),
+                 where, ex.what(), ex.getStackTrace() );
+  }
+  catch ( ... )
+  {
+    printError ( phase );
+  }
+
+  return result;
+}
+
+
+int ExposedApplication::execProps
+
+  ( Properties         props,
+    ModuleConstructor  ctor,
+    Properties         globdat )
+
+{
   using jive::util::ObjConverter;
 
   String  phase  = "initialization";
@@ -43,15 +80,11 @@ int ExposedApplication::exec
     Ref<MPContext>    mpx;
     Ref<Module>       mod;
 
-    // Properties        globdat ( "globdat" );
-    Properties        props;
     Properties        conf;
 
-
     initSigHandlers ();
-    loadProperties  ( props, argc, argv  );
 
-    args = newInstance<ProgramArgs> ( argc, argv );
+    args = newInstance<ProgramArgs> ();
     mpx  = newInstance<UniContext>  ();
 
     initSystem  ( *mpx, conf,  props );
@@ -73,11 +106,6 @@ int ExposedApplication::exec
   catch ( const jem::Throwable& ex )
   {
     String  where = ex.where ();
-
-    if ( ! where.size() && argc > 0 )
-    {
-      where = argv[0];
-    }
 
     printError ( phase, ex.name(),
                  where, ex.what(), ex.getStackTrace() );
