@@ -175,7 +175,12 @@ class ProjectedPrior(Gaussian):
         dofs = globdat[gn.DOFSPACE]
         node_count = globdat[gn.ESET].max_elem_node_count()
         intscheme = "Gauss" + str(node_count)
-        shape = globdat[gn.SHAPEFACTORY].get_shape(globdat[gn.MESHSHAPE], intscheme)
+
+        if gn.SHAPE in globdat:
+            shape = globdat[gn.SHAPE]
+        else:
+            factory = globdat[gn.SHAPEFACTORY]
+            shape = factory.get_shape(globdat[gn.MESHSHAPE], intscheme)
 
         M = create_unit_mass_matrix(elems, dofs, shape, sparse=True, lumped=lumped)
         Mc = Constrainer(globdat[gn.CONSTRAINTS], M).get_output_matrix()
