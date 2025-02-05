@@ -9,14 +9,24 @@ from probability.process import (
     ProjectedPrior,
 )
 from bfem.observation import compute_bfem_observations
-from fem.meshing import create_phi_from_globdat
+from fem.meshing import create_phi_from_globdat, mesh_interval_with_line2
+from fem.jive import CJiveRunner
 from experiments.reproduction.bfem.fig3.fem_props import get_fem_props
 
+_, ref_elems = mesh_interval_with_line2(n=64)
 
-fprops = get_fem_props("meshes/1d-lin-64.mesh")
-K_cov = InverseCovarianceOperator(model_props=fprops["model"], scale=1.0)
+ref_module_props = get_fem_props()
+ref_model_props = ref_module_props.pop("model")
+ref_jive_runner = CJiveRunner(ref_module_props, elems=ref_elems)
+
+K_cov = InverseCovarianceOperator(
+    model_props=ref_model_props,
+    scale=1.0,
+)
 M_cov = NaturalCovarianceOperator(
-    model_props=fprops["model"], scale=1.0, lumped_mass_matrix=False
+    model_props=ref_model_props,
+    scale=1.0,
+    lumped_mass_matrix=False,
 )
 
 # Loop over different covariance matrices
@@ -27,40 +37,40 @@ for inf_cov in [M_cov, K_cov]:
         cov_name = "M"
 
     inf_prior = GaussianProcess(None, inf_cov)
-    fine_prior = ProjectedPrior(
-        prior=inf_prior, init_props=fprops["init"], solve_props=fprops["solve"]
-    )
-    fglobdat = fine_prior.globdat
+    ref_jive_runner = CJiveRunner(ref_module_props, elems=ref_elems)
+    ref_prior = ProjectedPrior(prior=inf_prior, jive_runner=ref_jive_runner)
+    ref_globdat = ref_prior.globdat
 
     # Loop over different densities of the coarse mesh
     for N_coarse in [4, 16, 64]:
-        # Switch to a different mesh
-        cprops = get_fem_props("meshes/1d-lin-{}.mesh".format(N_coarse))
-        coarse_prior = ProjectedPrior(
-            prior=inf_prior, init_props=cprops["init"], solve_props=cprops["solve"]
-        )
-        cglobdat = coarse_prior.globdat
+        _, obs_elems = mesh_interval_with_line2(n=N_coarse)
 
-        PhiT = compute_bfem_observations(coarse_prior, fine_prior, fspace=False)
-        H_obs = PhiT @ fglobdat["matrix0"]
-        f_obs = PhiT @ fglobdat["extForce"]
+        obs_module_props = get_fem_props()
+        obs_model_props = obs_module_props.pop("model")
+        obs_jive_runner = CJiveRunner(obs_module_props, elems=obs_elems)
+        obs_prior = ProjectedPrior(prior=inf_prior, jive_runner=obs_jive_runner)
+        obs_globdat = obs_prior.globdat
 
-        posterior = fine_prior.condition_on(H_obs, f_obs)
+        PhiT = compute_bfem_observations(obs_prior, ref_prior, fspace=False)
+        H_obs = PhiT @ ref_globdat["matrix0"]
+        f_obs = PhiT @ ref_globdat["extForce"]
+
+        posterior = ref_prior.condition_on(H_obs, f_obs)
         mean_u_post = posterior.calc_mean()
         std_u_post = posterior.calc_std()
 
-        u_coarse = cglobdat["state0"]
-        u = fglobdat["state0"]
-        Phi = create_phi_from_globdat(cglobdat, fglobdat)
+        u_coarse = obs_globdat["state0"]
+        u = ref_globdat["state0"]
+        Phi = create_phi_from_globdat(obs_globdat, ref_globdat)
         u_coarse = Phi @ u_coarse
 
-        u_prior = fine_prior.calc_mean()
+        u_prior = ref_prior.calc_mean()
         u_post = posterior.calc_mean()
-        std_u_prior = fine_prior.calc_std()
+        std_u_prior = ref_prior.calc_std()
         std_u_post = posterior.calc_std()
 
         samples_u_post = posterior.calc_samples(20, 0)
-        samples_u_prior = fine_prior.calc_samples(20, 0)
+        samples_u_prior = ref_prior.calc_samples(20, 0)
 
         # Use a fine linspace for plotting
         x = np.linspace(0, 1, len(u))
