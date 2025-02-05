@@ -220,6 +220,12 @@ void Material::createIntPoints
 
 {}
 
+void Material::createIntPoints
+
+  ( const Matrix& ipCoords )
+
+{}
+
 //-----------------------------------------------------------------------
 //   setConc
 //-----------------------------------------------------------------------

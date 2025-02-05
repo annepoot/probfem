@@ -8,15 +8,18 @@ from experiments.inverse.kl_bar.props.rwm_bfem_props import get_rwm_bfem_target
 __all__ = ["get_rwm_bfem_hyper_target"]
 
 
-def get_rwm_bfem_hyper_target(*, n_elem, std_corruption, rescale, sigma_e, n_rep_obs):
+def get_rwm_bfem_hyper_target(
+    *, obs_elems, ref_elems, std_corruption, rescale, sigma_e
+):
     target = get_rwm_bfem_target(
-        n_elem=n_elem,
+        obs_elems=obs_elems,
+        ref_elems=ref_elems,
         std_corruption=std_corruption,
         scale=1.0,
         rescale=rescale,
         sigma_e=sigma_e,
-        n_rep_obs=n_rep_obs,
     )
+
     param_prior = target.prior
     hyper_prior = LogGaussian(np.log(1e0), np.log(1e1), allow_logscale_access=True)
     joint_prior = IndependentJoint(param_prior, hyper_prior)

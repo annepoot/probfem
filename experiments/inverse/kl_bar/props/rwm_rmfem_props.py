@@ -6,28 +6,36 @@ __all__ = ["get_rwm_rmfem_target"]
 
 
 def get_rwm_rmfem_target(
-    *, n_elem, std_corruption, sigma_e, n_rep_obs, n_pseudomarginal
+    *, elems, std_corruption, sigma_e, n_pseudomarginal, omit_nodes
 ):
     target = get_rwm_fem_target(
-        n_elem=n_elem,
+        elems=elems,
         std_corruption=std_corruption,
         sigma_e=sigma_e,
-        n_rep_obs=n_rep_obs,
     )
 
     old_likelihood = target.likelihood
+
+    assert isinstance(omit_nodes, bool)
+    if omit_nodes:
+        n_obs = len(old_likelihood.values)
+        n_elem = len(elems)
+        assert n_elem % (n_obs + 1) == 0
+        omit_nodes_list = [i * n_elem // (n_obs + 1) for i in range(1, n_obs + 1)]
+    else:
+        omit_nodes_list = []
 
     old_operator = old_likelihood.operator
     new_operator = RMFEMObservationOperator(
         p=1,
         seed=0,
-        forward_props=old_operator.forward_props,
+        jive_runner=old_operator.jive_runner,
         input_variables=old_operator.input_variables,
         output_type=old_operator.output_type,
         output_variables=old_operator.output_variables,
         output_locations=old_operator.output_locations,
         output_dofs=old_operator.output_dofs,
-        run_modules=old_operator.run_modules,
+        omit_nodes=omit_nodes_list,
     )
     old_likelihood.operator = new_operator
 

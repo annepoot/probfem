@@ -6,14 +6,11 @@ from experiments.inverse.kl_bar.props.rwm_fem_props import get_rwm_fem_target
 __all__ = ["get_rwm_statfem_target"]
 
 
-def get_rwm_statfem_target(
-    *, n_elem, std_corruption, rho, l_d, sigma_d, sigma_e, n_rep_obs
-):
+def get_rwm_statfem_target(*, elems, std_corruption, rho, l_d, sigma_d, sigma_e):
     target = get_rwm_fem_target(
-        n_elem=n_elem,
+        elems=elems,
         std_corruption=std_corruption,
         sigma_e=sigma_e,
-        n_rep_obs=n_rep_obs,
     )
 
     old_likelihood = target.likelihood

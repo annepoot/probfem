@@ -10,7 +10,11 @@
 #ifndef ISOTROPIC_MATERIAL_H
 #define ISOTROPIC_MATERIAL_H
 
+#include <jem/numeric/func/Function.h>
+
 #include "Material.h"
+
+using jem::numeric::Function;
 
 //-----------------------------------------------------------------------
 //   class IsotropicMaterial
@@ -27,6 +31,10 @@ class IsotropicMaterial : public virtual Material
   static const char*     AREA_PROP;
   static const char*     ALPHA_PROP;
   static const char*     SWELLING_PROP;
+  static const char*     PARAMS_PROP;
+  static const char*     PARAM_NAMES_PROP;
+  static const char*     PARAM_VALUES_PROP;
+
 
   explicit               IsotropicMaterial
 
@@ -60,7 +68,7 @@ class IsotropicMaterial : public virtual Material
 
   virtual void           stiffAtPoint
 
-    ( Vector&              stiffvec,
+    ( Matrix&              stiff,
       const idx_t          ipoint );
 
   virtual double         strengthAtPoint
@@ -81,6 +89,12 @@ class IsotropicMaterial : public virtual Material
 
     ( const idx_t           npoints );
 
+  virtual void           createIntPoints
+
+    ( const Matrix&         ipCoords );
+
+  virtual idx_t           pointCount () const;
+
   virtual void           setConc
 
     ( const idx_t           ipoint,
@@ -98,21 +112,27 @@ class IsotropicMaterial : public virtual Material
  protected:
 
   idx_t                   rank_;
-  double                  e_;
-  double                  nu_;
-  double                  area_;
+
+  Ref<Function>           e_;
+  Ref<Function>           nu_;
+  Ref<Function>           area_;
   double                  alpha_;
   double                  swcoeff_;
-  Matrix                  stiffMatrix_;
 
+  Vector                  es_;
+  Vector                  nus_;
+  Vector                  areas_;
   Vector                  iPointConc_;
   Vector                  iPointDeltaT_;
+
+  StringVector            paramNames_;
+  Vector                  paramValues_;
 
   String                  anmodel_;
 
  protected:
-  
-  void                    computeStiffMatrix_     ( );
+
+  bool                    isHomogeneous_;
 
   void                    computeThermalStrains_  
   

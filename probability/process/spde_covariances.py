@@ -64,9 +64,7 @@ class ProjectedPrior(Gaussian):
         init_props=None,
         solve_props=None,
         *,
-        module_props=None,
         jive_runner=None,
-        jive_runner_kws={},
         sigma_pd=1e-8
     ):
         assert isinstance(prior, GaussianProcess)
@@ -76,7 +74,7 @@ class ProjectedPrior(Gaussian):
         )
         self.prior = prior
 
-        if module_props is None:
+        if jive_runner is None:
             assert init_props is not None
             assert solve_props is not None
             warn(
@@ -88,7 +86,7 @@ class ProjectedPrior(Gaussian):
                 "solve": solve_props,
             }
         else:
-            self.module_props = module_props
+            self.module_props = jive_runner.props
 
         self.props = deepcopy(self.module_props)
 
@@ -96,14 +94,14 @@ class ProjectedPrior(Gaussian):
         self.props["model"] = self.prior.cov.model_props
 
         if jive_runner is None:
-            self.jive_runner = MyJiveRunner
+            self.jive_runner = MyJiveRunner(self.props)
         else:
             self.jive_runner = jive_runner
-        self.jive_runner_kws = jive_runner_kws
-        self.sigma_pd = sigma_pd
+            self.jive_runner.props = self.props
 
-        jive = self.jive_runner(self.props, **self.jive_runner_kws)
-        self.globdat = jive()
+        self.globdat = self.jive_runner()
+
+        self.sigma_pd = sigma_pd
 
         mean = self._compute_mean(self.globdat)
         cov = self._compute_covariance(self.globdat)

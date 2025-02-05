@@ -22,14 +22,42 @@ class MyJiveRunner:
 
 class CJiveRunner:
 
-    def __init__(self, props, *, node_count, elem_count, rank, max_elem_node_count):
+    def __init__(
+        self,
+        props,
+        *,
+        elems=None,
+        node_count=None,
+        elem_count=None,
+        rank=None,
+        max_elem_node_count=None
+    ):
         self.props = props
-        self.node_count = node_count
-        self.elem_count = elem_count
-        self.rank = rank
-        self.max_elem_node_count = max_elem_node_count
+        self.elems = elems
 
-    def __call__(self, input_globdat={}):
+        if self.elems is None:
+            assert node_count is not None
+            assert elem_count is not None
+            assert rank is not None
+            assert max_elem_node_count is not None
+            self.node_count = node_count
+            self.elem_count = elem_count
+            self.rank = rank
+            self.max_elem_node_count = max_elem_node_count
+
+        else:
+            assert node_count is None
+            assert elem_count is None
+            assert rank is None
+            assert max_elem_node_count is None
+
+            nodes = self.elems.get_nodes()
+            self.node_count = len(nodes)
+            self.elem_count = len(elems)
+            self.rank = nodes.rank()
+            self.max_elem_node_count = elems.max_elem_node_count()
+
+    def __call__(self):
 
         buffers = ctutil.initialize_buffers(
             node_count=self.node_count,
@@ -38,9 +66,11 @@ class CJiveRunner:
             max_elem_node_count=self.max_elem_node_count,
         )
 
-        for key, val in input_globdat.items():
-            assert key in buffers
-            buffers[key] = ctutil.to_buffer(val)
+        if self.elems is not None:
+            assert "elementSet" in buffers
+            buffers["elementSet"] = ctutil.to_buffer(self.elems)
+            assert "nodeSet" in buffers
+            buffers["nodeSet"] = ctutil.to_buffer(self.elems.get_nodes())
 
         ct_globdat = ctutil.buffers_as_ctypes(buffers)
 

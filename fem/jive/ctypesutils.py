@@ -3,6 +3,7 @@ import ctypes as ct
 from scipy.sparse import csr_array
 
 from myjive.fem import NodeSet, XNodeSet, ElementSet, XElementSet, DofSpace
+from myjive.names import GlobNames as gn
 from myjive.solver import Constraints
 from myjive.declare import declare_shapes
 
@@ -310,15 +311,15 @@ def ctypes_globdat_to_numpy(ct_globdat):
     elems = to_numpy(ct_globdat.elementSet, nodes)
 
     np_globdat = {
-        "nodeSet": nodes,
-        "elementSet": elems,
-        "dofSpace": to_numpy(ct_globdat.dofSpace),
-        "state0": to_numpy(ct_globdat.state0),
-        "intForce": to_numpy(ct_globdat.intForce),
-        "extForce": to_numpy(ct_globdat.extForce),
-        "matrix0": to_numpy(ct_globdat.matrix0),
-        "constraints": to_numpy(ct_globdat.constraints),
-        "shape": to_numpy(ct_globdat.shape),
+        gn.NSET: nodes,
+        gn.ESET: elems,
+        gn.DOFSPACE: to_numpy(ct_globdat.dofSpace),
+        gn.STATE0: to_numpy(ct_globdat.state0),
+        gn.INTFORCE: to_numpy(ct_globdat.intForce),
+        gn.EXTFORCE: to_numpy(ct_globdat.extForce),
+        gn.MATRIX0: to_numpy(ct_globdat.matrix0),
+        gn.CONSTRAINTS: to_numpy(ct_globdat.constraints),
+        gn.SHAPE: to_numpy(ct_globdat.shape),
     }
 
     return np_globdat

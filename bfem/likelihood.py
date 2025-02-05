@@ -47,8 +47,7 @@ class BFEMObservationOperator(FEMObservationOperator):
         input_variables,
         output_locations,
         output_dofs,
-        run_modules,
-        rescale
+        rescale,
     ):
         assert isinstance(obs_prior, ProjectedPrior)
         assert isinstance(ref_prior, ProjectedPrior)
@@ -58,37 +57,20 @@ class BFEMObservationOperator(FEMObservationOperator):
         self.input_variables = input_variables
         self.output_locations = output_locations
         self.output_dofs = output_dofs
-        self.run_modules = run_modules
         self.rescale = rescale
 
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
             raise ValueError
 
-        modelprops = {}
-        for var in self.input_variables:
-            name = split_key(var)[0]
-            model = self.obs_prior.globdat[gn.MODELS][name]
-            modelprops[name] = split_off_type(model.get_config())[1]
-
-        for xi, var in zip(x, self.input_variables):
+        for x_i, var in zip(x, self.input_variables):
             keys = split_key(var)
-            assert get_recursive(modelprops, keys) is not None
-            set_recursive(modelprops, keys, xi)
+            assert get_recursive(self.obs_prior.jive_runner.props, keys) is not None
+            set_recursive(self.obs_prior.jive_runner.props, keys, x_i)
+            assert get_recursive(self.ref_prior.jive_runner.props, keys) is not None
+            set_recursive(self.ref_prior.jive_runner.props, keys, x_i)
 
-        obsdat = self.obs_prior.globdat
-        refdat = self.ref_prior.globdat
-
-        for name, config in modelprops.items():
-            obsdat[gn.MODELS][name].configure(obsdat, **config)
-            refdat[gn.MODELS][name].configure(refdat, **config)
-
-        for name in self.run_modules:
-            obsmodule = obsdat[gn.MODULES][name]
-            refmodule = refdat[gn.MODULES][name]
-
-            obsmodule.run(obsdat)
-            refmodule.run(refdat)
+        refdat = self.ref_prior.jive_runner()
 
         PhiT = compute_bfem_observations(self.obs_prior, self.ref_prior)
         H_obs = PhiT @ refdat["matrix0"]
@@ -137,7 +119,7 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
         input_variables,
         output_locations,
         output_dofs,
-        rescale
+        rescale,
     ):
         self.mesher = mesher
         self.mesh_props = mesh_props

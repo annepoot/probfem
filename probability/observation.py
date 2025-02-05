@@ -1,14 +1,10 @@
 import numpy as np
-from copy import deepcopy
 
-from myjive.app import main
-from myjivex.declare import declare_all
 from myjive.names import GlobNames as gn
 from myjive.util.proputils import (
     set_recursive,
     get_recursive,
     split_key,
-    split_off_type,
 )
 
 __all__ = [
@@ -39,46 +35,33 @@ class LinearObservationOperator(ObservationOperator):
 class FEMObservationOperator(ObservationOperator):
     def __init__(
         self,
-        forward_props,
+        jive_runner,
         input_variables,
         output_type,
         output_variables,
         output_locations,
         output_dofs,
-        run_modules,
     ):
-        self.forward_props = deepcopy(forward_props)
+        self.jive_runner = jive_runner
         self.input_variables = input_variables
         self.output_type = output_type
         self.output_variables = output_variables
         self.output_locations = output_locations
         self.output_dofs = output_dofs
-        self.run_modules = run_modules
 
         if self.output_type not in ["nodal", "local"]:
             raise ValueError
-
-        # run the full forward model at initialization
-        self.globdat = main.jive(self.forward_props, extra_declares=[declare_all])
 
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
             raise ValueError
 
-        modelprops = self.forward_props[gn.MODEL]
-
         for x_i, var in zip(x, self.input_variables):
             keys = split_key(var)
-            assert get_recursive(modelprops, keys) is not None
-            set_recursive(modelprops, keys, x_i)
+            assert get_recursive(self.jive_runner.props, keys) is not None
+            set_recursive(self.jive_runner.props, keys, x_i)
 
-        for name, model in self.globdat[gn.MODELS].items():
-            _, props = split_off_type(modelprops[name])
-            model.configure(self.globdat, **props)
-
-        for name in self.run_modules:
-            module = self.globdat[gn.MODULES][name]
-            module.run(self.globdat)
+        globdat = self.jive_runner()
 
         output = np.zeros(len(self.output_variables))
         assert (
@@ -91,9 +74,9 @@ class FEMObservationOperator(ObservationOperator):
             zip(self.output_variables, self.output_locations, self.output_dofs)
         ):
             if self.output_type == "nodal":
-                pred = self._nodal_prediction(self.globdat, var, loc, dof)
+                pred = self._nodal_prediction(globdat, var, loc, dof)
             elif self.output_type == "local":
-                pred = self._local_prediction(self.globdat, var, loc, dof)
+                pred = self._local_prediction(globdat, var, loc, dof)
             output[i] = pred
 
         return output
@@ -111,7 +94,7 @@ class FEMObservationOperator(ObservationOperator):
         elems = globdat[gn.ESET]
         nodes = globdat[gn.NSET]
         dofspace = globdat[gn.DOFSPACE]
-        shape = globdat[gn.SHAPEFACTORY].get_shape(globdat[gn.MESHSHAPE], "Gauss1")
+        shape = globdat[gn.SHAPE]
 
         for inodes in elems:
             coords = nodes.get_some_coords(inodes)
@@ -155,9 +138,8 @@ class RemeshFEMObservationOperator(ObservationOperator):
             self.mesh_props[var] = x_i
 
         nodes, elems = self.mesher(**self.mesh_props)[0]
-        globdat = self.jive_runner(
-            input_globdat={"nodeSet": nodes, "elementSet": elems}
-        )
+        self.jive_runner.elems = elems
+        globdat = self.jive_runner()
 
         output = np.zeros(len(self.output_locations))
         assert len(self.output_locations) == len(self.output_dofs)
