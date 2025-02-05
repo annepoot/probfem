@@ -26,11 +26,8 @@ nodes, elems = create_mesh(
     h_meas=h_meas,
 )[0]
 
-runner = CJiveRunner(
-    "props/fem.pro", node_count=45406, elem_count=89668, rank=2, max_elem_node_count=3
-)
-
-globdat = runner(input_globdat={"nodeSet": nodes, "elementSet": elems})
+jive = CJiveRunner(props="props/fem.pro", elems=elems)
+globdat = jive()
 
 state0 = globdat["state0"]
 coords = globdat["nodeSet"].get_coords()

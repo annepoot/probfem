@@ -15,6 +15,8 @@
 #include <jem/util/Properties.h>
 #include <jem/numeric/algebra/matmul.h>
 #include <jem/numeric/algebra/utilities.h>
+#include <jem/numeric/func/ConstantFunc.h>
+#include <jive/util/FuncUtils.h>
 
 #include "IsotropicMaterial.h"
 
@@ -25,7 +27,10 @@
 using namespace jem;
 using jem::numeric::matmul;
 using jem::numeric::norm2;
+using jem::numeric::ConstantFunc;
 using jem::io::endl;
+
+using jive::util::FuncUtils;
 
 using jem::io::PrintWriter;
 
@@ -44,6 +49,9 @@ const char* IsotropicMaterial::AREA_PROP     = "area";
 const char* IsotropicMaterial::ANMODEL_PROP  = "anmodel";
 const char* IsotropicMaterial::SWELLING_PROP = "swelling_coeff";
 const char* IsotropicMaterial::ALPHA_PROP    = "alpha";
+const char* IsotropicMaterial::PARAMS_PROP    = "params";
+const char* IsotropicMaterial::PARAM_NAMES_PROP = "names";
+const char* IsotropicMaterial::PARAM_VALUES_PROP = "values";
 
 //-----------------------------------------------------------------------
 //   constructor and destructor
@@ -59,9 +67,6 @@ IsotropicMaterial::IsotropicMaterial
   Material ( name, props, conf, globdat )
 
 {
-  e_       = 1.0;
-  nu_      = 0.0;
-  area_    = 1.0;
   alpha_   = 0.0;
   swcoeff_ = 0.0;
 }
@@ -79,8 +84,8 @@ void IsotropicMaterial::configure
     const Properties& globdat )
 
 {
-  props.get  ( e_, E_PROP );
-  props.get  ( nu_, NU_PROP );
+  Properties myProps = props.findProps ( myName_ );
+
   props.get  ( rank_, RANK_PROP );
   props.get  ( anmodel_, ANMODEL_PROP );
   props.find ( alpha_, ALPHA_PROP );
@@ -88,15 +93,44 @@ void IsotropicMaterial::configure
 
   JEM_PRECHECK ( rank_ >= 1 && rank_ <= 3 );
 
-  if ( rank_ == 1 )
-    props.get ( area_, AREA_PROP );
+  Properties paramProps;
+  if ( myProps.find ( paramProps, PARAMS_PROP ) ){
+  System::out() << paramProps << "\n\n";
+    paramProps.get( paramNames_, PARAM_NAMES_PROP );
+    paramProps.get( paramValues_, PARAM_VALUES_PROP );
+  }
 
-  const idx_t STRAIN_COUNTS[4] = { 0, 1, 3, 6 };
+  if ( paramNames_.size() != paramValues_.size() ){
+    throw Error ( JEM_FUNC, "params.names and params.values have different sizes" );
+  }
 
-  stiffMatrix_.resize ( STRAIN_COUNTS[rank_], STRAIN_COUNTS[rank_] );
-  stiffMatrix_ = 0.0;
+  String args = "i, t, x, y, z";
+  double argvals[ 5 + paramNames_.size() ];
 
-  computeStiffMatrix_ ();
+  for ( int i = 0; i < paramNames_.size(); i++ ){
+    args = args + ", " + paramNames_[i];
+    argvals[5 + i] = paramValues_[i];
+  }
+
+  FuncUtils::configFunc ( e_, args, E_PROP, myProps, globdat );
+  if ( rank_ == 1 ){
+    FuncUtils::configFunc ( area_, args, AREA_PROP, myProps, globdat );
+  } else {
+    FuncUtils::configFunc ( nu_, args, NU_PROP, myProps, globdat );
+  }
+
+  for ( idx_t ipoint = 0; ipoint < pointCount(); ipoint++ ){
+    for ( idx_t ir = 0; ir < rank_; ir++ ){
+      argvals[ir + 2] = ipCoords_(ir, ipoint);
+    }
+
+    es_[ipoint] = e_->getValue(argvals);
+    if ( rank_ == 1 ){
+      areas_[ipoint] = area_->getValue(argvals);
+    } else {
+      nus_[ipoint] = nu_->getValue(argvals);
+    }
+  }
 }
 
 //-----------------------------------------------------------------------
@@ -108,14 +142,17 @@ void IsotropicMaterial::getConfig
   ( const Properties& conf,
     const Properties& globdat ) const
 {
-  conf.set   ( E_PROP, e_ );
-  conf.set   ( NU_PROP, nu_ );
+  FuncUtils::getConfig ( conf, e_, E_PROP );
+
+  if ( rank_ == 1 ){
+    FuncUtils::getConfig ( conf, area_, AREA_PROP );
+  } else {
+    FuncUtils::getConfig ( conf, nu_, NU_PROP );
+  }
+
   conf.set   ( ANMODEL_PROP, anmodel_ );
   conf.set   ( ALPHA_PROP, alpha_ );
   conf.set   ( SWELLING_PROP, swcoeff_ );
-
-  if ( rank_ == 1 )
-    conf.set ( AREA_PROP, area_ );
 }
 
 //-----------------------------------------------------------------------
@@ -151,11 +188,51 @@ void IsotropicMaterial::createIntPoints
   ( const idx_t       npoints )
 
 {
+  es_.resize ( npoints );
+  areas_.resize ( npoints );
+  nus_.resize ( npoints );
+
   iPointConc_.resize   ( npoints );
   iPointDeltaT_.resize ( npoints );
 
+  es_ = 0.0;
+  nus_ = 0.0;
+  areas_ = 1.0;
+
   iPointConc_   = 0.0;
   iPointDeltaT_ = 0.0;
+
+  ipCount_ = npoints;
+}
+
+
+void IsotropicMaterial::createIntPoints
+
+  ( const Matrix& ipCoords )
+
+{
+  idx_t rank = ipCoords.size(0);
+  idx_t npoints = ipCoords.size(1);
+
+  ipCoords_.resize ( rank, npoints );
+  ipCoords_ = ipCoords;
+
+  createIntPoints( npoints );
+}
+
+//-----------------------------------------------------------------------
+//  pointCount
+//-----------------------------------------------------------------------
+
+
+idx_t IsotropicMaterial::pointCount() const
+
+{
+  if ( ipCount_ <= 0 ){
+    throw Error ( JEM_FUNC, "No integration points found" );
+  }
+
+  return ipCount_;
 }
 
 //-----------------------------------------------------------------------
@@ -195,7 +272,7 @@ void IsotropicMaterial::update
     const Vector& strain,
     const idx_t   ipoint )
 {
-  stiff = stiffMatrix_;
+  stiffAtPoint(stiff, ipoint);
 
   Vector mechStrain ( strain.size() );
   mechStrain = 0.;
@@ -215,7 +292,7 @@ void IsotropicMaterial::update
     mechStrain -= swellingStrain;
   }
 
-  matmul ( stress, stiffMatrix_, mechStrain );
+  matmul ( stress, stiff, mechStrain );
 }
 
 //-----------------------------------------------------------------------
@@ -229,10 +306,10 @@ void IsotropicMaterial::stressAtPoint
     const idx_t   ipoint )
 {
   const idx_t STRAIN_COUNTS[4] = { 0, 1, 3, 6 };
+  idx_t strCount = STRAIN_COUNTS[rank_];
 
-  Vector strvec ( STRAIN_COUNTS[rank_] );
-
-  Matrix stiff ( stiffMatrix_ );
+  Vector strvec ( strCount );
+  Matrix stiff ( strCount, strCount );
 
   update ( stiff, strvec, strain, ipoint );
 
@@ -241,7 +318,7 @@ void IsotropicMaterial::stressAtPoint
     stress[0] = strvec[0];
     stress[1] = strvec[1];
     stress[2] = strvec[2];
-    stress[3] = nu_ * ( strvec[0] + strvec[1] );
+    stress[3] = nus_[ipoint] * ( strvec[0] + strvec[1] );
   }
   else
     stress = strvec;
@@ -253,10 +330,48 @@ void IsotropicMaterial::stressAtPoint
 
 void IsotropicMaterial::stiffAtPoint
 
-  ( Vector&       stiffvec,
+  ( Matrix&       stiff,
     const idx_t   ipoint )
 {
-  System::warn() << "IsotropicMaterial: stiffAtPoint not implemented.\n";
+  if ( anmodel_ == "BAR" )
+  {
+    stiff(0,0) = es_[ipoint] * areas_[ipoint];
+  }
+  
+  else if ( anmodel_ == "PLANE_STRESS" )
+  {
+    double e = es_[ipoint];
+    double nu = nus_[ipoint];
+
+    stiff(0,0) = stiff(1,1) = e / (1.0 - nu * nu);
+    stiff(0,1) = stiff(1,0) = (nu * e) / (1.0 - nu * nu);
+    stiff(2,2) = (0.5 * e) / (1.0 + nu);
+  }
+
+  else if ( anmodel_ == "PLANE_STRAIN" )
+  {
+    double e = es_[ipoint];
+    double nu = nus_[ipoint];
+    const double d = (1.0 + nu) * (1.0 - 2.0 * nu);
+
+    stiff(0,0) = stiff(1,1) = e * (1.0 - nu) / d;
+    stiff(0,1) = stiff(1,0) = e * nu / d;
+    stiff(2,2) = 0.5 * e / (1.0 + nu);
+  }
+
+  else if ( anmodel_ == "SOLID" )
+  {
+    double e = es_[ipoint];
+    double nu = nus_[ipoint];
+    const double d = (1.0 + nu) * (1.0 - 2.0 * nu);
+
+    stiff(0,0) = stiff(1,1) =  stiff(2,2) = e * (1.0 - nu) / d;
+    stiff(0,1) = stiff(1,0) = stiff(0,2) = stiff(2,0) = stiff(1,2) = stiff(2,1) = e * nu / d;
+    stiff(3,3) = stiff(4,4) = stiff(5,5) = 0.5 * e / (1.0 + nu);
+  }
+
+  else
+    throw Error ( JEM_FUNC, "Unexpected analysis model: " + anmodel_ );
 }
 
 //-----------------------------------------------------------------------
@@ -329,53 +444,6 @@ void IsotropicMaterial::addTableColumns
   }
 }
 
-
-//-----------------------------------------------------------------------
-//  computeStiffMatrix_ 
-//-----------------------------------------------------------------------
-
-void IsotropicMaterial::computeStiffMatrix_
-
-  ( )
-{
-
-  if ( anmodel_ == "BAR" )
-  {
-    stiffMatrix_(0,0) = e_ * area_;
-  }
-  
-  else if ( anmodel_ == "PLANE_STRESS" )
-  {
-    stiffMatrix_(0,0) = stiffMatrix_(1,1) = e_/(1.0 - nu_*nu_);
-    stiffMatrix_(0,1) = stiffMatrix_(1,0) = (nu_*e_)/(1.0 - nu_*nu_);
-    stiffMatrix_(2,2) = (0.5*e_)/(1.0 + nu_);
-  }
-
-  else if ( anmodel_ == "PLANE_STRAIN" )
-  {
-    const double d = (1.0 + nu_) * (1.0 - 2.0*nu_);
-
-    stiffMatrix_(0,0) = stiffMatrix_(1,1) = e_*(1.0 - nu_)/d;
-    stiffMatrix_(0,1) = stiffMatrix_(1,0) = e_*nu_/d;
-    stiffMatrix_(2,2) = 0.5*e_/(1.0 + nu_);
-  }
-
-  else if ( anmodel_ == "SOLID" )
-  {
-    const double d = (1.0 + nu_) * (1.0 - 2.0*nu_);
-
-    stiffMatrix_(0,0) = stiffMatrix_(1,1) =
-    stiffMatrix_(2,2) = e_*(1.0 - nu_)/d;
-    stiffMatrix_(0,1) = stiffMatrix_(1,0) =
-    stiffMatrix_(0,2) = stiffMatrix_(2,0) =
-    stiffMatrix_(1,2) = stiffMatrix_(2,1) = e_*nu_/d;
-    stiffMatrix_(3,3) = stiffMatrix_(4,4) =
-    stiffMatrix_(5,5) = 0.5*e_/(1.0 + nu_);
-  }
-
-  else
-    throw Error ( JEM_FUNC, "Unexpected analysis model: " + anmodel_ );
-}
 
 //-----------------------------------------------------------------------
 //  computeThermalStrains_ 

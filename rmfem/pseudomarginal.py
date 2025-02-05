@@ -32,8 +32,8 @@ class RMFEMObservationOperator(FEMObservationOperator):
         self.rng = np.random.default_rng(seed)
         self.omit_nodes = omit_nodes
 
-        self.elems = self.globdat[gn.ESET]
-        self.nodes = self.globdat[gn.NSET]
+        self.elems = self.jive_runner.elems
+        self.nodes = self.elems.get_nodes()
         self._patches = get_patches_around_nodes(self.elems)
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
@@ -66,7 +66,8 @@ class RMFEMObservationOperator(FEMObservationOperator):
         to_xnodeset(self.nodes)
         self.nodes.set_coords(new_coords)
         self.nodes.to_nodeset()
-        assert self.nodes == self.globdat[gn.NSET]
+
+        assert self.nodes == self.elems.get_nodes()
 
         self._perturbed = True
 
@@ -100,8 +101,8 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
         if len(x) != len(self.input_variables):
             raise ValueError
 
-        input_globdat = {"nodeSet": self.nodes, "elementSet": self.elems}
-        globdat = self.jive_runner(input_globdat=input_globdat)
+        self.jive_runner.elems = self.elems
+        globdat = self.jive_runner()
 
         output = np.zeros(len(self.output_locations))
         assert len(self.output_locations) == len(self.output_dofs)

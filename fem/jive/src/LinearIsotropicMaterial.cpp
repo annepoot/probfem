@@ -79,7 +79,7 @@ void LinearIsotropicMaterial::stiffAtPoint
     const idx_t          ipoint )
 
 {
-  stiff = stiffMatrix_;
+  IsotropicMaterial::stiffAtPoint(stiff, ipoint);
 }
 
 //-----------------------------------------------------------------------
@@ -93,7 +93,7 @@ void LinearIsotropicMaterial::stressAtPoint
     const idx_t          ipoint )
 
 {
-  matmul( stress, stiffMatrix_, strain );
+  IsotropicMaterial::stressAtPoint(stress, strain, ipoint);
 }
 
 

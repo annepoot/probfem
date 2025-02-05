@@ -19,29 +19,31 @@ from fem.jive import CJiveRunner
 
 cmodule_props = get_cfem_props("meshes/plate_r0.msh")
 fmodule_props = get_cfem_props("meshes/plate_r1.msh")
-jive_runner = CJiveRunner
-cjive_kws = {"node_count": 254, "elem_count": 416, "rank": 2, "max_elem_node_count": 3}
-fjive_kws = {"node_count": 924, "elem_count": 1664, "rank": 2, "max_elem_node_count": 3}
 
 cmodel_props = cmodule_props.pop("model")
 fmodel_props = fmodule_props.pop("model")
 
 assert cmodel_props == fmodel_props
 
+cjive = CJiveRunner(
+    cmodule_props,
+    node_count=254,
+    elem_count=416,
+    rank=2,
+    max_elem_node_count=3,
+)
+fjive = CJiveRunner(
+    fmodule_props,
+    node_count=924,
+    elem_count=1664,
+    rank=2,
+    max_elem_node_count=3,
+)
+
 inf_cov = InverseCovarianceOperator(model_props=fmodel_props, scale=1.0)
 inf_prior = GaussianProcess(None, inf_cov)
-fine_prior = ProjectedPrior(
-    prior=inf_prior,
-    module_props=fmodule_props,
-    jive_runner=jive_runner,
-    jive_runner_kws=fjive_kws,
-)
-coarse_prior = ProjectedPrior(
-    prior=inf_prior,
-    module_props=cmodule_props,
-    jive_runner=jive_runner,
-    jive_runner_kws=cjive_kws,
-)
+coarse_prior = ProjectedPrior(prior=inf_prior, jive_runner=cjive)
+fine_prior = ProjectedPrior(prior=inf_prior, jive_runner=fjive)
 
 fglobdat = fine_prior.globdat
 f = fglobdat["extForce"]

@@ -89,7 +89,6 @@ def calc_boundary_nodes(
     bnodes = {}
 
     max_node_count = elems.max_elem_node_count()
-    assert max_node_count <= 3
 
     if patches is None:
         patches = get_patches_around_nodes(elems)
@@ -126,39 +125,46 @@ def calc_boundary_nodes(
                     bnodes[inode][0] = norm
 
         elif rank == 2:
-            unique_nodes = np.unique(patch_nodes)
+            unique_nodes = patch_nodes.flatten()
+            _, idx, cnt = np.unique(unique_nodes, return_index=True, return_counts=True)
+            unique_nodes = unique_nodes[idx[cnt == 1]]
 
-            for unique_inode in unique_nodes:
-                loc = np.where(patch_nodes == unique_inode)
-                count = len(loc[0])
+            prev_bnode = next_bnode = -1
 
-                if count == 1:
-                    if unique_inode not in bnodes:
-                        bnodes[unique_inode] = np.zeros((2, 2), dtype=float)
+            for ie, inodes in enumerate(patch_nodes):
+                elem_node_count = len(inodes)
 
-                    row = loc[0][0]
-                    col = loc[1][0]
+                loc = np.where(inode == inodes)[0]
+                assert len(loc) == 1
 
-                    if patch_nodes[row, (col + 1) % 3] == inode:
-                        prev_coords = nodes.get_node_coords(inode)
-                        curr_coords = nodes.get_node_coords(unique_inode)
+                prev_inode = inodes[(loc[0] - 1) % elem_node_count]
+                next_inode = inodes[(loc[0] + 1) % elem_node_count]
 
-                        dist = curr_coords - prev_coords
-                        norm = np.array([-dist[1], dist[0]]) / np.linalg.norm(dist)
+                if prev_inode in unique_nodes:
+                    assert prev_bnode == -1
+                    prev_bnode = prev_inode
 
-                        bnodes[unique_inode][0] = norm
+                if next_inode in unique_nodes:
+                    assert next_bnode == -1
+                    next_bnode = next_inode
 
-                    elif patch_nodes[row, (col - 1) % 3] == inode:
-                        curr_coords = nodes.get_node_coords(unique_inode)
-                        next_coords = nodes.get_node_coords(inode)
+            assert (prev_bnode == -1) == (next_bnode == -1)
 
-                        dist = next_coords - curr_coords
-                        norm = np.array([-dist[1], dist[0]]) / np.linalg.norm(dist)
+            if prev_bnode >= 0:
+                bnodes[inode] = np.zeros((2, 2), dtype=float)
 
-                        bnodes[unique_inode][1] = norm
+                prev_coords = nodes[prev_bnode]
+                curr_coords = nodes[inode]
+                next_coords = nodes[next_bnode]
 
-                elif count > 2:
-                    assert unique_inode == inode
+                dist = prev_coords - curr_coords
+                norm = np.array([-dist[1], dist[0]]) / np.linalg.norm(dist)
+                bnodes[inode][0] = norm
+
+                dist = curr_coords - next_coords
+                norm = np.array([-dist[1], dist[0]]) / np.linalg.norm(dist)
+                bnodes[inode][1] = norm
+
         else:
             assert False
 

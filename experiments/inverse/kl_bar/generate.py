@@ -1,7 +1,9 @@
+import numpy as np
 import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
+from myjive.fem import XNodeSet, XElementSet
 from probability.sampling import MCMCRunner
 from experiments.inverse.kl_bar.props import (
     get_rwm_fem_target,
@@ -9,6 +11,23 @@ from experiments.inverse.kl_bar.props import (
     get_rwm_rmfem_target,
     get_rwm_bfem_target,
 )
+
+
+def generate_mesh(n_elem):
+    node_coords = np.linspace(0, 1, n_elem + 1).reshape((-1, 1))
+    nodes = XNodeSet()
+    nodes.add_nodes(node_coords)
+    nodes.to_nodeset()
+
+    elem_inodes = np.array([np.arange(0, n_elem), np.arange(1, n_elem + 1)]).T
+    elem_sizes = np.full(n_elem, 2)
+
+    elems = XElementSet(nodes)
+    elems.add_elements(elem_inodes, elem_sizes)
+    elems.to_elementset()
+
+    return nodes, elems
+
 
 statfem_hparams = {
     10: {
@@ -44,6 +63,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
     file.write("author = Anne Poot\n")
     file.write(f"date, time = {current_time}\n")
+    file.write(f"n_burn = {n_burn}\n")
     file.write(f"n_sample = {n_sample}\n")
     file.write(f"n_elem = {n_elem_range}\n")
     file.write(f"std_corruption = fixed at {std_corruption}\n")
@@ -83,29 +103,31 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     file.close()
 
     for i, n_elem in enumerate(n_elem_range):
+        nodes, elems = generate_mesh(n_elem)
+
         if fem_type == "fem":
             target = get_rwm_fem_target(
-                n_elem=n_elem,
+                elems=elems,
                 std_corruption=std_corruption,
                 sigma_e=sigma_e,
-                n_rep_obs=1,
             )
         elif fem_type == "bfem":
+            ref_nodes, ref_elems = generate_mesh(80)
             target = get_rwm_bfem_target(
-                n_elem=n_elem,
+                obs_elems=elems,
+                ref_elems=ref_elems,
                 std_corruption=std_corruption,
                 scale=scale,  # f_c.T @ u_c / n_c
                 rescale=rescale,
                 sigma_e=sigma_e,
-                n_rep_obs=1,
             )
         elif fem_type == "rmfem":
             target = get_rwm_rmfem_target(
-                n_elem=n_elem,
+                elems=elems,
                 std_corruption=std_corruption,
                 sigma_e=sigma_e,
-                n_rep_obs=1,
                 n_pseudomarginal=n_pseudomarginal,
+                omit_nodes=False,
             )
         elif fem_type == "statfem":
             rho = rho_range[i]
@@ -113,13 +135,12 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             sigma_d = sigma_d_range[i]
             sigma_e = sigma_e_range[i]
             target = get_rwm_statfem_target(
-                n_elem=n_elem,
+                elems=elems,
                 std_corruption=std_corruption,
                 rho=rho,
                 l_d=l_d,
                 sigma_d=sigma_d,
                 sigma_e=sigma_e,
-                n_rep_obs=1,
             )
         else:
             raise ValueError

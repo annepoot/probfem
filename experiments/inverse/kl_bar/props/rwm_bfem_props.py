@@ -4,6 +4,7 @@ from probability.process import (
     ProjectedPrior,
 )
 from bfem.likelihood import BFEMLikelihood, BFEMObservationOperator
+from fem.jive import CJiveRunner
 
 from experiments.inverse.kl_bar.props.fem_props import get_fem_props
 from experiments.inverse.kl_bar.props.rwm_fem_props import get_rwm_fem_target
@@ -11,28 +12,34 @@ from experiments.inverse.kl_bar.props.rwm_fem_props import get_rwm_fem_target
 __all__ = ["get_rwm_bfem_target"]
 
 
-def get_rwm_bfem_target(*, n_elem, std_corruption, scale, rescale, sigma_e, n_rep_obs):
+def get_rwm_bfem_target(
+    *, obs_elems, ref_elems, std_corruption, scale, rescale, sigma_e
+):
     target = get_rwm_fem_target(
-        n_elem=n_elem,
+        elems=obs_elems,
         std_corruption=std_corruption,
         sigma_e=sigma_e,
-        n_rep_obs=n_rep_obs,
     )
 
     if rescale:
         assert abs(1.0 - scale) < 1e-8
 
-    obs_props = get_fem_props(n_elem=n_elem)
-    ref_props = get_fem_props(n_elem=80)
+    obs_module_props = get_fem_props()
+    ref_module_props = get_fem_props()
 
-    inf_cov = InverseCovarianceOperator(model_props=ref_props["model"], scale=scale)
+    obs_model_props = obs_module_props.pop("model")
+    ref_model_props = ref_module_props.pop("model")
+
+    assert obs_model_props == ref_model_props
+
+    obs_jive_runner = CJiveRunner(obs_module_props, elems=obs_elems)
+    ref_jive_runner = CJiveRunner(ref_module_props, elems=ref_elems)
+
+    inf_cov = InverseCovarianceOperator(model_props=ref_model_props, scale=scale)
     inf_prior = GaussianProcess(None, inf_cov)
-    obs_prior = ProjectedPrior(
-        prior=inf_prior, init_props=obs_props["init"], solve_props=obs_props["solve"]
-    )
-    ref_prior = ProjectedPrior(
-        prior=inf_prior, init_props=ref_props["init"], solve_props=ref_props["solve"]
-    )
+
+    obs_prior = ProjectedPrior(prior=inf_prior, jive_runner=obs_jive_runner)
+    ref_prior = ProjectedPrior(prior=inf_prior, jive_runner=ref_jive_runner)
 
     old_likelihood = target.likelihood
     new_likelihood = BFEMLikelihood(
@@ -49,7 +56,6 @@ def get_rwm_bfem_target(*, n_elem, std_corruption, scale, rescale, sigma_e, n_re
         input_variables=old_operator.input_variables,
         output_locations=old_operator.output_locations,
         output_dofs=old_operator.output_dofs,
-        run_modules=old_operator.run_modules,
         rescale=rescale,
     )
     target.likelihood.operator = new_operator

@@ -315,20 +315,17 @@ class ConditionedGaussian(GaussianLike):
         return Q @ (prior_cov @ Q.T)
 
     def calc_sample(self, seed):
-        raise NotImplementedError("Not tested yet!")
         sample = self.prior.calc_sample(seed)
         prior_cov = self.prior.get_cov()
         vec = np.linalg.solve(self.gram, (self.obs - self.linop @ sample))
         return sample + prior_cov @ (self.linop.T @ vec)
 
     def calc_samples(self, n, seed):
-        raise NotImplementedError("Not tested yet!")
         samples = self.prior.calc_samples(n, seed)
         prior_cov = self.prior.get_cov()
-        vecs = np.linalg.solve(
-            self.gram, (np.tile(self.obs, (n, 1)) - self.linop @ samples)
-        )
-        return samples + prior_cov @ (self.linop.T @ vecs)
+        obsmat = np.tile(np.array([self.obs]).T, (1, n))
+        vecs = np.linalg.solve(self.gram, (obsmat - self.linop @ samples.T))
+        return samples + (prior_cov @ (self.linop.T @ vecs)).T
 
 
 class IndependentGaussianSum(GaussianLike):

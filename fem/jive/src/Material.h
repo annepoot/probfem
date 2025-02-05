@@ -106,6 +106,10 @@ class Material : public NamedObject
 
     ( const idx_t          npoints );
 
+  virtual void           createIntPoints
+
+    ( const Matrix&        ipCoords );
+
   virtual void           setCharLength
 
     ( const idx_t          ipoint,
@@ -169,6 +173,8 @@ class Material : public NamedObject
 
                        ~Material ();
 
+  idx_t                ipCount_;
+  Matrix               ipCoords_;
   StringVector         historyNames_;
   bool                 desperateMode_;
   BoolVector           hasSwitched_;

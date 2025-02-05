@@ -8,15 +8,14 @@ from experiments.inverse.kl_bar.props.rwm_statfem_props import get_rwm_statfem_t
 __all__ = ["get_rwm_statfem_hyper_target"]
 
 
-def get_rwm_statfem_hyper_target(*, n_elem, std_corruption, n_rep_obs, sigma_e):
+def get_rwm_statfem_hyper_target(*, elems, std_corruption, sigma_e):
     target = get_rwm_statfem_target(
-        n_elem=n_elem,
+        elems=elems,
         std_corruption=std_corruption,
         rho=1.0,
         l_d=1.0,
         sigma_d=1.0,
         sigma_e=sigma_e,
-        n_rep_obs=n_rep_obs,
     )
     param_prior = target.prior
     rho_prior = LogGaussian(np.log(1), np.log(1e1), allow_logscale_access=True)

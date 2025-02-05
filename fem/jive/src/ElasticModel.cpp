@@ -143,6 +143,31 @@ ElasticModel::ElasticModel
       MaterialFactory::newInstance ( matProp, conf, props, globdat )
   );
 
+  idx_t  ipCount = shape_->ipointCount() * egroup_.size();
+
+  idx_t ipoint = 0;
+  IdxVector inodes ( nodeCount_ );
+  Matrix coords ( rank_, nodeCount_ );
+  Matrix ipCoords ( rank_, shape_->ipointCount() );
+
+  Matrix allIpCoords ( rank_, ipCount );
+
+  for ( idx_t ie = 0; ie < numElem_; ie++ )
+  {
+    idx_t  ielem = ielems_[ie];
+    elems_.getElemNodes  ( inodes, ielem    );
+    nodes_.getSomeCoords ( coords, inodes );
+    shape_->getGlobalIntegrationPoints (ipCoords, coords );
+
+    for ( idx_t ip = 0; ip < ipCount_; ip++ )
+    {
+      allIpCoords[ipoint] = ipCoords[ip];
+      ipoint++;
+    }
+  }
+
+  material_->createIntPoints ( allIpCoords );
+
   getShapeGrads_ = getShapeGradsFunc ( rank_ );
 
   // In 2D, get the thickness (optionally)
@@ -290,6 +315,8 @@ void ElasticModel::getMatrix_
   MChain1     mc1;
   MChain3     mc3;
 
+  idx_t ipoint = 0;
+
   // Iterate over all elements assigned to this model.
   for ( idx_t ie = 0; ie < numElem_; ie++ )
   {
@@ -321,8 +348,10 @@ void ElasticModel::getMatrix_
       getShapeGrads_(b, ipGrads[ip]);
 
       // Compute the stiffness matrix
-      material_->stiffAtPoint ( stiff, ip );
+      material_->stiffAtPoint ( stiff, ipoint );
       elemMat   += ipWeights[ip] * mc3.matmul ( bt, stiff, b );
+
+      ++ipoint;
     }
 
     // Add the element matrix to the global stiffness matrix.
