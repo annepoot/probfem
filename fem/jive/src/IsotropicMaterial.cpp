@@ -333,6 +333,9 @@ void IsotropicMaterial::stiffAtPoint
   ( Matrix&       stiff,
     const idx_t   ipoint )
 {
+  // reset stiffness matrix beforehand
+  stiff = 0.0;
+
   if ( anmodel_ == "BAR" )
   {
     stiff(0,0) = es_[ipoint] * areas_[ipoint];
