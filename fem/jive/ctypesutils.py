@@ -26,14 +26,6 @@ class DOUBLE_ARRAY_PTR(ct.Structure):
     ]
 
 
-class CHAR_ARRAY_PTR(ct.Structure):
-    _fields_ = [
-        ("ptr", PTR(ct.c_char)),
-        ("shape", PTR(ct.c_long)),
-        ("dim", ct.c_long),
-    ]
-
-
 class LONG_VEC_PTR(LONG_ARRAY_PTR):
     def __init__(self, *args, **kw):
         if len(args) == 0:
@@ -76,17 +68,6 @@ class DOUBLE_MAT_PTR(DOUBLE_ARRAY_PTR):
             assert args[0]._type_ is ct.c_double
             assert args[1]._length_ == 2
             super().__init__(*args, 2, **kw)
-
-
-class STRING_PTR(CHAR_ARRAY_PTR):
-    def __init__(self, *args, **kw):
-        if len(args) == 0:
-            super().__init__(*args, **kw)
-        else:
-            assert len(args) == 2
-            assert args[0]._type_ is ct.c_char
-            assert args[1]._length_ == 1
-            super().__init__(*args, 1, **kw)
 
 
 class SPARSE_MAT_PTR(ct.Structure):
@@ -210,6 +191,8 @@ def to_ctypes(arr):
     ptr = arr.ctypes.data_as(ct.POINTER(ctype))
     shape = arr.ctypes.shape_as(ct.c_long)
 
+    assert arr.base is None
+
     if shape._length_ == 1:
         if ptr._type_ is ct.c_long:
             return LONG_VEC_PTR(ptr, shape)
@@ -231,10 +214,13 @@ def to_ctypes(arr):
 def to_buffer(py_obj):
     if isinstance(py_obj, NodeSet):
         size = len(py_obj)
-        return {"data": py_obj._data[:size]}
+        return {"data": py_obj._data[:size].copy()}
     elif isinstance(py_obj, ElementSet):
         size = len(py_obj)
-        return {"data": py_obj._data[:size], "sizes": py_obj._groupsizes[:size]}
+        return {
+            "data": py_obj._data[:size].copy(),
+            "sizes": py_obj._groupsizes[:size].copy(),
+        }
     else:
         assert False
 
