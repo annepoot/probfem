@@ -21,12 +21,6 @@ struct DOUBLE_ARRAY_PTR{
   long dim;
 };
 
-struct CHAR_ARRAY_PTR{
-  double* ptr;
-  long* shape;
-  long dim;
-};
-
 struct SPARSE_MAT_PTR{
   DOUBLE_ARRAY_PTR values;
   LONG_ARRAY_PTR indices;
