@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from myjive.solver import Constrainer
 from myjivex.util.plotutils import create_dat
 from probability.process import (
     GaussianProcess,
@@ -11,7 +12,10 @@ from probability.process import (
 from bfem.observation import compute_bfem_observations
 from fem.meshing import create_phi_from_globdat, mesh_interval_with_line2
 from fem.jive import CJiveRunner
+from util.linalg import Matrix
+
 from experiments.reproduction.bfem.fig3.fem_props import get_fem_props
+
 
 _, ref_elems = mesh_interval_with_line2(n=64)
 
@@ -52,25 +56,33 @@ for inf_cov in [M_cov, K_cov]:
         obs_globdat = obs_prior.globdat
 
         PhiT = compute_bfem_observations(obs_prior, ref_prior, fspace=False)
-        H_obs = PhiT @ ref_globdat["matrix0"]
-        f_obs = PhiT @ ref_globdat["extForce"]
 
-        posterior = ref_prior.condition_on(H_obs, f_obs)
-        mean_u_post = posterior.calc_mean()
-        std_u_post = posterior.calc_std()
+        K = ref_globdat["matrix0"]
+        c = ref_globdat["constraints"]
+        Kc = Constrainer(c, K).get_output_matrix()
+
+        Phi = Matrix(PhiT.T, name="Phi")
+        Kc = Matrix(Kc, name="Kc")
+
+        H_obs = Phi.T @ Kc
+        f_obs = PhiT @ ref_globdat["extForce"]
 
         u_coarse = obs_globdat["state0"]
         u = ref_globdat["state0"]
         Phi = create_phi_from_globdat(obs_globdat, ref_globdat)
         u_coarse = Phi @ u_coarse
 
+        posterior = ref_prior.condition_on(H_obs, f_obs)
+
+        samples_u_prior = ref_prior.calc_samples(50, 0)
+        samples_u_post = posterior.calc_samples(50, 0)
+
         u_prior = ref_prior.calc_mean()
         u_post = posterior.calc_mean()
         std_u_prior = ref_prior.calc_std()
         std_u_post = posterior.calc_std()
-
-        samples_u_post = posterior.calc_samples(20, 0)
-        samples_u_prior = ref_prior.calc_samples(20, 0)
+        # std_u_prior = np.std(samples_u_prior, axis=0)
+        # std_u_post = np.std(samples_u_post, axis=0)
 
         # Use a fine linspace for plotting
         x = np.linspace(0, 1, len(u))

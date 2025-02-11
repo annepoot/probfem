@@ -1,7 +1,9 @@
 import numpy as np
+from scipy.sparse import issparse
 from scipy.stats import multivariate_normal
 from warnings import warn
 
+from util.linalg import Matrix, MatMulChain
 from ..distribution import MultivariateDistribution
 from .covariance import Covariance
 
@@ -280,7 +282,7 @@ class ConditionedGaussian(GaussianLike):
         assert isinstance(prior, GaussianLike)
         self.prior = prior
 
-        assert isinstance(linop, np.ndarray)
+        assert issparse(linop) or isinstance(linop, (np.ndarray, Matrix, MatMulChain))
         if len(linop.shape) == 1:
             linop = np.reshape(linop, (1, -1))
         assert len(linop.shape) == 2
@@ -308,9 +310,15 @@ class ConditionedGaussian(GaussianLike):
 
     def calc_cov(self):
         warn("computing full covariance matrix")
-        prior_cov = self.prior.get_cov()
+        prior_cov = self.prior.calc_cov()
         inv_gram = np.linalg.inv(self.gram)
-        P = prior_cov @ (self.linop.T @ (inv_gram @ self.linop))
+
+        if isinstance(self.linop, (Matrix, MatMulChain)):
+            linop = self.linop.evaluate()
+        else:
+            linop = self.linop
+
+        P = prior_cov @ (linop.T @ (inv_gram @ linop))
         Q = np.identity(len(self.prior)) - P
         return Q @ (prior_cov @ Q.T)
 

@@ -1,43 +1,64 @@
-def get_fem_props(fname):
+def get_fem_props():
     fem_props = {
-        "modules": ["init", "solve"],
-        "init": {
-            "type": "Init",
-            "mesh": {"type": "gmsh", "file": fname},
-            "nodeGroups": ["l", "lb"],
-            "l": {"xtype": "min"},
-            "lb": {"xtype": "min", "ytype": "min"},
+        "log": {
+            "pattern": "*.info",
+            "rank": 1,  # print warnings, but not log or out
+            "file": "-$(CASE_NAME).log",
         },
-        "solve": {
-            "type": "Linsolve",
+        "control": {
+            "runWhile": "i<1",
+        },
+        "userinput": {
+            "modules": ["globdat", "ngroups"],
+            "globdat": {
+                "type": "GlobdatInput",
+            },
+            "ngroups": {
+                "type": "GroupInput",
+                "nodeGroups": ["l", "lb"],
+                "l.xtype": "min",
+                "lb.xtype": "min",
+                "lb.ytype": "min",
+            },
         },
         "model": {
-            "models": ["solid", "load", "diri"],
-            "solid": {
-                "type": "Solid",
-                "elements": "all",
-                "material": {
-                    "type": "Isotropic",
-                    "rank": 2,
-                    "anmodel": "plane_stress",
-                    "E": 3.0,
-                    "nu": 0.2,
+            "type": "Matrix",
+            "model": {
+                "type": "Multi",
+                "models": ["elastic", "diri", "load"],
+                "diri": {
+                    "type": "Dirichlet",
+                    "initDisp": 1.0,
+                    "dispIncr": 0.0,
+                    "nodeGroups": ["l", "lb"],
+                    "dofs": ["dx", "dy"],
                 },
-                "shape": {"type": "Triangle3", "intScheme": "Gauss1"},
+                "elastic": {
+                    "type": "Elastic",
+                    "elements": "all",
+                    "material": {
+                        "type": "LinearIsotropic",
+                        "anmodel": "PLANE_STRESS",
+                        "rank": 2,
+                        "E": 3.0,
+                        "nu": 0.2,
+                    },
+                    "shape": {
+                        "type": "Triangle3",
+                        "intScheme": "Gauss3",
+                    },
+                },
+                "load": {
+                    "type": "Load",
+                    "elements": "all",
+                    "dofs": ["dx"],
+                    "load": [1.0],
+                },
             },
-            "load": {
-                "type": "Load",
-                "elements": "all",
-                "dofs": ["dx"],
-                "values": [1.0],
-                "shape": {"type": "Triangle3", "intScheme": "Gauss1"},
-            },
-            "diri": {
-                "type": "Dirichlet",
-                "groups": ["l", "lb"],
-                "dofs": ["dx", "dy"],
-                "values": [0.0, 0.0],
-            },
+        },
+        "usermodules": {
+            "modules": ["solver"],
+            "solver": {"type": "Linsolve"},
         },
     }
     return fem_props
