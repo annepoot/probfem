@@ -1,3 +1,4 @@
+from myjive.solver import Constrainer
 from myjivex.util import QuickViewer
 from probability.process import (
     GaussianProcess,
@@ -6,25 +7,39 @@ from probability.process import (
 )
 from bfem.observation import compute_bfem_observations
 from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
+from fem.jive import CJiveRunner
+from fem.meshing import read_mesh
 
-cprops = get_fem_props("meshes/plate_r0.msh")
-fprops = get_fem_props("meshes/plate_r1.msh")
+from util.linalg import Matrix
+
+_, coarse_elems = read_mesh("meshes/plate_r0.msh")
+_, fine_elems = read_mesh("meshes/plate_r1.msh")
+
+module_props = get_fem_props()
+model_props = module_props.pop("model")
+
+cjive = CJiveRunner(module_props, elems=coarse_elems)
+fjive = CJiveRunner(module_props, elems=fine_elems)
 
 inf_cov = NaturalCovarianceOperator(
-    model_props=fprops["model"], scale=1.0, lumped_mass_matrix=False
+    model_props=model_props, scale=1.0, lumped_mass_matrix=False
 )
 inf_prior = GaussianProcess(None, inf_cov)
-fine_prior = ProjectedPrior(
-    prior=inf_prior, init_props=fprops["init"], solve_props=fprops["solve"]
-)
-coarse_prior = ProjectedPrior(
-    prior=inf_prior, init_props=cprops["init"], solve_props=cprops["solve"]
-)
+coarse_prior = ProjectedPrior(prior=inf_prior, jive_runner=cjive)
+fine_prior = ProjectedPrior(prior=inf_prior, jive_runner=fjive)
 
 fglobdat = fine_prior.globdat
-PhiT = compute_bfem_observations(coarse_prior, fine_prior, fspace=False)
-H_obs = PhiT @ fglobdat["matrix0"]
-f_obs = PhiT @ fglobdat["extForce"]
+K = fglobdat["matrix0"]
+f = fglobdat["extForce"]
+c = fglobdat["constraints"]
+Kc = Constrainer(c, K).get_output_matrix()
+
+PhiT = compute_bfem_observations(coarse_prior, fine_prior)
+PhiT = Matrix(PhiT.T, transpose=True, name="Phi")
+Kc = Matrix(Kc, name="Kc")
+
+H_obs = PhiT @ Kc
+f_obs = PhiT @ f
 
 posterior = fine_prior.condition_on(H_obs, f_obs)
 mean_u_post = posterior.calc_mean()

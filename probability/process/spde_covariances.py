@@ -1,6 +1,6 @@
 from warnings import warn
 import numpy as np
-from scipy.sparse import issparse
+from scipy.sparse import issparse, diags
 from scipy.sparse.linalg import spsolve
 
 from copy import deepcopy
@@ -13,10 +13,10 @@ from .covariance_functions import CovarianceFunction
 
 from fem.jive import MyJiveRunner
 from fem.meshing import create_unit_mass_matrix
+from util.linalg import Matrix, MatMulChain
 
 from myjive.names import GlobNames as gn
 from myjive.solver import Constrainer
-
 
 __all__ = [
     "CovarianceOperator",
@@ -141,36 +141,45 @@ class ProjectedPrior(Gaussian):
         if isinstance(self.prior.cov, InverseCovarianceOperator):
             K = globdat[gn.MATRIX0]
             c = globdat[gn.CONSTRAINTS]
+            conman = Constrainer(c, K)
+            Kc = conman.get_output_matrix()
 
-            scale = self.prior.cov.scale
-            aK = K / scale
+            Kc_f = self._constrain_covariance(K, c)
 
-            aKc = self._constrain_precision(aK, c)
-            cov = Covariance(aKc, cov_type="precision")
+            Kc = Matrix(Kc, name="Kc")
+            Kc_f = Matrix(Kc_f, name="Kc")
+            aKc = MatMulChain(self.prior.cov.scale, Kc.inv, Kc_f, Kc.inv.T)
+
+            cov = Covariance(aKc, cov_type="symbolic")
 
         elif isinstance(self.prior.cov, NaturalCovarianceOperator):
             K = globdat[gn.MATRIX0]
-            scale = self.prior.cov.scale
-            lumpM = self.prior.cov.lumped_mass_matrix
-            M_inv = self._compute_inv_mass_matrix(globdat, lumped=lumpM)
-            aKMK = (K @ M_inv @ K) / scale
+            c = globdat[gn.CONSTRAINTS]
+            conman = Constrainer(c, K)
+            Kc = conman.get_output_matrix()
 
-            aKMKc = self._constrain_precision(aKMK, globdat[gn.CONSTRAINTS])
-            cov = Covariance(aKMKc, cov_type="precision")
+            lumpM = self.prior.cov.lumped_mass_matrix
+            Mc_f = self._compute_mass_matrix(globdat, lumped=lumpM)
+
+            Kc = Matrix(Kc, name="Kc")
+            Mc_f = Matrix(Mc_f, name="Mc")
+            aKMKc = MatMulChain(self.prior.cov.scale, Kc.inv, Mc_f, Kc.inv.T)
+
+            cov = Covariance(aKMKc, cov_type="symbolic")
 
         else:
             assert False
 
         return cov
 
-    def _constrain_precision(self, matrix, constraints):
+    def _constrain_covariance(self, matrix, constraints):
         conman = Constrainer(constraints, matrix)
         output_matrix = conman.get_output_matrix()
         cdofs = constraints.get_constraints()[0]
-        output_matrix[cdofs, cdofs] = self.sigma_pd**-2
+        output_matrix[cdofs, cdofs] = self.sigma_pd**2
         return output_matrix
 
-    def _compute_inv_mass_matrix(self, globdat, lumped):
+    def _compute_mass_matrix(self, globdat, lumped):
         elems = globdat[gn.ESET]
         dofs = globdat[gn.DOFSPACE]
         node_count = globdat[gn.ESET].max_elem_node_count()
@@ -183,11 +192,9 @@ class ProjectedPrior(Gaussian):
             shape = factory.get_shape(globdat[gn.MESHSHAPE], intscheme)
 
         M = create_unit_mass_matrix(elems, dofs, shape, sparse=True, lumped=lumped)
-        Mc = Constrainer(globdat[gn.CONSTRAINTS], M).get_output_matrix()
+        Mc = self._constrain_covariance(M, globdat[gn.CONSTRAINTS])
 
         if lumped:
-            M_inv = np.diag(1 / Mc.diagonal())
+            return diags(Mc.diagonal(), format="csr")
         else:
-            M_inv = np.linalg.inv(Mc.toarray())
-
-        return M_inv
+            return Mc

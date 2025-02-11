@@ -1,12 +1,11 @@
 import numpy as np
-from scipy.stats import multivariate_normal
 from scipy.sparse import issparse, diags, csc_matrix
 from scipy.sparse.linalg import inv
 import sksparse.cholmod as cm
 from warnings import warn
-from enum import Enum
 
-from ..distribution import MultivariateDistribution
+from util.linalg import MatMulChain
+
 
 __all__ = [
     "Covariance",
@@ -15,6 +14,7 @@ __all__ = [
 COVARIANCE = "covariance"
 PRECISION = "precision"
 DIAGONAL = "diagonal"
+SYMBOLIC = "symbolic"
 
 
 class Covariance:
@@ -24,7 +24,7 @@ class Covariance:
     """
 
     def __init__(self, A, *, cov_type):
-        assert cov_type in [COVARIANCE, PRECISION, DIAGONAL]
+        assert cov_type in [COVARIANCE, PRECISION, DIAGONAL, SYMBOLIC]
 
         self.cov_type = cov_type
         if cov_type == COVARIANCE:
@@ -41,6 +41,11 @@ class Covariance:
             assert len(A.shape) == 1
             self.D = diags(A)
             self.shape = (len(self.d), len(self.d))
+        elif cov_type == SYMBOLIC:
+            assert len(A.shape) == 2
+            assert A.shape[0] == A.shape[1]
+            self.A = A
+            self.shape = A.shape
         else:
             assert False
 
@@ -59,6 +64,8 @@ class Covariance:
                     return np.linalg.solve(chol, other)
             elif self.cov_type == DIAGONAL:
                 return self.D @ other
+            elif self.cov_type == SYMBOLIC:
+                return self.A @ other
         else:
             assert False
 
@@ -73,6 +80,8 @@ class Covariance:
                 return inv(self.P)
             else:
                 return np.linalg.inv(self.P)
+        elif self.cov_type == SYMBOLIC:
+            return self.A.evaluate()
         else:
             assert False
 
@@ -84,6 +93,8 @@ class Covariance:
             return diags(1 / self.D.diagonal())
         elif self.cov_type == PRECISION:
             return self.P
+        elif self.cov_type == SYMBOLIC:
+            return self.A.inv.evaluate()
         else:
             assert False
 
@@ -98,41 +109,51 @@ class Covariance:
         rng = np.random.default_rng(seed)
         std_sample = rng.standard_normal(len(self))
 
-        if isinstance(chol, cm.Factor):
-            if self.cov_type == COVARIANCE:
-                assert False
-            elif self.cov_type == PRECISION:
-                return chol.apply_Pt(
-                    chol.solve_Lt(std_sample, use_LDLt_decomposition=False)
-                )
-            else:
-                assert False
+        if self.cov_type == SYMBOLIC:
+            assert isinstance(chol, MatMulChain)
+            return chol @ std_sample
+
         else:
-            if self.cov_type == PRECISION:
-                return np.linalg.solve(chol.T, std_sample)
+            if isinstance(chol, cm.Factor):
+                if self.cov_type == COVARIANCE:
+                    assert False
+                elif self.cov_type == PRECISION:
+                    return chol.apply_Pt(
+                        chol.solve_Lt(std_sample, use_LDLt_decomposition=False)
+                    )
+                else:
+                    assert False
             else:
-                return chol @ std_sample
+                if self.cov_type == PRECISION:
+                    return np.linalg.solve(chol.T, std_sample)
+                else:
+                    return chol @ std_sample
 
     def calc_samples(self, n, seed):
         chol = self._calc_cholesky()
         rng = np.random.default_rng(seed)
         std_sample = rng.standard_normal((len(self), n))
 
-        if isinstance(chol, cm.Factor):
-            if self.cov_type == COVARIANCE:
-                assert False
-            elif self.cov_type == PRECISION:
-                return chol.apply_Pt(
-                    chol.solve_Lt(std_sample, use_LDLt_decomposition=False)
-                ).T
-            else:
-                assert False
+        if self.cov_type == SYMBOLIC:
+            assert isinstance(chol, MatMulChain)
+            return (chol @ std_sample).T
 
         else:
-            if self.cov_type == PRECISION:
-                return np.linalg.solve(chol.T, std_sample).T
+            if isinstance(chol, cm.Factor):
+                if self.cov_type == COVARIANCE:
+                    assert False
+                elif self.cov_type == PRECISION:
+                    return chol.apply_Pt(
+                        chol.solve_Lt(std_sample, use_LDLt_decomposition=False)
+                    ).T
+                else:
+                    assert False
+
             else:
-                return (chol @ std_sample).T
+                if self.cov_type == PRECISION:
+                    return np.linalg.solve(chol.T, std_sample).T
+                else:
+                    return (chol @ std_sample).T
 
     def calc_mahal(self, x):
         return np.sqrt(self.calc_mahal_squared(x))
@@ -146,6 +167,10 @@ class Covariance:
             return x @ self.P @ x
         elif self.cov_type == DIAGONAL:
             return x @ (x / self.D.diagonal())
+        elif self.cov_type == SYMBOLIC:
+            raise NotImplementedError
+        else:
+            assert False
 
     def calc_det(self):
         return np.exp(self.calc_logdet())
@@ -162,6 +187,10 @@ class Covariance:
                 return 2 * np.sum(np.log(chol.diagonal()))
         elif self.cov_type == DIAGONAL:
             return 2 * np.sum(np.log(chol.diagonal()))
+        elif self.cov_type == SYMBOLIC:
+            raise NotImplementedError
+        else:
+            assert False
 
     def calc_gram(self, operator):
         if self.cov_type == COVARIANCE:
@@ -172,6 +201,11 @@ class Covariance:
             return sqrtG.T @ sqrtG
         elif self.cov_type == DIAGONAL:
             return operator @ self.D @ operator.T
+        elif self.cov_type == SYMBOLIC:
+            gram_chain = MatMulChain(operator, self.A, operator.T)
+            return gram_chain.evaluate()
+        else:
+            assert False
 
     def _calc_cholesky(self):
         if not hasattr(self, "_chol"):
@@ -184,5 +218,8 @@ class Covariance:
                     self._chol = np.linalg.cholesky(self.P)
             elif self.cov_type == DIAGONAL:
                 self._chol = np.sqrt(self.D)
-
+            elif self.cov_type == SYMBOLIC:
+                self._chol = self.A.factorize()
+            else:
+                assert False
         return self._chol

@@ -1,5 +1,6 @@
 import numpy as np
 
+from myjive.solver import Constrainer
 from myjivex.util import QuickViewer
 from probability.process import (
     GaussianProcess,
@@ -8,47 +9,35 @@ from probability.process import (
 )
 from bfem.observation import compute_bfem_observations
 from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
-from experiments.reproduction.bfem.fig245.cfem_props import get_cfem_props
 from fem.jive import CJiveRunner
+from fem.meshing import read_mesh
+from util.linalg import Matrix
 
-# cmodule_props = get_fem_props("meshes/plate_r0.msh")
-# fmodule_props = get_fem_props("meshes/plate_r1.msh")
-# jive_runner = None
-# cjive_kws = None
-# fjive_kws = None
+_, coarse_elems = read_mesh("meshes/plate_r0.msh")
+_, fine_elems = read_mesh("meshes/plate_r1.msh")
 
-cmodule_props = get_cfem_props("meshes/plate_r0.msh")
-fmodule_props = get_cfem_props("meshes/plate_r1.msh")
+module_props = get_fem_props()
+model_props = module_props.pop("model")
 
-cmodel_props = cmodule_props.pop("model")
-fmodel_props = fmodule_props.pop("model")
+cjive = CJiveRunner(module_props, elems=coarse_elems)
+fjive = CJiveRunner(module_props, elems=fine_elems)
 
-assert cmodel_props == fmodel_props
-
-cjive = CJiveRunner(
-    cmodule_props,
-    node_count=254,
-    elem_count=416,
-    rank=2,
-    max_elem_node_count=3,
-)
-fjive = CJiveRunner(
-    fmodule_props,
-    node_count=924,
-    elem_count=1664,
-    rank=2,
-    max_elem_node_count=3,
-)
-
-inf_cov = InverseCovarianceOperator(model_props=fmodel_props, scale=1.0)
+inf_cov = InverseCovarianceOperator(model_props=model_props, scale=1.0)
 inf_prior = GaussianProcess(None, inf_cov)
 coarse_prior = ProjectedPrior(prior=inf_prior, jive_runner=cjive)
 fine_prior = ProjectedPrior(prior=inf_prior, jive_runner=fjive)
 
 fglobdat = fine_prior.globdat
+K = fglobdat["matrix0"]
 f = fglobdat["extForce"]
-PhiT = compute_bfem_observations(coarse_prior, fine_prior, fspace=False)
-H_obs = PhiT @ fglobdat["matrix0"]
+c = fglobdat["constraints"]
+Kc = Constrainer(c, K).get_output_matrix()
+
+PhiT = compute_bfem_observations(coarse_prior, fine_prior)
+PhiT = Matrix(PhiT.T, transpose=True, name="Phi")
+Kc = Matrix(Kc, name="Kc")
+
+H_obs = PhiT @ Kc
 f_obs = PhiT @ f
 
 posterior = fine_prior.condition_on(H_obs, f_obs)
