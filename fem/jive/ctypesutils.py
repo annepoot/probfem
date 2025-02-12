@@ -229,19 +229,19 @@ def initialize_buffers(*, node_count, elem_count, rank, max_elem_node_count):
     dof_count = node_count * rank
 
     nodes_data = np.zeros((node_count, rank), dtype=np.double)
-    elems_data = np.zeros((elem_count, max_elem_node_count), dtype=np.long)
-    elems_sizes = np.zeros(elem_count, dtype=np.long)
-    dofs = np.zeros((node_count, rank), dtype=np.long)
+    elems_data = np.zeros((elem_count, max_elem_node_count), dtype=int)
+    elems_sizes = np.zeros(elem_count, dtype=int)
+    dofs = np.zeros((node_count, rank), dtype=int)
 
     state0 = np.zeros(dof_count, dtype=np.double)
     intForce = np.zeros(dof_count, dtype=np.double)
     extForce = np.zeros(dof_count, dtype=np.double)
 
     matrix0_values = np.zeros(dof_count * 20, dtype=np.double)
-    matrix0_indices = np.zeros(dof_count * 20, dtype=np.long)
-    matrix0_offsets = np.zeros(dof_count + 1, dtype=np.long)
+    matrix0_indices = np.zeros(dof_count * 20, dtype=int)
+    matrix0_offsets = np.zeros(dof_count + 1, dtype=int)
 
-    constraints_dofs = np.zeros(dof_count, dtype=np.long)
+    constraints_dofs = np.zeros(dof_count, dtype=int)
     constraints_values = np.zeros(dof_count, dtype=np.double)
 
     shape_type = ct.cast(ct.create_string_buffer(64), ct.c_char_p)

@@ -12,7 +12,6 @@ from probability.process import (
 from bfem.observation import compute_bfem_observations
 from fem.meshing import create_phi_from_globdat, mesh_interval_with_line2
 from fem.jive import CJiveRunner
-from util.linalg import Matrix
 
 from experiments.reproduction.bfem.fig3.fem_props import get_fem_props
 
@@ -55,17 +54,7 @@ for inf_cov in [M_cov, K_cov]:
         obs_prior = ProjectedPrior(prior=inf_prior, jive_runner=obs_jive_runner)
         obs_globdat = obs_prior.globdat
 
-        PhiT = compute_bfem_observations(obs_prior, ref_prior, fspace=False)
-
-        K = ref_globdat["matrix0"]
-        c = ref_globdat["constraints"]
-        Kc = Constrainer(c, K).get_output_matrix()
-
-        Phi = Matrix(PhiT.T, name="Phi")
-        Kc = Matrix(Kc, name="Kc")
-
-        H_obs = Phi.T @ Kc
-        f_obs = PhiT @ ref_globdat["extForce"]
+        H_obs, f_obs = compute_bfem_observations(obs_prior, ref_prior)
 
         u_coarse = obs_globdat["state0"]
         u = ref_globdat["state0"]
