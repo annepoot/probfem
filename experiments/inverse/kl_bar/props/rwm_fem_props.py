@@ -2,7 +2,7 @@ import numpy as np
 
 from fem.jive import CJiveRunner
 from probability.multivariate import IsotropicGaussian
-from probability import ProportionalPosterior, Likelihood, FEMObservationOperator
+from probability import TemperedPosterior, Likelihood, FEMObservationOperator
 
 from experiments.inverse.kl_bar.props.fem_props import get_fem_props
 
@@ -51,7 +51,7 @@ def get_rwm_fem_target(*, elems, std_corruption, sigma_e):
 
     jive = CJiveRunner(props=fem_props, elems=elems)
 
-    target = ProportionalPosterior(
+    target = TemperedPosterior(
         prior=IsotropicGaussian(mean=None, std=1, size=4),
         likelihood=Likelihood(
             operator=FEMObservationOperator(

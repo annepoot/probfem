@@ -10,7 +10,12 @@ from probability.distribution import Distribution
 from probability.observation import ObservationOperator
 
 
-__all__ = ["Likelihood", "ParametrizedLikelihood", "ProportionalPosterior"]
+__all__ = [
+    "Likelihood",
+    "ParametrizedLikelihood",
+    "ProportionalPosterior",
+    "TemperedPosterior",
+]
 
 
 class Likelihood(Distribution):
@@ -93,3 +98,33 @@ class ProportionalPosterior(Distribution):
         else:
             likelihood_logpdf = self.likelihood.calc_logpdf(x)
             return prior_logpdf + likelihood_logpdf
+
+
+class TemperedPosterior(Distribution):
+    def __init__(self, prior, likelihood):
+        assert isinstance(prior, Distribution)
+        assert isinstance(likelihood, Likelihood)
+        self.prior = prior
+        self.likelihood = likelihood
+
+    def __len__(self):
+        return len(self.prior)
+
+    def set_temperature(self, temp):
+        self._temp = temp
+
+    def calc_pdf(self, x):
+        prior_pdf = self.prior.calc_pdf(x)
+        if prior_pdf == 0.0:
+            return 0.0
+        else:
+            likelihood_pdf = self.likelihood.calc_pdf(x)
+            return prior_pdf * likelihood_pdf**self._temp
+
+    def calc_logpdf(self, x):
+        prior_logpdf = self.prior.calc_logpdf(x)
+        if prior_logpdf < 0.0 and np.isinf(prior_logpdf):
+            return prior_logpdf
+        else:
+            likelihood_logpdf = self.likelihood.calc_logpdf(x)
+            return prior_logpdf + self._temp * likelihood_logpdf

@@ -50,8 +50,18 @@ statfem_hparams = {
     },
 }
 
+
+def linear_tempering(i):
+    if i > n_burn:
+        return 1.0
+    else:
+        return i / n_burn
+
+
 n_burn = 10000
 n_sample = 20000
+tempering = linear_tempering
+
 std_corruption = 1e-5
 n_elem_range = [10, 20, 40]
 
@@ -65,6 +75,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     file.write(f"date, time = {current_time}\n")
     file.write(f"n_burn = {n_burn}\n")
     file.write(f"n_sample = {n_sample}\n")
+    file.write(f"tempering = {tempering}\n")
     file.write(f"n_elem = {n_elem_range}\n")
     file.write(f"std_corruption = fixed at {std_corruption}\n")
 
@@ -154,6 +165,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             n_burn=n_burn,
             start_value=start_value,
             seed=0,
+            tempering=tempering,
             recompute_logpdf=recompute_logpdf,
         )
         samples = mcmc()
