@@ -1,6 +1,8 @@
 import numpy as np
+from scipy.sparse import csr_array, issparse
 
 from myjive.names import GlobNames as gn
+from myjive.solver import Constrainer
 
 from probability.process import (
     ProjectedPrior,
@@ -9,6 +11,7 @@ from probability.process import (
     ZeroMeanFunction,
 )
 from fem.meshing import create_phi_from_globdat
+from util.linalg import Matrix
 
 __all__ = [
     "compute_bfem_observations",
@@ -17,7 +20,7 @@ __all__ = [
 ]
 
 
-def compute_bfem_observations(coarse_prior, fine_prior, *, fspace=False):
+def compute_bfem_observations(coarse_prior, fine_prior):
     assert isinstance(coarse_prior, ProjectedPrior)
     inf_prior = coarse_prior.prior
     assert isinstance(inf_prior.mean, ZeroMeanFunction)
@@ -34,13 +37,22 @@ def compute_bfem_observations(coarse_prior, fine_prior, *, fspace=False):
     )
     fine_globdat = fine_prior.globdat
 
+    K = fine_globdat["matrix0"]
+    c = fine_globdat["constraints"]
+    Kc = Constrainer(c, K).get_output_matrix()
     Phi = create_phi_from_globdat(coarse_globdat, fine_globdat)
-    c = coarse_globdat[gn.CONSTRAINTS]
 
-    cdofs = c.get_constraints()[0]
-    Phic = np.delete(Phi, cdofs, axis=1)
+    cdofs = coarse_globdat[gn.CONSTRAINTS].get_constraints()[0]
+    keepidx = np.delete(np.arange(Phi.shape[1]), cdofs)
+    Phic = Phi[:, keepidx]
 
-    return Phic.T
+    Kc = Matrix(Kc, name="Kc")
+    Phic = Matrix(Phic, name="Phic")
+
+    H_obs = Phic.T @ Kc
+    f_obs = Phic.T @ fine_globdat["extForce"]
+
+    return H_obs, f_obs
 
 
 from myjive.solver.cgsolver import CGSolver

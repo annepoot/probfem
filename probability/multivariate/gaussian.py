@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.sparse import issparse
+from scipy.sparse.linalg import spsolve
 from scipy.stats import multivariate_normal
 from warnings import warn
 
@@ -305,13 +306,22 @@ class ConditionedGaussian(GaussianLike):
     def calc_mean(self):
         prior_mean = self.prior.calc_mean()
         prior_cov = self.prior.get_cov()
-        vec = np.linalg.solve(self.gram, (self.obs - self.linop @ prior_mean))
+
+        if issparse(self.gram):
+            vec = spsolve(self.gram, (self.obs - self.linop @ prior_mean))
+        else:
+            vec = np.linalg.solve(self.gram, (self.obs - self.linop @ prior_mean))
+
         return prior_mean + prior_cov @ (self.linop.T @ vec)
 
     def calc_cov(self):
         warn("computing full covariance matrix")
         prior_cov = self.prior.calc_cov()
-        inv_gram = np.linalg.inv(self.gram)
+
+        if issparse(self.gram):
+            inv_gram = np.linalg.inv(self.gram.todense())
+        else:
+            inv_gram = np.linalg.inv(self.gram)
 
         if isinstance(self.linop, (Matrix, MatMulChain)):
             linop = self.linop.evaluate()
@@ -325,14 +335,24 @@ class ConditionedGaussian(GaussianLike):
     def calc_sample(self, seed):
         sample = self.prior.calc_sample(seed)
         prior_cov = self.prior.get_cov()
-        vec = np.linalg.solve(self.gram, (self.obs - self.linop @ sample))
+
+        if issparse(self.gram):
+            vec = spsolve(self.gram, (self.obs - self.linop @ sample))
+        else:
+            vec = np.linalg.solve(self.gram, (self.obs - self.linop @ sample))
+
         return sample + prior_cov @ (self.linop.T @ vec)
 
     def calc_samples(self, n, seed):
         samples = self.prior.calc_samples(n, seed)
         prior_cov = self.prior.get_cov()
         obsmat = np.tile(np.array([self.obs]).T, (1, n))
-        vecs = np.linalg.solve(self.gram, (obsmat - self.linop @ samples.T))
+
+        if issparse(self.gram):
+            vecs = spsolve(self.gram, (obsmat - self.linop @ samples.T))
+        else:
+            vecs = np.linalg.solve(self.gram, (obsmat - self.linop @ samples.T))
+
         return samples + (prior_cov @ (self.linop.T @ vecs)).T
 
 

@@ -10,8 +10,6 @@ from experiments.reproduction.bfem.fig245.fem_props import get_fem_props
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh
 
-from util.linalg import Matrix
-
 _, coarse_elems = read_mesh("meshes/plate_r0.msh")
 _, fine_elems = read_mesh("meshes/plate_r1.msh")
 
@@ -34,13 +32,7 @@ f = fglobdat["extForce"]
 c = fglobdat["constraints"]
 Kc = Constrainer(c, K).get_output_matrix()
 
-PhiT = compute_bfem_observations(coarse_prior, fine_prior)
-PhiT = Matrix(PhiT.T, transpose=True, name="Phi")
-Kc = Matrix(Kc, name="Kc")
-
-H_obs = PhiT @ Kc
-f_obs = PhiT @ f
-
+H_obs, f_obs = compute_bfem_observations(coarse_prior, fine_prior)
 posterior = fine_prior.condition_on(H_obs, f_obs)
 mean_u_post = posterior.calc_mean()
 std_u_post = posterior.calc_std()

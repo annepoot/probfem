@@ -1,6 +1,6 @@
 import warnings
 import numpy as np
-from scipy.sparse import issparse, identity, diags, csc_matrix
+from scipy.sparse import issparse, eye_array, diags, csc_matrix
 from scipy.sparse.linalg import spsolve
 from sksparse import cholmod as cm
 from copy import copy
@@ -59,7 +59,7 @@ class Matrix:
                 return f"{self.name}"
 
     def __eq__(self, other):
-        return self.is_equal(other)
+        return self.is_equal(other, tol=0)
 
     def __matmul__(self, other):
         if isinstance(other, (Matrix, MatMulChain)):
@@ -142,14 +142,15 @@ class Matrix:
         return self._is_diagonal
 
     @property
-    def is_symmetric(self):
+    def is_symmetric(self, tol=np.finfo(float).eps):
         if self._is_symmetric is None:
             if self.is_factor:
                 self._is_symmetric = False
             else:
                 if self.shape[0] == self.shape[1]:
                     if self.is_sparse:
-                        self._is_symmetric = (self.matrix != self.matrix.T).nnz == 0
+                        diff = abs(self.matrix - self.matrix.T) > tol
+                        self._is_symmetric = diff.nnz == 0
                     else:
                         self._is_symmetric = np.all(self.matrix == self.matrix.T)
                 else:
@@ -236,19 +237,22 @@ class Matrix:
         else:
             return Matrix(factor, invert=False, transpose=False, name=sqrt_name)
 
-    def is_equal(self, other):
+    def is_equal(self, other, tol=0):
         if self.is_factor != other.is_factor:
             return False
         elif self.is_inverted != other.is_inverted:
             return False
         elif self.is_transposed != other.is_transposed:
-            return self.is_equal(other.T)
+            return self.is_equal(other.T, tol=tol)
         elif self.shape != other.shape:
             return False
         else:
             if issparse(self.matrix):
                 miss_count = (self.matrix != other.matrix).nnz
                 if miss_count == 0:
+                    return True
+                elif miss_count <= tol:
+                    warnings.warn("loose equality check")
                     return True
                 else:
                     return False
@@ -274,7 +278,7 @@ class MatMulChain:
     def __getitem__(self, idx):
         item = self.chain[idx]
         if isinstance(item, list):
-            return MatMulChain(self.scale, *item)
+            return MatMulChain(*item)
         else:
             return item
 
@@ -297,6 +301,11 @@ class MatMulChain:
     def __rmul__(self, other):
         return self * other
 
+    def __imul__(self, other):
+        assert np.isscalar(other)
+        self.scale *= other
+        return self
+
     def __truediv__(self, other):
         return self * (1 / other)
 
@@ -304,12 +313,14 @@ class MatMulChain:
         result = other
         for matrix in self[::-1]:
             result = matrix @ result
+        result *= self.scale
         return result
 
     def __rmatmul__(self, other):
         result = other
         for matrix in self:
             result = result @ matrix
+        result *= self.scale
         return result
 
     @property
@@ -362,15 +373,19 @@ class MatMulChain:
             self.chain.insert(0, entry)
         self.check_chain()
 
-    def simplify(self):
-        for i in range(len(self) - 1):
-            entry1, entry2 = self[i], self[i + 1]
-            if entry1.is_equal(entry2.inv):
-                self.chain.pop(i + 1)
-                self.chain.pop(i)
+    def simplify(self, tol=0):
+        skip_next = False
 
-                self.simplify()
-                break
+        for i in range(len(self) - 1, 0, -1):
+            if skip_next:
+                skip_next = False
+                continue
+
+            entry1, entry2 = self[i - 1], self[i]
+            if entry1.is_equal(entry2.inv, tol=tol):
+                self.chain.pop(i)
+                self.chain.pop(i - 1)
+                skip_next = True
 
         return self
 
@@ -399,7 +414,7 @@ class MatMulChain:
                 else:
                     lst[i] = matrix.evaluate()
 
-        product = self.scale * identity(self.shape[0])
+        product = self.scale * eye_array(self.shape[0])
         for array in lst:
             product = product @ array
 

@@ -113,6 +113,8 @@ def create_phi_matrix(coarse_elems, fine_elems, coarse_dofs, fine_dofs, coarse_s
 
     assert np.allclose(np.sum(Phi, axis=1), 1)
 
+    Phi = csr_array(Phi)
+
     return Phi
 
 

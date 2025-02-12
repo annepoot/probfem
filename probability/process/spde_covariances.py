@@ -99,10 +99,11 @@ class ProjectedPrior(Gaussian):
             self.jive_runner = jive_runner
             self.jive_runner.props = self.props
 
-        self.globdat = self.jive_runner()
-
         self.sigma_pd = sigma_pd
+        self.recompute_moments()
 
+    def recompute_moments(self):
+        self.globdat = self.jive_runner()
         mean = self._compute_mean(self.globdat)
         cov = self._compute_covariance(self.globdat)
 
@@ -182,12 +183,13 @@ class ProjectedPrior(Gaussian):
     def _compute_mass_matrix(self, globdat, lumped):
         elems = globdat[gn.ESET]
         dofs = globdat[gn.DOFSPACE]
-        node_count = globdat[gn.ESET].max_elem_node_count()
-        intscheme = "Gauss" + str(node_count)
 
         if gn.SHAPE in globdat:
             shape = globdat[gn.SHAPE]
         else:
+            node_count = globdat[gn.ESET].max_elem_node_count()
+            intscheme = "Gauss" + str(node_count)
+
             factory = globdat[gn.SHAPEFACTORY]
             shape = factory.get_shape(globdat[gn.MESHSHAPE], intscheme)
 

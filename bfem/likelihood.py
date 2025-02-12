@@ -1,12 +1,7 @@
 import numpy as np
 
 from myjive.names import GlobNames as gn
-from myjive.util.proputils import (
-    split_key,
-    get_recursive,
-    set_recursive,
-    split_off_type,
-)
+from myjive.util.proputils import split_key, get_recursive, set_recursive
 
 from probability import Likelihood, FEMObservationOperator, RemeshFEMObservationOperator
 from probability.observation import ObservationOperator
@@ -70,11 +65,12 @@ class BFEMObservationOperator(FEMObservationOperator):
             assert get_recursive(self.ref_prior.jive_runner.props, keys) is not None
             set_recursive(self.ref_prior.jive_runner.props, keys, x_i)
 
-        refdat = self.ref_prior.jive_runner()
+        self.ref_prior.recompute_moments()
+        self.obs_prior.recompute_moments()
 
-        PhiT = compute_bfem_observations(self.obs_prior, self.ref_prior)
-        H_obs = PhiT @ refdat["matrix0"]
-        f_obs = PhiT @ refdat["extForce"]
+        refdat = self.ref_prior.globdat
+
+        H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.ref_prior)
         posterior = self.ref_prior.condition_on(H_obs, f_obs)
 
         if self.rescale:
