@@ -46,7 +46,7 @@ title_map = {
 }
 
 N_filter = 100
-N_burn = 5000
+N_burn = 10000
 
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for width in [0.1]:

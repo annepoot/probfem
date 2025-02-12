@@ -19,6 +19,7 @@ class MCMCRunner:
         seed=None,
         tune=True,
         tune_interval=100,
+        tempering=None,
         recompute_logpdf=False
     ):
         assert isinstance(target, Distribution)
@@ -36,10 +37,21 @@ class MCMCRunner:
         self.tune = tune
         self.tune_interval = tune_interval
         self.scaling = 1.0
+        self.tempering = tempering
         self.recompute_logpdf = recompute_logpdf
 
     def __call__(self):
         xi = self.start_value
+
+        if self.tempering is not None:
+            temp = self.tempering(0)
+            assert temp == 0.0
+            self.target.set_temperature(temp)
+
+        if self.tempering is None:
+            temp = 1.0
+        else:
+            temp = self.tempering(0)
 
         logpdf = self.target.calc_logpdf(xi)
         samples = np.zeros((self.n_sample + 1, len(self.target)))
@@ -49,11 +61,6 @@ class MCMCRunner:
 
         for i in range(1, self.n_sample + 1):
             if i % self.tune_interval == 0:
-                print("MCMC sample {} of {}".format(i, self.n_sample))
-                print(xi)
-                print("Accept rate:", accept_rate)
-                print("")
-
                 if self.tune and i <= self.n_burn:
                     oldscaling = self.scaling
                     newscaling = self._recompute_scaling(oldscaling, accept_rate)
@@ -67,11 +74,19 @@ class MCMCRunner:
 
             self.proposal.update_mean(xi)
             xi_prop = self.proposal.calc_sample(self._rng)
-            logpdf_prop = self.target.calc_logpdf(xi_prop)
 
-            if self.recompute_logpdf:
+            if self.tempering is not None:
+                old_temp = temp
+                temp = self.tempering(i)
+                self.target.set_temperature(temp)
+                recompute_logpdf = self.recompute_logpdf or old_temp != temp
+            else:
+                recompute_logpdf = self.recompute_logpdf
+
+            if recompute_logpdf:
                 logpdf = self.target.calc_logpdf(xi)
 
+            logpdf_prop = self.target.calc_logpdf(xi_prop)
             logalpha = logpdf_prop - logpdf
 
             if logalpha < 0:
@@ -88,6 +103,13 @@ class MCMCRunner:
                 accept_rate += 1 / self.tune_interval
 
             samples[i] = xi
+
+            if i % self.tune_interval == 0:
+                print("MCMC sample {} of {}".format(i, self.n_sample))
+                print(xi)
+                print(logpdf, temp)
+                print("Accept rate:", accept_rate)
+                print("")
 
         return samples
 
