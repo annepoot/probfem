@@ -20,7 +20,8 @@ class MCMCRunner:
         tune=True,
         tune_interval=100,
         tempering=None,
-        recompute_logpdf=False
+        recompute_logpdf=False,
+        return_info=False
     ):
         assert isinstance(target, Distribution)
         assert isinstance(proposal, Distribution)
@@ -39,6 +40,7 @@ class MCMCRunner:
         self.scaling = 1.0
         self.tempering = tempering
         self.recompute_logpdf = recompute_logpdf
+        self.return_info = return_info
 
     def __call__(self):
         xi = self.start_value
@@ -56,6 +58,12 @@ class MCMCRunner:
         logpdf = self.target.calc_logpdf(xi)
         samples = np.zeros((self.n_sample + 1, len(self.target)))
         samples[0] = xi
+
+        if self.return_info:
+            logpdfs = np.zeros((self.n_sample + 1))
+            logpdfs[0] = logpdf
+            temperatures = np.zeros((self.n_sample + 1))
+            temperatures[0] = temp
 
         accept_rate = 0.0
 
@@ -104,6 +112,10 @@ class MCMCRunner:
 
             samples[i] = xi
 
+            if self.return_info:
+                logpdfs[i] = logpdf
+                temperatures[i] = temp
+
             if i % self.tune_interval == 0:
                 print("MCMC sample {} of {}".format(i, self.n_sample))
                 print(xi)
@@ -111,7 +123,11 @@ class MCMCRunner:
                 print("Accept rate:", accept_rate)
                 print("")
 
-        return samples
+        if self.return_info:
+            info = {"loglikelihood": logpdfs, "temperature": temperatures}
+            return samples, info
+        else:
+            return samples
 
     def _recompute_scaling(self, scaling, accept_rate):
         print("Old scaling:", scaling)
