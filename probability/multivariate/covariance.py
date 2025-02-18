@@ -1,15 +1,13 @@
 import numpy as np
-from scipy.sparse import issparse, diags, csc_matrix
+from scipy.sparse import issparse, diags_array, csc_matrix
 from scipy.sparse.linalg import inv
 import sksparse.cholmod as cm
 from warnings import warn
 
-from util.linalg import MatMulChain
+from util.linalg import Matrix, MatMulChain
 
 
-__all__ = [
-    "Covariance",
-]
+__all__ = ["Covariance", "SymbolicCovariance"]
 
 COVARIANCE = "covariance"
 PRECISION = "precision"
@@ -39,7 +37,7 @@ class Covariance:
             self.shape = A.shape
         elif cov_type == DIAGONAL:
             assert len(A.shape) == 1
-            self.D = diags(A)
+            self.D = diags_array(A)
             self.shape = (len(self.d), len(self.d))
         elif cov_type == SYMBOLIC:
             assert len(A.shape) == 2
@@ -90,7 +88,7 @@ class Covariance:
             warn("inverting covariance matrix")
             return np.linalg.inv(self.C)
         elif self.cov_type == DIAGONAL:
-            return diags(1 / self.D.diagonal())
+            return diags_array(1 / self.D.diagonal())
         elif self.cov_type == PRECISION:
             return self.P
         elif self.cov_type == SYMBOLIC:
@@ -222,4 +220,78 @@ class Covariance:
                 self._chol = self.A.factorize()
             else:
                 assert False
+        return self._chol
+
+
+class SymbolicCovariance:
+    """
+    This class defines all core functionality for Gaussian distributions.
+    All classes that implement some sort of Gaussian are derived from this class
+    """
+
+    def __init__(self, expr):
+        assert isinstance(expr, (Matrix, MatMulChain))
+        self.expr = expr
+        assert self.expr.is_symmetric
+        self.shape = self.expr.shape
+
+    def __len__(self):
+        return self.shape[0]
+
+    def __matmul__(self, other):
+        if len(other.shape) in [1, 2]:
+            return self.expr @ other
+        else:
+            assert False
+
+    def get_cov(self):
+        return self.expr
+
+    def calc_cov(self):
+        return self.expr.evaluate()
+
+    def calc_cov_inv(self):
+        return self.expr.inv.evaluate()
+
+    def calc_diag(self):
+        return self.calc_cov().diagonal()
+
+    def calc_std(self):
+        return np.sqrt(self.calc_diag())
+
+    def calc_sample(self, seed):
+        chol = self._calc_cholesky()
+        assert isinstance(chol, (Matrix, MatMulChain))
+
+        rng = np.random.default_rng(seed)
+        std_sample = rng.standard_normal(len(self))
+        return chol @ std_sample
+
+    def calc_samples(self, n, seed):
+        chol = self._calc_cholesky()
+        assert isinstance(chol, (Matrix, MatMulChain))
+
+        rng = np.random.default_rng(seed)
+        std_sample = rng.standard_normal((len(self), n))
+        return (chol @ std_sample).T
+
+    def calc_mahal_squared(self, x):
+        return x @ (self.expr.inv @ x)
+
+    def calc_logdet(self):
+        chol = self._calc_cholesky()
+        return 2 * np.sum(np.log(chol.evaluate().diagonal()))
+
+    def get_gram(self, operator):
+        gram_chain = MatMulChain(operator, self.expr, operator.T)
+        gram_chain.simplify()
+        return gram_chain
+
+    def calc_gram(self, operator):
+        gram_chain = self.get_gram(operator)
+        return gram_chain.evaluate()
+
+    def _calc_cholesky(self):
+        if not hasattr(self, "_chol"):
+            self._chol = self.expr.factorize()
         return self._chol

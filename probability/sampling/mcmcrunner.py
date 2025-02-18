@@ -68,18 +68,6 @@ class MCMCRunner:
         accept_rate = 0.0
 
         for i in range(1, self.n_sample + 1):
-            if i % self.tune_interval == 0:
-                if self.tune and i <= self.n_burn:
-                    oldscaling = self.scaling
-                    newscaling = self._recompute_scaling(oldscaling, accept_rate)
-
-                    if not np.isclose(oldscaling, newscaling):
-                        factor = newscaling / oldscaling
-                        self._scale_proposal(self.proposal, factor)
-                        self.scaling = newscaling
-
-                accept_rate = 0.0
-
             self.proposal.update_mean(xi)
             xi_prop = self.proposal.calc_sample(self._rng)
 
@@ -122,6 +110,17 @@ class MCMCRunner:
                 print(logpdf, temp)
                 print("Accept rate:", accept_rate)
                 print("")
+
+                if self.tune and i <= self.n_burn:
+                    oldscaling = self.scaling
+                    newscaling = self._recompute_scaling(oldscaling, accept_rate)
+
+                    if not np.isclose(oldscaling, newscaling):
+                        factor = newscaling / oldscaling
+                        self._scale_proposal(self.proposal, factor)
+                        self.scaling = newscaling
+
+                accept_rate = 0.0
 
         if self.return_info:
             info = {"loglikelihood": logpdfs, "temperature": temperatures}

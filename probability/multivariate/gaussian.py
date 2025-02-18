@@ -1,12 +1,12 @@
 import numpy as np
-from scipy.sparse import issparse
+from scipy.sparse import issparse, eye_array
 from scipy.sparse.linalg import spsolve
 from scipy.stats import multivariate_normal
 from warnings import warn
 
 from util.linalg import Matrix, MatMulChain
 from ..distribution import MultivariateDistribution
-from .covariance import Covariance
+from .covariance import Covariance, SymbolicCovariance
 
 
 __all__ = [
@@ -65,7 +65,7 @@ class GaussianLike(MultivariateDistribution):
         return self.__mul__(scale)
 
     def __matmul__(self, scale):
-        if isinstance(scale, np.ndarray):
+        if issparse(scale) or isinstance(scale, np.ndarray):
             return ScaledGaussian(self, scale.T)
         else:
             raise ValueError("cannot handle matmul of type '{}'".format(type(scale)))
@@ -77,7 +77,7 @@ class GaussianLike(MultivariateDistribution):
         raise NotImplementedError("This has to be implemented in a child class")
 
     def get_cov(self):
-        return Covariance(self.calc_cov(), cov_type="covariance")
+        return SymbolicCovariance(Matrix(self.calc_cov(), name="C"))
 
     def calc_cov(self):
         raise NotImplementedError("This has to be implemented in a child class")
@@ -94,12 +94,34 @@ class GaussianLike(MultivariateDistribution):
     def calc_samples(self, n, seed):
         raise NotImplementedError("This has to be implemented in a child class")
 
+    def calc_pdf(self, x):
+        return np.exp(self.calc_logpdf(x))
+
+    def calc_logpdf(self, x):
+        return (
+            -0.5 * len(self) * np.log(2 * np.pi)
+            - 0.5 * self.calc_logpdet()
+            - 0.5 * self.calc_mahal_squared(x)
+        )
+
+    def calc_mahal(self, x):
+        return np.sqrt(self.calc_mahal_squared(x))
+
+    def calc_mahal_squared(self, x):
+        raise NotImplementedError("This has to be implemented in a child class")
+
+    def calc_pdet(self):
+        return np.exp(self.calc_logpdet())
+
+    def calc_logpdet(self):
+        raise NotImplementedError("This has to be implemented in a child class")
+
     def condition_on(self, operator, measurements):
         return ConditionedGaussian(self, operator, measurements)
 
     def to_gaussian(self, allow_singular=False):
         cov = self.get_cov()
-        use_scipy_latent = not isinstance(cov, Covariance)
+        use_scipy_latent = not isinstance(cov, (Covariance, SymbolicCovariance))
         return Gaussian(
             self.calc_mean(),
             cov,
@@ -111,7 +133,11 @@ class GaussianLike(MultivariateDistribution):
 class Gaussian(GaussianLike):
     def __init__(self, mean, cov, allow_singular=False, use_scipy_latent=True):
         self.allow_singular = allow_singular
-        self.use_scipy_latent = use_scipy_latent
+
+        if isinstance(cov, SymbolicCovariance):
+            self.use_scipy_latent = False
+        else:
+            self.use_scipy_latent = use_scipy_latent
 
         if self.use_scipy_latent:
             self.latent = multivariate_normal(
@@ -147,12 +173,12 @@ class Gaussian(GaussianLike):
                 self.latent.mean, cov, allow_singular=self.allow_singular
             )
         else:
-            if isinstance(cov, Covariance):
+            if isinstance(cov, SymbolicCovariance):
                 self.cov = cov
             else:
                 assert len(cov.shape) == 2
                 assert cov.shape[0] == cov.shape[1] == self._len
-                self.cov = Covariance(cov, cov_type="covariance")
+                self.cov = SymbolicCovariance(Matrix(cov, name="C"))
 
     def calc_mean(self):
         if self.use_scipy_latent:
@@ -190,6 +216,12 @@ class Gaussian(GaussianLike):
         else:
             return self.mean + self.cov.calc_samples(n, seed)
 
+    def calc_mahal_squared(self, x):
+        return self.cov.calc_mahal_squared(x - self.mean)
+
+    def calc_logpdet(self):
+        return self.cov.calc_logdet()
+
     def calc_pdf(self, x):
         if self.use_scipy_latent:
             return self.latent.pdf(x)
@@ -206,8 +238,8 @@ class Gaussian(GaussianLike):
         else:
             return (
                 -0.5 * len(self) * np.log(2 * np.pi)
-                - 0.5 * self.cov.calc_logdet()
-                - 0.5 * self.cov.calc_mahal_squared(x - self.mean)
+                - 0.5 * self.calc_logpdet()
+                - 0.5 * self.calc_mahal_squared(x)
             )
 
     def _get_len(self, mean, cov):
@@ -223,16 +255,16 @@ class Gaussian(GaussianLike):
 class ScaledGaussian(GaussianLike):
 
     def __init__(self, latent, scale):
-        assert isinstance(latent, Gaussian)
+        assert isinstance(latent, GaussianLike)
         self.latent = latent
 
         if np.isscalar(scale):
-            self.scale = scale * np.identity(len(self.latent))
+            self.scale = Matrix(scale * eye_array(len(self.latent)), name="aI")
         else:
-            assert isinstance(scale, np.ndarray)
+            assert issparse(scale) or isinstance(scale, np.ndarray)
             assert len(scale.shape) == 2
             assert scale.shape[1] == len(self.latent)
-            self.scale = scale
+            self.scale = Matrix(scale, name="A")
 
     def __len__(self):
         return self.scale.shape[0]
@@ -241,7 +273,7 @@ class ScaledGaussian(GaussianLike):
         return self.scale @ self.latent.calc_mean()
 
     def calc_cov(self):
-        return self.scale @ self.latent.calc_cov() @ self.scale.T
+        return self.scale @ (self.scale @ self.latent.calc_cov()).T
 
     def calc_sample(self, seed):
         return self.scale @ self.latent.calc_sample(seed)
@@ -297,63 +329,36 @@ class ConditionedGaussian(GaussianLike):
         assert obs.shape[0] == linop.shape[0]
         self.obs = obs
 
-        prior_cov = self.prior.get_cov()
-        self.gram = prior_cov.calc_gram(self.linop)
+        self.prior_cov = self.prior.get_cov()
+        self.gram = Matrix(self.prior_cov.calc_gram(self.linop), name="G")
+        self.kalman_gain = self.prior_cov @ self.linop.T @ self.gram.inv
+        self.kalman_gain.simplify()
 
     def __len__(self):
         return len(self.prior)
 
     def calc_mean(self):
         prior_mean = self.prior.calc_mean()
-        prior_cov = self.prior.get_cov()
-
-        if issparse(self.gram):
-            vec = spsolve(self.gram, (self.obs - self.linop @ prior_mean))
-        else:
-            vec = np.linalg.solve(self.gram, (self.obs - self.linop @ prior_mean))
-
-        return prior_mean + prior_cov @ (self.linop.T @ vec)
+        correction = self.kalman_gain @ (self.obs - self.linop @ prior_mean)
+        return prior_mean + correction
 
     def calc_cov(self):
-        warn("computing full covariance matrix")
-        prior_cov = self.prior.calc_cov()
+        correction = self.kalman_gain @ self.linop @ self.prior_cov.expr
+        correction.simplify()
 
-        if issparse(self.gram):
-            inv_gram = np.linalg.inv(self.gram.todense())
-        else:
-            inv_gram = np.linalg.inv(self.gram)
-
-        if isinstance(self.linop, (Matrix, MatMulChain)):
-            linop = self.linop.evaluate()
-        else:
-            linop = self.linop
-
-        P = prior_cov @ (linop.T @ (inv_gram @ linop))
-        Q = np.identity(len(self.prior)) - P
-        return Q @ (prior_cov @ Q.T)
+        warn("explicit covariance computation")
+        return self.prior_cov.calc_cov() - correction.evaluate()
 
     def calc_sample(self, seed):
         sample = self.prior.calc_sample(seed)
-        prior_cov = self.prior.get_cov()
-
-        if issparse(self.gram):
-            vec = spsolve(self.gram, (self.obs - self.linop @ sample))
-        else:
-            vec = np.linalg.solve(self.gram, (self.obs - self.linop @ sample))
-
-        return sample + prior_cov @ (self.linop.T @ vec)
+        correction = self.kalman_gain @ (self.obs - self.linop @ sample)
+        return sample + correction
 
     def calc_samples(self, n, seed):
         samples = self.prior.calc_samples(n, seed)
-        prior_cov = self.prior.get_cov()
         obsmat = np.tile(np.array([self.obs]).T, (1, n))
-
-        if issparse(self.gram):
-            vecs = spsolve(self.gram, (obsmat - self.linop @ samples.T))
-        else:
-            vecs = np.linalg.solve(self.gram, (obsmat - self.linop @ samples.T))
-
-        return samples + (prior_cov @ (self.linop.T @ vecs)).T
+        correction = (self.kalman_gain @ (obsmat - self.linop @ samples.T)).T
+        return samples + correction
 
 
 class IndependentGaussianSum(GaussianLike):
@@ -393,3 +398,69 @@ class IndependentGaussianSum(GaussianLike):
         for gaussian in self.gaussians:
             samples += gaussian.calc_samples(n, rng)
         return samples
+
+    def calc_logpdet(self):
+        assert len(self.gaussians) == 2
+        base = self.gaussians[0]
+        noise = self.gaussians[1]
+
+        assert isinstance(base, ScaledGaussian)
+        assert isinstance(base.latent, ConditionedGaussian)
+
+        scale = base.scale
+        posterior = base.latent
+        Sigma = posterior.prior.cov.expr
+        linop = posterior.linop
+
+        assert noise.cov.expr.is_diagonal
+        eI = noise.cov.expr
+
+        assert isinstance(Sigma, MatMulChain)
+        assert len(Sigma) == 1
+        downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
+        downdate.simplify()
+
+        A_prior_At = scale @ Sigma @ scale.T
+        A_downdate_At = scale @ downdate @ scale.T
+
+        A_prior_At.evaluate()
+        A_downdate_At.evaluate()
+
+        full_cov = (A_prior_At.evaluate() - A_downdate_At.evaluate()) + eI.evaluate()
+
+        slogdet = np.linalg.slogdet(full_cov)
+        assert slogdet[0] == 1.0
+
+        return slogdet[1]
+
+    def calc_mahal_squared(self, x):
+        assert len(self.gaussians) == 2
+        base = self.gaussians[0]
+        noise = self.gaussians[1]
+
+        assert isinstance(base, ScaledGaussian)
+        assert isinstance(base.latent, ConditionedGaussian)
+
+        scale = base.scale
+        posterior = base.latent
+        Sigma = posterior.prior.cov.expr
+        linop = posterior.linop
+
+        assert noise.cov.expr.is_diagonal
+        eI = noise.cov.expr
+
+        assert isinstance(Sigma, MatMulChain)
+        assert len(Sigma) == 1
+        downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
+        downdate.simplify()
+
+        A_prior_At = scale @ Sigma @ scale.T
+        A_downdate_At = scale @ downdate @ scale.T
+
+        A_prior_At.evaluate()
+        A_downdate_At.evaluate()
+
+        full_cov = (A_prior_At.evaluate() - A_downdate_At.evaluate()) + eI.evaluate()
+
+        d = self.calc_mean() - x
+        return d @ np.linalg.solve(full_cov, d)

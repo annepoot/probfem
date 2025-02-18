@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.sparse import csr_array
 
 from myjive.names import GlobNames as gn
 from myjive.util.proputils import split_key, get_recursive, set_recursive
@@ -29,7 +30,7 @@ class BFEMLikelihood(Likelihood):
 
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        de = (IndependentGaussianSum(prediction, self.noise)).to_gaussian()
+        de = IndependentGaussianSum(prediction, self.noise)
         return de.calc_logpdf(self.values)
 
 
@@ -81,7 +82,7 @@ class BFEMObservationOperator(FEMObservationOperator):
             newcov = Q @ np.diag(newl) @ Q.T
             self.posterior = Gaussian(oldmean, newcov, allow_singular=True)
         else:
-            self.posterior = posterior.to_gaussian(allow_singular=True)
+            self.posterior = posterior
 
         n_out = len(self.output_locations)
         assert len(self.output_dofs) == n_out
@@ -100,6 +101,8 @@ class BFEMObservationOperator(FEMObservationOperator):
         for i, (inode, dof) in enumerate(zip(idx[1], self.output_dofs)):
             idof = refdat[gn.DOFSPACE].get_dof(inode, dof)
             mapper[i, idof] = 1.0
+
+        mapper = csr_array(mapper)
 
         return self.posterior @ mapper.T
 
