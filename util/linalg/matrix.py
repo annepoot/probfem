@@ -1,6 +1,6 @@
 import warnings
 import numpy as np
-from scipy.sparse import issparse, eye_array, diags, csc_matrix
+from scipy.sparse import issparse, eye_array, diags_array, csc_matrix
 from scipy.sparse.linalg import spsolve
 from sksparse import cholmod as cm
 from copy import copy
@@ -9,23 +9,29 @@ __all__ = ["Matrix", "MatMulChain"]
 
 
 class Matrix:
+
+    tol = 1e-12
+
     def __init__(
         self,
         matrix,
         *,
+        name=None,
+        eq_ignore_idx=set(),
         invert=False,
         transpose=False,
-        name=None,
     ):
         if isinstance(matrix, Matrix):
             self.matrix = matrix.matrix
+            self.name = matrix.name
+
+            self.eq_ignore_idx = matrix.eq_ignore_idx
             self.is_inverted = matrix.is_inverted
             self.is_transposed = matrix.is_transposed
 
             self._is_symmetric = matrix._is_symmetric
             self._is_diagonal = matrix._is_diagonal
 
-            self.name = matrix.name
         else:
             if issparse(matrix) or isinstance(matrix, np.ndarray):
                 assert len(matrix.shape) == 2
@@ -38,13 +44,17 @@ class Matrix:
             assert isinstance(transpose, bool)
 
             self.matrix = matrix
+            self.name = name
+            self.eq_ignore_idx = eq_ignore_idx
+
             self.is_inverted = invert
             self.is_transposed = transpose
 
             self._is_symmetric = None
             self._is_diagonal = None
 
-            self.name = name
+        if self.is_symmetric:
+            self.is_transposed = False
 
     def __repr__(self):
         if self.is_inverted:
@@ -61,48 +71,62 @@ class Matrix:
     def __eq__(self, other):
         return self.is_equal(other, tol=0)
 
+    def __mul__(self, other):
+        if self.is_inverted:
+            new_mat = self.matrix / other
+        else:
+            new_mat = self.matrix * other
+
+        new = Matrix(
+            new_mat,
+            name=self.name,
+            eq_ignore_idx=self.eq_ignore_idx,
+            invert=self.is_inverted,
+            transpose=not self.is_transposed,
+        )
+        return new
+
+    def __rmul__(self, other):
+        return self * other
+
+    def __truediv__(self, other):
+        assert np.isscalar(other)
+        return self * (1 / other)
+
     def __matmul__(self, other):
         if isinstance(other, (Matrix, MatMulChain)):
             return MatMulChain(self, other)
         else:
-            assert isinstance(other, np.ndarray)
+            assert issparse(other) or isinstance(other, np.ndarray)
             assert self.shape[1] == other.shape[0]
-            if len(other.shape) == 1:
-                if self.is_inverted:
-                    if self.is_diagonal:
-                        return self.evaluate() @ other
-                    elif self.is_factor:
-                        raise NotImplementedError
-                    elif self.is_sparse:
-                        array = self.inv.evaluate()
-                        return spsolve(array, other)
-                    else:
-                        array = self.inv.evaluate()
-                        return np.linalg.solve(array, other)
-                else:
+            assert len(other.shape) in [1, 2]
+
+            if self.is_inverted:
+                if self.is_diagonal:
                     return self.evaluate() @ other
-
-            elif len(other.shape) == 2:
-                if self.is_inverted:
-                    if other.shape[1] >= other.shape[0]:
-                        warnings.warn("inefficient solving")
-
-                    if self.is_diagonal:
-                        return self.evaluate() @ other
-                    elif self.is_factor:
-                        assert self.is_transposed
-                        return self.matrix.apply_Pt(self.matrix.solve_Lt(other))
-                    elif self.is_sparse:
-                        array = self.inv.evaluate()
-                        return spsolve(array, other)
+                elif self.is_factor:
+                    if self.is_transposed:
+                        mid = self.matrix.solve_Lt(other, use_LDLt_decomposition=False)
+                        sol = self.matrix.apply_Pt(mid)
+                        if issparse(sol):
+                            sol.data[np.abs(sol.data) < self.tol] = 0
+                            sol.eliminate_zeros()
+                        return sol
                     else:
-                        array = self.inv.evaluate()
-                        return np.linalg.solve(array, other)
+                        mid = self.matrix.apply_P(other)
+                        sol = self.matrix.solve_L(mid, use_LDLt_decomposition=False)
+                        if issparse(sol):
+                            sol.data[np.abs(sol.data) < self.tol] = 0
+                            sol.eliminate_zeros()
+                        return sol
+                elif self.is_sparse:
+                    array = self.inv.evaluate()
+                    return spsolve(array, other)
                 else:
-                    return self.evaluate() @ other
-
+                    array = self.inv.evaluate()
+                    return np.linalg.solve(array, other)
             else:
-                assert False
+                return self.evaluate() @ other
 
     def __rmatmul__(self, other):
         return (self.T @ other.T).T
@@ -142,17 +166,19 @@ class Matrix:
         return self._is_diagonal
 
     @property
-    def is_symmetric(self, tol=np.finfo(float).eps):
+    def is_symmetric(self):
         if self._is_symmetric is None:
             if self.is_factor:
                 self._is_symmetric = False
             else:
                 if self.shape[0] == self.shape[1]:
                     if self.is_sparse:
-                        diff = abs(self.matrix - self.matrix.T) > tol
+                        diff = abs(self.matrix - self.matrix.T) > self.tol
                         self._is_symmetric = diff.nnz == 0
                     else:
-                        self._is_symmetric = np.all(self.matrix == self.matrix.T)
+                        self._is_symmetric = np.allclose(
+                            self.matrix, self.matrix.T, rtol=self.tol, atol=self.tol
+                        )
                 else:
                     self._is_symmetric = False
 
@@ -169,9 +195,10 @@ class Matrix:
         else:
             new = Matrix(
                 self.matrix,
+                name=self.name,
+                eq_ignore_idx=self.eq_ignore_idx,
                 invert=self.is_inverted,
                 transpose=not self.is_transposed,
-                name=self.name,
             )
             return new
 
@@ -179,9 +206,10 @@ class Matrix:
     def inv(self):
         new = Matrix(
             self.matrix,
+            name=self.name,
+            eq_ignore_idx=self.eq_ignore_idx,
             invert=not self.is_inverted,
             transpose=self.is_transposed,
-            name=self.name,
         )
         return new
 
@@ -191,7 +219,7 @@ class Matrix:
 
             if self.is_diagonal:
                 diag = self.matrix.diagonal()
-                inv = diags(1 / diag)
+                inv = diags_array(1 / diag)
                 return inv
 
             else:
@@ -223,24 +251,49 @@ class Matrix:
     def factorize(self):
         assert self.is_symmetric
 
-        if self.is_sparse:
-            if self.is_diagonal:
-                factor = diags(np.sqrt(self.matrix.diagonal()))
+        if not hasattr(self, "_factor"):
+            if self.is_sparse:
+                if self.is_diagonal:
+                    factor = diags_array(np.sqrt(self.matrix.diagonal()))
+                else:
+                    factor = cm.cholesky(csc_matrix(self.matrix))
             else:
-                factor = cm.cholesky(csc_matrix(self.matrix))
-        else:
-            factor = np.linalg.cholesky(self.matrix)
+                factor = np.linalg.cholesky(self.matrix)
 
-        sqrt_name = f"sqrt({self.name})"
+            sqrt_name = f"sqrt({self.name})"
+            if self.is_inverted:
+                self._factor = Matrix(
+                    factor, invert=True, transpose=True, name=sqrt_name
+                )
+            else:
+                self._factor = Matrix(
+                    factor, invert=False, transpose=False, name=sqrt_name
+                )
+
+        return self._factor
+
+    def calc_logdet(self):
+        chol = self.factorize()
+
         if self.is_inverted:
-            return Matrix(factor, invert=True, transpose=True, name=sqrt_name)
+            if chol.is_factor:
+                return -chol.matrix.logdet()
+            else:
+                d = chol.inv.evaluate().diagonal()
+                return -2 * np.sum(np.log(d))
         else:
-            return Matrix(factor, invert=False, transpose=False, name=sqrt_name)
+            if chol.is_factor:
+                return chol.matrix.logdet()
+            else:
+                d = chol.evaluate().diagonal()
+                return 2 * np.sum(np.log(d))
 
     def is_equal(self, other, tol=0):
         if self.is_factor != other.is_factor:
             return False
         elif self.is_inverted != other.is_inverted:
+            return False
+        elif self.is_symmetric != other.is_symmetric:
             return False
         elif self.is_transposed != other.is_transposed:
             return self.is_equal(other.T, tol=tol)
@@ -248,14 +301,18 @@ class Matrix:
             return False
         else:
             if issparse(self.matrix):
-                miss_count = (self.matrix != other.matrix).nnz
-                if miss_count == 0:
+                diff = self.matrix != other.matrix
+                if diff.nnz == 0:
                     return True
-                elif miss_count <= tol:
-                    warnings.warn("loose equality check")
-                    return True
-                else:
+
+                eq_ignore_idx = self.eq_ignore_idx.union(other.eq_ignore_idx)
+                if diff.nnz > len(eq_ignore_idx):
                     return False
+                else:
+                    for row, col in zip(*diff.nonzero()):
+                        if (row, col) not in eq_ignore_idx:
+                            return False
+                    return True
             else:
                 return np.all(self.matrix == other.matrix)
 
@@ -269,6 +326,8 @@ class MatMulChain:
         for entry in entries:
             self.append(entry)
 
+        self.check_chain()
+
     def __repr__(self):
         return " ".join([repr(matrix) for matrix in self])
 
@@ -276,11 +335,7 @@ class MatMulChain:
         return len(self.chain)
 
     def __getitem__(self, idx):
-        item = self.chain[idx]
-        if isinstance(item, list):
-            return MatMulChain(*item)
-        else:
-            return item
+        return self.chain[idx]
 
     def __iter__(self):
         return iter(self.chain)
@@ -307,6 +362,7 @@ class MatMulChain:
         return self
 
     def __truediv__(self, other):
+        assert np.isscalar(other)
         return self * (1 / other)
 
     def __matmul__(self, other):
@@ -349,6 +405,13 @@ class MatMulChain:
         else:
             return self[(n - 1) // 2].is_symmetric
 
+    @property
+    def is_diagonal(self):
+        for mat in self:
+            if not mat.is_diagonal:
+                return False
+        return True
+
     def append(self, item):
         if np.isscalar(item):
             self.scale *= item
@@ -374,49 +437,88 @@ class MatMulChain:
         self.check_chain()
 
     def simplify(self, tol=0):
-        skip_next = False
+        # Check for patterns like K K^-1 K (keep middle K)
+        for i in range(len(self) - 1, 1, -1):
+            entry1, entry2, entry3 = self[i - 2], self[i - 1], self[i]
+            if entry1.is_equal(entry2.inv) and entry3.is_equal(entry2.inv):
+                self.chain.pop(i)
+                self.chain[i - 1] = self.chain[i - 1].inv
+                self.chain.pop(i - 2)
+                self.simplify()
+                return self
 
+        # Check for patterns like K^-1 K (replace with identity)
         for i in range(len(self) - 1, 0, -1):
-            if skip_next:
-                skip_next = False
-                continue
-
             entry1, entry2 = self[i - 1], self[i]
-            if entry1.is_equal(entry2.inv, tol=tol):
+            if entry1.is_equal(entry2.inv):
                 self.chain.pop(i)
                 self.chain.pop(i - 1)
-                skip_next = True
+                self.simplify()
+                return self
 
         return self
 
     def evaluate(self):
         self.simplify()
 
-        lst = [None] * len(self)
-        for i, matrix in enumerate(self):
-            if lst[i] is None:
-                if matrix.is_inverted:
-                    warnings.warn("explicit matrix inversion")
-                    not_inv = matrix.inv.evaluate()
-                    if matrix.is_sparse:
-                        inv = np.linalg.inv(not_inv.todense())
+        inv_pattern = [mat.is_inverted and not mat.is_diagonal for mat in self]
+        if sum(inv_pattern) == 1:
+            idx = np.where(inv_pattern)[0][0]
+            inv = self[idx]
+
+            k, l = self.shape
+            n = inv.shape[0]
+
+            left = eye_array(k)
+            for mat in self[:idx]:
+                left = left @ mat.evaluate()
+
+            right = eye_array(l)
+            for mat in self[idx + 1 :][::-1]:
+                right = mat.evaluate() @ right
+
+            if min(k, l) > n:  # explicit inversion
+                product = left @ inv.evaluate() @ right
+            elif k >= l:  # solve from the right
+                product = left @ (inv @ right)
+            else:  # solve from the left
+                product = (inv.T @ left.T).T @ right
+
+        else:
+            lst = [None] * len(self)
+            for i, matrix in enumerate(self):
+                if lst[i] is None:
+                    if matrix.is_inverted:
+                        if matrix.is_diagonal:
+                            inv = matrix.evaluate()
+                        else:
+                            warnings.warn("explicit matrix inversion")
+                            not_inv = matrix.inv.evaluate()
+                            if matrix.is_sparse:
+                                inv = np.linalg.inv(not_inv.todense())
+                            else:
+                                inv = np.linalg.inv(not_inv)
+                        lst[i] = inv
+
+                        # check for any identical inverses ahead
+                        for j, upcoming in enumerate(self[i + 1 :]):
+                            if upcoming == matrix:
+                                lst[i + j + 1] = inv
+                            elif upcoming.T == matrix:
+                                lst[i + j + 1] = inv.T
+
                     else:
-                        inv = np.linalg.inv(not_inv)
-                    lst[i] = inv
+                        lst[i] = matrix.evaluate()
 
-                    # check for any identical inverses ahead
-                    for j, upcoming in enumerate(self[i + 1 :]):
-                        if upcoming == matrix:
-                            lst[i + j + 1] = inv
-                        elif upcoming.T == matrix:
-                            lst[i + j + 1] = inv.T
+            product = eye_array(self.shape[0])
+            for array in lst:
+                product = product @ array
 
-                else:
-                    lst[i] = matrix.evaluate()
+        if issparse(product):
+            if product.nnz > 0.5 * np.product(product.shape):
+                product = product.toarray()
 
-        product = self.scale * eye_array(self.shape[0])
-        for array in lst:
-            product = product @ array
+        product *= self.scale
 
         return product
 
@@ -427,18 +529,19 @@ class MatMulChain:
 
         n = len(self)
         if n % 2 == 0:
-            return MatMulChain(np.sqrt(self.scale), self[: n // 2])
+            mid = n // 2
+            return MatMulChain(np.sqrt(self.scale), *self[:mid])
         else:
-            matrix_mid = self[(n - 1) // 2]
-            factor = matrix_mid.factorize()
-            return MatMulChain(np.sqrt(self.scale), self[: (n - 1) // 2], factor)
+            mid = (n - 1) // 2
+            factor = self[mid].factorize()
+            return MatMulChain(np.sqrt(self.scale), *self[:mid], factor)
 
     def check_chain(self):
         for i in range(len(self)):
             shape = self[i].shape
             if len(shape) != 2:
-                assert ValueError
+                raise ValueError
 
             if i >= 1:
-                if shape[0] != self.chain[i - 1].shape[1]:
-                    assert ValueError
+                if shape[0] != self[i - 1].shape[1]:
+                    raise ValueError

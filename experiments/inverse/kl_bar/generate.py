@@ -173,7 +173,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
         df = pd.DataFrame(samples, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
 
-        for header, data in info:
+        for header, data in info.items():
             df[header] = data
 
         df["sample"] = df.index

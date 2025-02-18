@@ -1,13 +1,13 @@
 from warnings import warn
 import numpy as np
-from scipy.sparse import issparse, diags
+from scipy.sparse import issparse, diags_array
 from scipy.sparse.linalg import spsolve
 
 from copy import deepcopy
 
 from ..multivariate.gaussian import Gaussian
 from probability.process.gaussian_process import GaussianProcess
-from probability.multivariate import Covariance
+from probability.multivariate import SymbolicCovariance
 from .mean_functions import ZeroMeanFunction
 from .covariance_functions import CovarianceFunction
 
@@ -143,15 +143,14 @@ class ProjectedPrior(Gaussian):
             K = globdat[gn.MATRIX0]
             c = globdat[gn.CONSTRAINTS]
             conman = Constrainer(c, K)
-            Kc = conman.get_output_matrix()
 
-            Kc_f = self._constrain_covariance(K, c)
+            Kc_f = self._constrain_precision(K, c)
 
-            Kc = Matrix(Kc, name="Kc")
-            Kc_f = Matrix(Kc_f, name="Kc")
-            aKc = MatMulChain(self.prior.cov.scale, Kc.inv, Kc_f, Kc.inv.T)
+            ignore_idx = set([(i, i) for i in c.get_constraints()[0]])
+            Kc_f = Matrix(Kc_f, name="Kc", eq_ignore_idx=ignore_idx)
+            aKc = MatMulChain(self.prior.cov.scale, Kc_f.inv)
 
-            cov = Covariance(aKc, cov_type="symbolic")
+            cov = SymbolicCovariance(aKc)
 
         elif isinstance(self.prior.cov, NaturalCovarianceOperator):
             K = globdat[gn.MATRIX0]
@@ -162,11 +161,12 @@ class ProjectedPrior(Gaussian):
             lumpM = self.prior.cov.lumped_mass_matrix
             Mc_f = self._compute_mass_matrix(globdat, lumped=lumpM)
 
+            ignore_idx = set([(i, i) for i in c.get_constraints()[0]])
             Kc = Matrix(Kc, name="Kc")
-            Mc_f = Matrix(Mc_f, name="Mc")
+            Mc_f = Matrix(Mc_f, name="Mc", eq_ignore_idx=ignore_idx)
             aKMKc = MatMulChain(self.prior.cov.scale, Kc.inv, Mc_f, Kc.inv.T)
 
-            cov = Covariance(aKMKc, cov_type="symbolic")
+            cov = SymbolicCovariance(aKMKc)
 
         else:
             assert False
@@ -178,6 +178,13 @@ class ProjectedPrior(Gaussian):
         output_matrix = conman.get_output_matrix()
         cdofs = constraints.get_constraints()[0]
         output_matrix[cdofs, cdofs] = self.sigma_pd**2
+        return output_matrix
+
+    def _constrain_precision(self, matrix, constraints):
+        conman = Constrainer(constraints, matrix)
+        output_matrix = conman.get_output_matrix()
+        cdofs = constraints.get_constraints()[0]
+        output_matrix[cdofs, cdofs] = self.sigma_pd**-2
         return output_matrix
 
     def _compute_mass_matrix(self, globdat, lumped):
@@ -197,6 +204,6 @@ class ProjectedPrior(Gaussian):
         Mc = self._constrain_covariance(M, globdat[gn.CONSTRAINTS])
 
         if lumped:
-            return diags(Mc.diagonal(), format="csr")
+            return diags_array(Mc.diagonal(), format="csr")
         else:
             return Mc
