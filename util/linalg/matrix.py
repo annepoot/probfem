@@ -18,16 +18,24 @@ class Matrix:
         *,
         name=None,
         eq_ignore_idx=set(),
-        invert=False,
-        transpose=False,
+        invert=None,
+        transpose=None,
     ):
         if isinstance(matrix, Matrix):
             self.matrix = matrix.matrix
             self.name = matrix.name
 
             self.eq_ignore_idx = matrix.eq_ignore_idx
-            self.is_inverted = matrix.is_inverted
-            self.is_transposed = matrix.is_transposed
+
+            if invert is None:
+                self.is_inverted = matrix.is_inverted
+            else:
+                self.is_inverted = invert
+
+            if transpose is None:
+                self.is_transposed = matrix.is_transposed
+            else:
+                self.is_transposed = transpose
 
             self._is_symmetric = matrix._is_symmetric
             self._is_diagonal = matrix._is_diagonal
@@ -40,15 +48,21 @@ class Matrix:
             else:
                 assert False
 
-            assert isinstance(invert, bool)
-            assert isinstance(transpose, bool)
-
             self.matrix = matrix
             self.name = name
             self.eq_ignore_idx = eq_ignore_idx
 
-            self.is_inverted = invert
-            self.is_transposed = transpose
+            if invert is None:
+                self.is_inverted = False
+            else:
+                assert isinstance(invert, bool)
+                self.is_inverted = invert
+
+            if transpose is None:
+                self.is_transposed = False
+            else:
+                assert isinstance(transpose, bool)
+                self.is_transposed = transpose
 
             self._is_symmetric = None
             self._is_diagonal = None
@@ -72,19 +86,8 @@ class Matrix:
         return self.is_equal(other, tol=0)
 
     def __mul__(self, other):
-        if self.is_inverted:
-            new_mat = self.matrix / other
-        else:
-            new_mat = self.matrix * other
-
-        new = Matrix(
-            new_mat,
-            name=self.name,
-            eq_ignore_idx=self.eq_ignore_idx,
-            invert=self.is_inverted,
-            transpose=not self.is_transposed,
-        )
-        return new
+        assert np.isscalar(other)
+        return MatMulChain(other, self)
 
     def __rmul__(self, other):
         return self * other
@@ -121,7 +124,11 @@ class Matrix:
                         return sol
                 elif self.is_sparse:
                     array = self.inv.evaluate()
-                    return spsolve(array, other)
+                    factor = cm.cholesky(array)
+                    if issparse(other):
+                        return factor.solve_A(other.toarray())
+                    else:
+                        return factor.solve_A(other)
                 else:
                     array = self.inv.evaluate()
                     return np.linalg.solve(array, other)
@@ -193,25 +200,11 @@ class Matrix:
         if self.is_symmetric:
             return self
         else:
-            new = Matrix(
-                self.matrix,
-                name=self.name,
-                eq_ignore_idx=self.eq_ignore_idx,
-                invert=self.is_inverted,
-                transpose=not self.is_transposed,
-            )
-            return new
+            return Matrix(self, transpose=not self.is_transposed)
 
     @property
     def inv(self):
-        new = Matrix(
-            self.matrix,
-            name=self.name,
-            eq_ignore_idx=self.eq_ignore_idx,
-            invert=not self.is_inverted,
-            transpose=self.is_transposed,
-        )
-        return new
+        return Matrix(self, invert=not self.is_inverted)
 
     def evaluate(self):
         if self.is_inverted:
@@ -319,14 +312,12 @@ class Matrix:
 
 class MatMulChain:
 
-    def __init__(self, *entries):
+    def __init__(self, *entries, skip_check=False):
         self.chain = []
         self.scale = 1.0
 
         for entry in entries:
-            self.append(entry)
-
-        self.check_chain()
+            self.append(entry, skip_check=skip_check)
 
     def __repr__(self):
         return " ".join([repr(matrix) for matrix in self])
@@ -344,7 +335,7 @@ class MatMulChain:
         return next(self.chain)
 
     def __copy__(self):
-        new = MatMulChain(self.scale, *self.chain)
+        new = MatMulChain(self.scale, *self.chain, skip_check=True)
         return new
 
     def __mul__(self, other):
@@ -386,12 +377,12 @@ class MatMulChain:
     @property
     def T(self):
         lst = [matrix.T for matrix in self[::-1]]
-        return MatMulChain(self.scale, *lst)
+        return MatMulChain(self.scale, *lst, skip_check=True)
 
     @property
     def inv(self):
         lst = [matrix.inv for matrix in self[::-1]]
-        return MatMulChain(1 / self.scale, *lst)
+        return MatMulChain(1 / self.scale, *lst, skip_check=True)
 
     @property
     def is_symmetric(self):
@@ -412,7 +403,7 @@ class MatMulChain:
                 return False
         return True
 
-    def append(self, item):
+    def append(self, item, *, skip_check=False):
         if np.isscalar(item):
             self.scale *= item
         elif isinstance(item, MatMulChain):
@@ -422,9 +413,11 @@ class MatMulChain:
         else:
             entry = Matrix(item)
             self.chain.append(entry)
-        self.check_chain()
 
-    def prepend(self, item):
+        if not skip_check:
+            self.check_chain()
+
+    def prepend(self, item, *, skip_check=False):
         if np.isscalar(item):
             self.scale *= item
         elif isinstance(item, MatMulChain):
@@ -434,7 +427,9 @@ class MatMulChain:
         else:
             entry = Matrix(item)
             self.chain.insert(0, entry)
-        self.check_chain()
+
+        if not skip_check:
+            self.check_chain()
 
     def simplify(self, tol=0):
         # Check for patterns like K K^-1 K (keep middle K)
@@ -462,27 +457,47 @@ class MatMulChain:
         self.simplify()
 
         inv_pattern = [mat.is_inverted and not mat.is_diagonal for mat in self]
-        if sum(inv_pattern) == 1:
+
+        if sum(inv_pattern) == 1 and len(self) > 1:
             idx = np.where(inv_pattern)[0][0]
             inv = self[idx]
 
             k, l = self.shape
             n = inv.shape[0]
 
-            left = eye_array(k)
-            for mat in self[:idx]:
-                left = left @ mat.evaluate()
+            if idx == 0:
+                left = None
+            else:
+                left = self[0].evaluate()
+                for mat in self[1:idx]:
+                    left = left @ mat.evaluate()
 
-            right = eye_array(l)
-            for mat in self[idx + 1 :][::-1]:
-                right = mat.evaluate() @ right
+            if idx == len(self) - 1:
+                right = None
+            else:
+                right = self[-1].evaluate()
+                for mat in self[idx + 1 : -1][::-1]:
+                    right = mat.evaluate() @ right
 
-            if min(k, l) > n:  # explicit inversion
-                product = left @ inv.evaluate() @ right
-            elif k >= l:  # solve from the right
-                product = left @ (inv @ right)
-            else:  # solve from the left
-                product = (inv.T @ left.T).T @ right
+            if left is None:
+                if n > l:  # solve from the right
+                    product = inv @ right
+                else:  # explicit inversion
+                    product = inv.evaluate() @ right
+
+            elif right is None:
+                if k < n:  # solve from the left
+                    product = (inv.T @ left.T).T
+                else:  # explicit inversion
+                    product = left @ inv.evaluate()
+
+            else:
+                if min(k, l) > n:  # explicit inversion
+                    product = left @ inv.evaluate() @ right
+                elif k >= l:  # solve from the right
+                    product = left @ (inv @ right)
+                else:  # solve from the left
+                    product = (inv.T @ left.T).T @ right
 
         else:
             lst = [None] * len(self)
@@ -530,11 +545,13 @@ class MatMulChain:
         n = len(self)
         if n % 2 == 0:
             mid = n // 2
-            return MatMulChain(np.sqrt(self.scale), *self[:mid])
+            return MatMulChain(np.sqrt(self.scale), *self[:mid], skip_check=True)
         else:
             mid = (n - 1) // 2
             factor = self[mid].factorize()
-            return MatMulChain(np.sqrt(self.scale), *self[:mid], factor)
+            return MatMulChain(
+                np.sqrt(self.scale), *self[:mid], factor, skip_check=True
+            )
 
     def check_chain(self):
         for i in range(len(self)):
