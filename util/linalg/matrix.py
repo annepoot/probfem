@@ -177,15 +177,18 @@ class Matrix:
         if self._is_symmetric is None:
             if self.is_factor:
                 self._is_symmetric = False
+            elif self.is_diagonal:
+                self._is_symmetric = True
             else:
                 if self.shape[0] == self.shape[1]:
                     if self.is_sparse:
-                        diff = abs(self.matrix - self.matrix.T) > self.tol
-                        self._is_symmetric = diff.nnz == 0
+                        diff = abs(self.matrix - self.matrix.T)
+                        check = diff - abs(self.matrix) * self.tol > self.tol
+                        self._is_symmetric = check.nnz == 0
                     else:
-                        self._is_symmetric = np.allclose(
-                            self.matrix, self.matrix.T, rtol=self.tol, atol=self.tol
-                        )
+                        diff = abs(self.matrix - self.matrix.T)
+                        check = diff > abs(self.matrix) * self.tol + self.tol
+                        self._is_symmetric = not np.any(check)
                 else:
                     self._is_symmetric = False
 
