@@ -19,7 +19,7 @@ message(){
 
 build_probfem(){
 	message "CREATING probfem ENVIRONMENT"
-	conda env create -f ../ENVIRONMENT.yml
+	conda env create --file ../ENVIRONMENT.yml -y
 
 	message "ADDING LOCAL PATHS"
 	conda activate probfem
@@ -29,7 +29,7 @@ build_probfem(){
 
 build_probfem_dev(){
 	message "CREATING probfem-dev ENVIRONMENT"
-	conda env create -f ENVIRONMENT-dev.yml -y
+	conda env create --file ENVIRONMENT-dev.yml -y
 
 	message "UPDATING probfem-dev ENVIRONMENT"
 	conda env update --name probfem-dev --file ~/Storage/git/myjive/ENVIRONMENT.yml
@@ -46,6 +46,7 @@ if conda env list | grep -q "^probfem "; then
 	while true; do
 		read -p "probfem environment already exists
 Do you want to rebuild it? [Y/n] " yn
+    yn="${yn:-y}"  # If no input is provided, default to 'y'
 		case $yn in
 			[Yy]* )
 				message "REMOVING probfem ENVIRONMENT"
@@ -72,6 +73,7 @@ if conda env list | grep -q "^probfem-dev "; then
 	while true; do
 		read -p "probfem-dev environment already exists.
 Do you want to rebuild it? [Y/n] " yn
+    yn="${yn:-y}"  # If no input is provided, default to 'y'
 		case $yn in
 			[Yy]* )
 				message "REMOVING probfem-dev ENVIRONMENT"
