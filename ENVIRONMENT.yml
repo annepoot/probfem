@@ -6,11 +6,12 @@ dependencies:
   # python version
   - python=3.10
   # mandatory packages
-  - pandas=2.2.2
   - matplotlib=3.5.2
+  - pandas=2.2.2
   - numpy=1.23.5
   - seaborn=0.13.2
-  - sympy=1.12
+  - scikit-sparse=0.4.12 # provides cholmod library
+  - scipy>=1.8.0
   # myjive import
   - myjive=0.1.8
   # support packages
