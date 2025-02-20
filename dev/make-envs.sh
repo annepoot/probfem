@@ -32,7 +32,7 @@ build_probfem_dev(){
 	conda env create --file ENVIRONMENT-dev.yml -y
 
 	message "UPDATING probfem-dev ENVIRONMENT"
-	conda env update --name probfem-dev --file ~/Storage/git/myjive/ENVIRONMENT.yml
+	conda env update --name probfem-dev --file ~/Storage/git/myjive/dev/ENVIRONMENT-dev.yml
 
 	message "ADDING LOCAL PATHS"
 	conda activate probfem-dev
