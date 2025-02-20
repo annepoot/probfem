@@ -2,6 +2,7 @@ import os
 import numpy as np
 import ctypes as ct
 
+from fem.jive import libcppbackend
 from fem.meshing import get_patches_around_nodes
 
 
@@ -129,7 +130,7 @@ def calc_perturbed_coords_cpp(
     boundary_normals_ptr = boundary_normals_arr.ctypes.data_as(PTR(ct.c_double))
     boundary_normals_shape = boundary_normals_arr.ctypes.shape_as(ct.c_long)
 
-    calc_perturbed_coords_func = libpermutation.calc_perturbed_coords
+    calc_perturbed_coords_func = libcppbackend.calc_perturbed_coords
     calc_perturbed_coords_func.argtypes = (
         PTR(ct.c_double),  # pert_coords_ptr,
         PTR(ct.c_long),  # pert_coords_shape,
