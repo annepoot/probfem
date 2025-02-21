@@ -1,8 +1,11 @@
+import os
 import numpy as np
 from scipy.spatial import Delaunay, ConvexHull
+import ctypes as ct
 
 from myjive.fem import XNodeSet, XElementSet, to_xelementset
 from fem.meshing import create_bboxes, list_point_bbox_intersections
+from fem.jive import libcppbackend
 
 __all__ = [
     "create_convex_triangulation",
@@ -11,7 +14,10 @@ __all__ = [
     "calc_boundary_nodes",
     "invert_convex_mesh",
     "invert_mesh",
+    "check_point_in_shape",
+    "check_point_in_interval",
     "check_point_in_polygon",
+    "check_point_in_polygon_cpp",
     "get_patch_around_node",
     "get_patches_around_nodes",
 ]
@@ -246,7 +252,25 @@ def invert_mesh(elems):
     return invnodes, invelems
 
 
-def check_point_in_polygon(point, coords, tol=1e-8):
+PTR = ct.POINTER
+cpp_func = libcppbackend.check_point_in_polygon
+cpp_func.argtypes = (
+    PTR(ct.c_double),  # point
+    PTR(ct.c_double),  # polygon
+    ct.c_int,  # size
+    ct.c_double,  # tol
+)
+cpp_func.restype = ct.c_bool
+
+
+def check_point_in_polygon_cpp(point, coords, tol=1e-8):
+    point_ptr = point.ctypes.data_as(PTR(ct.c_double))
+    coords_ptr = coords.ctypes.data_as(PTR(ct.c_double))
+
+    return cpp_func(point_ptr, coords_ptr, len(coords), tol)
+
+
+def check_point_in_polygon(point, coords, *, tol=1e-8):
     A = coords[-1]
     for B in coords:
         cross = np.cross(B - A, point - A)
@@ -254,6 +278,23 @@ def check_point_in_polygon(point, coords, tol=1e-8):
             return False
         A = B
     return True
+
+
+def check_point_in_interval(point, coords, *, tol=1e-8):
+    if np.min(coords) - tol < point[0] < np.max(coords) + tol:
+        return True
+    else:
+        return False
+
+
+def check_point_in_shape(point, shape, *, tol=1e-8):
+    assert len(point) == shape.shape[1]
+    if len(point) == 1:
+        return check_point_in_interval(point, shape, tol=tol)
+    elif len(point) == 2:
+        return check_point_in_polygon_cpp(point, shape, tol=tol)
+    else:
+        raise NotImplementedError
 
 
 def get_patch_around_node(inode, elems):

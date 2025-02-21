@@ -37,13 +37,13 @@ def check_point_bbox_intersection(point, bbox):
     return np.all(point >= bbox[0]) and np.all(point <= bbox[1])
 
 
-def list_bbox_bbox_intersections(bbox1, bboxes2):
-    lcheck = np.all(bbox1[0] <= bboxes2[1], axis=1)
-    ucheck = np.all(bbox1[1] >= bboxes2[0], axis=1)
+def list_bbox_bbox_intersections(bbox1, bboxes2, tol=0.0):
+    lcheck = np.all(bbox1[0] - bboxes2[1] <= tol, axis=1)
+    ucheck = np.all(bbox1[1] - bboxes2[0] >= -tol, axis=1)
     return np.where(np.logical_and(lcheck, ucheck))[0]
 
 
-def list_point_bbox_intersections(point, bboxes):
-    lcheck = np.all(point >= bboxes[0], axis=1)
-    ucheck = np.all(point <= bboxes[1], axis=1)
+def list_point_bbox_intersections(point, bboxes, tol=0.0):
+    lcheck = np.all(point - bboxes[0] >= -tol, axis=1)
+    ucheck = np.all(point - bboxes[1] <= tol, axis=1)
     return np.where(np.logical_and(lcheck, ucheck))[0]
