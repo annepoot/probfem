@@ -65,40 +65,49 @@ tempering = linear_tempering
 std_corruption = 1e-5
 n_elem_range = [10, 20, 40]
 
+write_output = True
+
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
-    fname = "samples-{}.csv".format(fem_type)
 
-    file = open(fname, "w")
+    if write_output:
+        fname = "samples-{}.csv".format(fem_type)
+        file = open(fname, "w")
 
-    current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
-    file.write("author = Anne Poot\n")
-    file.write(f"date, time = {current_time}\n")
-    file.write(f"n_burn = {n_burn}\n")
-    file.write(f"n_sample = {n_sample}\n")
-    file.write(f"tempering = {tempering}\n")
-    file.write(f"n_elem = {n_elem_range}\n")
-    file.write(f"std_corruption = fixed at {std_corruption}\n")
+        current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
+        file.write("author = Anne Poot\n")
+        file.write(f"date, time = {current_time}\n")
+        file.write(f"n_burn = {n_burn}\n")
+        file.write(f"n_sample = {n_sample}\n")
+        file.write(f"tempering = {tempering}\n")
+        file.write(f"n_elem = {n_elem_range}\n")
+        file.write(f"std_corruption = fixed at {std_corruption}\n")
 
     if fem_type == "fem":
         sigma_e = std_corruption
         recompute_logpdf = False
-        file.write(f"sigma_e = fixed at {sigma_e}\n")
+
+        if write_output:
+            file.write(f"sigma_e = fixed at {sigma_e}\n")
 
     elif fem_type == "bfem":
         scale = 0.001044860592586493  # f_c.T @ u_c / n_c
         rescale = False
         sigma_e = std_corruption
         recompute_logpdf = False
-        file.write(f"scale = fixed at {scale}\n")
-        file.write(f"rescale = {rescale}\n")
-        file.write(f"sigma_e = fixed at {sigma_e}\n")
+
+        if write_output:
+            file.write(f"scale = fixed at {scale}\n")
+            file.write(f"rescale = {rescale}\n")
+            file.write(f"sigma_e = fixed at {sigma_e}\n")
 
     elif fem_type == "rmfem":
         sigma_e = std_corruption
         n_pseudomarginal = 10
         recompute_logpdf = True
-        file.write(f"sigma_e = fixed at {sigma_e}\n")
-        file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
+
+        if write_output:
+            file.write(f"sigma_e = fixed at {sigma_e}\n")
+            file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
 
     elif fem_type == "statfem":
         rho_range = [statfem_hparams[n_elem]["rho"] for n_elem in n_elem_range]
@@ -106,12 +115,15 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         sigma_d_range = [statfem_hparams[n_elem]["sigma_d"] for n_elem in n_elem_range]
         sigma_e_range = [statfem_hparams[n_elem]["sigma_e"] for n_elem in n_elem_range]
         recompute_logpdf = False
-        file.write(f"rho = {rho_range}\n")
-        file.write(f"l_d = {l_d_range}\n")
-        file.write(f"sigma_d = {sigma_d_range}\n")
-        file.write(f"sigma_e = {sigma_e_range}\n")
 
-    file.close()
+        if write_output:
+            file.write(f"rho = {rho_range}\n")
+            file.write(f"l_d = {l_d_range}\n")
+            file.write(f"sigma_d = {sigma_d_range}\n")
+            file.write(f"sigma_e = {sigma_e_range}\n")
+
+    if write_output:
+        file.close()
 
     for i, n_elem in enumerate(n_elem_range):
         nodes, elems = generate_mesh(n_elem)
@@ -171,30 +183,31 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         )
         samples, info = mcmc()
 
-        df = pd.DataFrame(samples, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
+        if write_output:
+            df = pd.DataFrame(samples, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
 
-        for header, data in info.items():
-            df[header] = data
+            for header, data in info.items():
+                df[header] = data
 
-        df["sample"] = df.index
-        df["n_elem"] = n_elem
-        df["std_corruption"] = std_corruption
-
-        if fem_type == "fem":
-            df["sigma_e"] = sigma_e
-        elif fem_type == "bfem":
-            df["sigma_e"] = sigma_e
-        elif fem_type == "rmfem":
-            df["sigma_e"] = sigma_e
-            df["n_pseudomarginal"] = n_pseudomarginal
-        elif fem_type == "statfem":
+            df["sample"] = df.index
+            df["n_elem"] = n_elem
             df["std_corruption"] = std_corruption
-            df["rho"] = rho
-            df["l_d"] = l_d
-            df["sigma_d"] = sigma_d
-            df["sigma_e"] = sigma_e
-        else:
-            raise ValueError
 
-        write_header = n_elem == n_elem_range[0]
-        df.to_csv(fname, mode="a", header=write_header, index=False)
+            if fem_type == "fem":
+                df["sigma_e"] = sigma_e
+            elif fem_type == "bfem":
+                df["sigma_e"] = sigma_e
+            elif fem_type == "rmfem":
+                df["sigma_e"] = sigma_e
+                df["n_pseudomarginal"] = n_pseudomarginal
+            elif fem_type == "statfem":
+                df["std_corruption"] = std_corruption
+                df["rho"] = rho
+                df["l_d"] = l_d
+                df["sigma_d"] = sigma_d
+                df["sigma_e"] = sigma_e
+            else:
+                raise ValueError
+
+            write_header = n_elem == n_elem_range[0]
+            df.to_csv(fname, mode="a", header=write_header, index=False)
