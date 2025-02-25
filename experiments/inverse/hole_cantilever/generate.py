@@ -25,39 +25,49 @@ std_corruption_range = [1e-5]
 h_range = [0.2, 0.1, 0.05, 0.02]
 h_meas = 1.0
 
+write_output = True
+
 for fem_type in ["fem", "bfem", "rmfem"]:
-    fname = "samples-{}.csv".format(fem_type)
 
-    file = open(fname, "w")
+    if write_output:
+        fname = "samples-{}.csv".format(fem_type)
+        file = open(fname, "w")
 
-    current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
-    file.write("author = Anne Poot\n")
-    file.write(f"date, time = {current_time}\n")
-    file.write(f"n_burn = {n_burn}\n")
-    file.write(f"n_sample = {n_sample}\n")
-    file.write(f"tempering = {tempering}\n")
-    file.write(f"h = {h_range}\n")
-    file.write(f"h_meas = fixed at {h_meas}\n")
-    file.write(f"std_corruption = {std_corruption_range}\n")
+        current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
+        file.write("author = Anne Poot\n")
+        file.write(f"date, time = {current_time}\n")
+        file.write(f"n_burn = {n_burn}\n")
+        file.write(f"n_sample = {n_sample}\n")
+        file.write(f"tempering = {tempering}\n")
+        file.write(f"h = {h_range}\n")
+        file.write(f"h_meas = fixed at {h_meas}\n")
+        file.write(f"std_corruption = {std_corruption_range}\n")
 
     if fem_type == "fem":
         sigma_e_range = std_corruption_range
         recompute_logpdf = False
-        file.write(f"sigma_e = {sigma_e_range}\n")
+
+        if write_output:
+            file.write(f"sigma_e = {sigma_e_range}\n")
 
     elif fem_type == "bfem":
         sigma_e_range = std_corruption_range
         recompute_logpdf = False
-        file.write(f"sigma_e = {sigma_e_range}\n")
+
+        if write_output:
+            file.write(f"sigma_e = {sigma_e_range}\n")
 
     elif fem_type == "rmfem":
         sigma_e_range = std_corruption_range
         n_pseudomarginal = 10
         recompute_logpdf = True
-        file.write(f"sigma_e = {sigma_e_range}\n")
-        file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
 
-    file.close()
+        if write_output:
+            file.write(f"sigma_e = {sigma_e_range}\n")
+            file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
+
+    if write_output:
+        file.close()
 
     for std_corruption, sigma_e in zip(std_corruption_range, sigma_e_range):
         for i, h in enumerate(h_range):
@@ -106,25 +116,26 @@ for fem_type in ["fem", "bfem", "rmfem"]:
 
             samples, info = mcmc()
 
-            df = pd.DataFrame(samples, columns=["x", "y", "a", "theta", "r_rel"])
+            if write_output:
+                df = pd.DataFrame(samples, columns=["x", "y", "a", "theta", "r_rel"])
 
-            for header, data in info.items():
-                df[header] = data
+                for header, data in info.items():
+                    df[header] = data
 
-            df["sample"] = df.index
-            df["h"] = h
-            df["r"] = df["r_rel"] * df["a"]
-            df["std_corruption"] = std_corruption
+                df["sample"] = df.index
+                df["h"] = h
+                df["r"] = df["r_rel"] * df["a"]
+                df["std_corruption"] = std_corruption
 
-            if fem_type == "fem":
-                df["sigma_e"] = sigma_e
-            elif fem_type == "bfem":
-                df["sigma_e"] = sigma_e
-            elif fem_type == "rmfem":
-                df["sigma_e"] = sigma_e
-                df["n_pseudomarginal"] = n_pseudomarginal
-            else:
-                raise ValueError
+                if fem_type == "fem":
+                    df["sigma_e"] = sigma_e
+                elif fem_type == "bfem":
+                    df["sigma_e"] = sigma_e
+                elif fem_type == "rmfem":
+                    df["sigma_e"] = sigma_e
+                    df["n_pseudomarginal"] = n_pseudomarginal
+                else:
+                    raise ValueError
 
-            write_header = (h == h_range[0]) and (sigma_e == sigma_e_range[0])
-            df.to_csv(fname, mode="a", header=write_header, index=False)
+                write_header = (h == h_range[0]) and (sigma_e == sigma_e_range[0])
+                df.to_csv(fname, mode="a", header=write_header, index=False)
