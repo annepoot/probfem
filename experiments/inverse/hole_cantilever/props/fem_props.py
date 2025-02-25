@@ -1,22 +1,20 @@
 __all__ = ["get_fem_props"]
 
 
-def get_fem_props(fname):
+def get_fem_props():
     fem_props = {
         "log": {
             "pattern": "*.info",
-            "rank": 1,  # print warnings, but not log or out
+            "rank": 1,
             "file": "-$(CASE_NAME).log",
         },
         "control": {
             "runWhile": "i<1",
         },
         "userinput": {
-            "modules": ["gmsh", "ngroups"],
-            "gmsh": {
-                "type": "GmshInput",
-                "dim": 2,
-                "file": fname,
+            "modules": ["globdat", "ngroups"],
+            "globdat": {
+                "type": "GlobdatInput",
             },
             "ngroups": {
                 "type": "GroupInput",

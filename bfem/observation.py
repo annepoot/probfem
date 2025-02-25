@@ -39,7 +39,10 @@ def compute_bfem_observations(coarse_prior, fine_prior):
 
     K = fine_globdat["matrix0"]
     c = fine_globdat["constraints"]
-    Kc = Constrainer(c, K).get_output_matrix()
+    f = fine_globdat["extForce"]
+    conman = Constrainer(c, K)
+    Kc = conman.get_output_matrix()
+    fc = conman.get_rhs(f)
     Phi = create_phi_from_globdat(coarse_globdat, fine_globdat)
 
     cdofs = coarse_globdat[gn.CONSTRAINTS].get_constraints()[0]
@@ -50,7 +53,7 @@ def compute_bfem_observations(coarse_prior, fine_prior):
     Phic = Matrix(Phic, name="Phic")
 
     H_obs = Phic.T @ Kc
-    f_obs = Phic.T @ fine_globdat["extForce"]
+    f_obs = Phic.T @ fc
 
     return H_obs, f_obs
 

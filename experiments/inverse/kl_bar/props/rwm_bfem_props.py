@@ -6,8 +6,7 @@ from probability.process import (
 from bfem.likelihood import BFEMLikelihood, BFEMObservationOperator
 from fem.jive import CJiveRunner
 
-from experiments.inverse.kl_bar.props.fem_props import get_fem_props
-from experiments.inverse.kl_bar.props.rwm_fem_props import get_rwm_fem_target
+from experiments.inverse.kl_bar.props import get_fem_props, get_rwm_fem_target
 
 __all__ = ["get_rwm_bfem_target"]
 
