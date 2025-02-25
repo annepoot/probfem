@@ -33,13 +33,14 @@ class CJiveRunner:
         max_elem_node_count=None
     ):
         self.props = props
-        self.elems = elems
 
-        if self.elems is None:
+        if elems is None:
             assert node_count is not None
             assert elem_count is not None
             assert rank is not None
             assert max_elem_node_count is not None
+
+            self.elems = None
             self.node_count = node_count
             self.elem_count = elem_count
             self.rank = rank
@@ -51,11 +52,7 @@ class CJiveRunner:
             assert rank is None
             assert max_elem_node_count is None
 
-            nodes = self.elems.get_nodes()
-            self.node_count = len(nodes)
-            self.elem_count = len(elems)
-            self.rank = nodes.rank()
-            self.max_elem_node_count = elems.max_elem_node_count()
+            self.update_elems(elems)
 
     def __call__(self):
 
@@ -99,3 +96,11 @@ class CJiveRunner:
         np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat)
 
         return np_globdat
+
+    def update_elems(self, elems):
+        self.elems = elems
+        nodes = self.elems.get_nodes()
+        self.node_count = len(nodes)
+        self.elem_count = len(elems)
+        self.rank = nodes.rank()
+        self.max_elem_node_count = elems.max_elem_node_count()

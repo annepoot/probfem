@@ -138,7 +138,8 @@ class RemeshFEMObservationOperator(ObservationOperator):
             self.mesh_props[var] = x_i
 
         nodes, elems = self.mesher(**self.mesh_props)[0]
-        self.jive_runner.elems = elems
+        self.jive_runner.update_elems(elems)
+
         globdat = self.jive_runner()
 
         output = np.zeros(len(self.output_locations))

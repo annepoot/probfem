@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import gmsh
 
@@ -38,8 +37,8 @@ def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, n_refine=0, tol=1e-8)
     hole_with_dim = [(2, hole_rect)]
 
     occ.rotate(hole_with_dim, x, y, 0.0, 0.0, 0.0, 1.0, theta)
-    diff = occ.cut(main_with_dim, hole_with_dim)[0]
     occ.fragment(points_with_dim, main_with_dim)[0]
+    diff = occ.cut(main_with_dim, hole_with_dim)[0]
 
     # Generate mesh
     occ.synchronize()
@@ -54,7 +53,7 @@ def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, n_refine=0, tol=1e-8)
 
     # Refine the mesh n times
     for i in range(n_refine):
-        gmsh.refine()
+        gmsh.model.mesh.refine()
         nodes, elems = get_nodes_and_elems(gmsh)
         output += ((nodes, elems),)
 

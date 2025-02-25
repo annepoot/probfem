@@ -1,7 +1,6 @@
 import warnings
 import numpy as np
 from scipy.sparse import issparse, eye_array, diags_array, csc_matrix
-from scipy.sparse.linalg import spsolve
 from sksparse import cholmod as cm
 from copy import copy
 
@@ -124,7 +123,7 @@ class Matrix:
                         return sol
                 elif self.is_sparse:
                     array = self.inv.evaluate()
-                    factor = cm.cholesky(array)
+                    factor = cm.cholesky(csc_matrix(array))
                     if issparse(other):
                         return factor.solve_A(other.toarray())
                     else:

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.sparse import csr_array
+from warnings import warn
 
 from myjive.names import GlobNames as gn
 from myjive.util.proputils import split_key, get_recursive, set_recursive
@@ -25,13 +26,19 @@ class BFEMLikelihood(Likelihood):
 
     def calc_pdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        de = (prediction + self.noise).to_gaussian()
-        return de.calc_pdf(self.values)
+        if np.isnan(np.sum(prediction.calc_mean())):
+            return -np.inf
+        else:
+            de = (prediction + self.noise).to_gaussian()
+            return de.calc_pdf(self.values)
 
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        de = IndependentGaussianSum(prediction, self.noise)
-        return de.calc_logpdf(self.values)
+        if np.isnan(np.sum(prediction.calc_mean())):
+            return -np.inf
+        else:
+            de = IndependentGaussianSum(prediction, self.noise)
+            return de.calc_logpdf(self.values)
 
 
 class BFEMObservationOperator(FEMObservationOperator):
@@ -141,29 +148,20 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
             assert var in self.mesh_props
             self.mesh_props[var] = x_i
 
-        self.mesher(**self.mesh_props)
+        meshes = self.mesher(**self.mesh_props)
+        obs_nodes, obs_elems = meshes[0]
+        ref_nodes, ref_elems = meshes[1]
 
-        obs_prior_cls = type(self.obs_prior)
-        obs_prior = obs_prior_cls(
-            prior=self.obs_prior.prior,
-            module_props=self.obs_prior.module_props,
-            jive_runner=self.obs_prior.jive_runner,
-            jive_runner_kws=self.obs_prior.jive_runner_kws,
-        )
-        ref_prior_cls = type(self.ref_prior)
-        ref_prior = ref_prior_cls(
-            prior=self.ref_prior.prior,
-            module_props=self.ref_prior.module_props,
-            jive_runner=self.ref_prior.jive_runner,
-            jive_runner_kws=self.ref_prior.jive_runner_kws,
-        )
+        self.obs_prior.jive_runner.update_elems(obs_elems)
+        self.ref_prior.jive_runner.update_elems(ref_elems)
 
-        refdat = ref_prior.globdat
+        self.obs_prior.recompute_moments()
+        self.ref_prior.recompute_moments()
 
-        PhiT = compute_bfem_observations(obs_prior, ref_prior)
-        H_obs = PhiT @ ref_prior.globdat["matrix0"]
-        f_obs = PhiT @ ref_prior.globdat["extForce"]
-        posterior = ref_prior.condition_on(H_obs, f_obs)
+        refdat = self.ref_prior.globdat
+
+        H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.ref_prior)
+        posterior = self.ref_prior.condition_on(H_obs, f_obs)
 
         if self.rescale:
             oldmean = posterior.calc_mean()
@@ -173,23 +171,31 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
             newcov = Q @ np.diag(newl) @ Q.T
             self.posterior = Gaussian(oldmean, newcov, allow_singular=True)
         else:
-            self.posterior = posterior.to_gaussian(allow_singular=True)
+            self.posterior = posterior
 
         n_out = len(self.output_locations)
         assert len(self.output_dofs) == n_out
         ref_coords = refdat[gn.NSET].get_coords()
+        ref_dofs = refdat[gn.DOFSPACE]
 
-        mapper = np.zeros((n_out, refdat[gn.DOFSPACE].dof_count()))
+        tol = 1e-8
 
-        for i in range(n_out):
-            out_loc = self.output_locations[i]
-            out_dof = self.output_dofs[i]
+        mapper = np.zeros((n_out, ref_dofs.dof_count()))
 
-            idx = np.where(np.all(abs(out_loc - ref_coords) < 1e-8, axis=1))[0]
-            assert len(idx) == 1
-            inode = idx[0]
+        for i, (loc, dof) in enumerate(zip(self.output_locations, self.output_dofs)):
+            inodes = np.where(np.all(abs(ref_coords - loc) < tol, axis=1))[0]
+            if len(inodes) == 0:
+                warn("Observation location not found. Getting closest node instead")
+                inode = np.argmin(np.sum((ref_coords - loc) ** 2, axis=1))
+                idof = ref_dofs.get_dof(inode, dof)
+                mapper[i, idof] = np.nan
+            elif len(inodes) == 1:
+                inode = inodes[0]
+                idof = ref_dofs.get_dof(inode, dof)
+                mapper[i, idof] = 1.0
+            else:
+                assert False
 
-            idof = refdat[gn.DOFSPACE].get_dof(inode, out_dof)
-            mapper[i, idof] = 1.0
+        mapper = csr_array(mapper)
 
         return self.posterior @ mapper.T

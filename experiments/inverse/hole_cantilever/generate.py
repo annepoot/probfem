@@ -9,13 +9,23 @@ from experiments.inverse.hole_cantilever.props import (
     get_rwm_rmfem_target,
 )
 
+
+def linear_tempering(i):
+    if i > n_burn:
+        return 1.0
+    else:
+        return i / n_burn
+
+
 n_burn = 10000
 n_sample = 20000
+tempering = linear_tempering
+
 std_corruption_range = [1e-5]
 h_range = [0.2, 0.1, 0.05, 0.02]
 h_meas = 1.0
 
-for fem_type in ["fem", "rmfem"]:
+for fem_type in ["fem", "bfem", "rmfem"]:
     fname = "samples-{}.csv".format(fem_type)
 
     file = open(fname, "w")
@@ -23,7 +33,9 @@ for fem_type in ["fem", "rmfem"]:
     current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
     file.write("author = Anne Poot\n")
     file.write(f"date, time = {current_time}\n")
+    file.write(f"n_burn = {n_burn}\n")
     file.write(f"n_sample = {n_sample}\n")
+    file.write(f"tempering = {tempering}\n")
     file.write(f"h = {h_range}\n")
     file.write(f"h_meas = fixed at {h_meas}\n")
     file.write(f"std_corruption = {std_corruption_range}\n")
@@ -87,12 +99,17 @@ for fem_type in ["fem", "rmfem"]:
                 n_burn=n_burn,
                 start_value=start_value,
                 seed=0,
+                tempering=tempering,
                 recompute_logpdf=recompute_logpdf,
+                return_info=True,
             )
 
-            samples = mcmc()
+            samples, info = mcmc()
 
             df = pd.DataFrame(samples, columns=["x", "y", "a", "theta", "r_rel"])
+
+            for header, data in info.items():
+                df[header] = data
 
             df["sample"] = df.index
             df["h"] = h
@@ -100,6 +117,8 @@ for fem_type in ["fem", "rmfem"]:
             df["std_corruption"] = std_corruption
 
             if fem_type == "fem":
+                df["sigma_e"] = sigma_e
+            elif fem_type == "bfem":
                 df["sigma_e"] = sigma_e
             elif fem_type == "rmfem":
                 df["sigma_e"] = sigma_e

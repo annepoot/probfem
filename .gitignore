@@ -14,5 +14,6 @@ OBJ/
 *.log
 *.out
 *.so
+*.dmp
 
 !experiments/inverse/2d/cantilever-hole/ground-truth.csv
