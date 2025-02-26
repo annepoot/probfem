@@ -1,4 +1,5 @@
 import numpy as np
+from warnings import warn
 
 from myjive.util.proputils import (
     split_key,
@@ -36,7 +37,12 @@ class Likelihood(Distribution):
             return self.noise.calc_pdf(self.values)
 
     def calc_logpdf(self, x):
-        prediction = self.operator.calc_prediction(x)
+        try:
+            prediction = self.operator.calc_prediction(x)
+        except Exception as e:
+            warn(f"exception caught: {e}\n\nreturning logpdf=-inf\n")
+            return -np.inf
+
         if np.isnan(np.sum(prediction)):
             return -np.inf
         else:
