@@ -44,9 +44,9 @@ N_filter = 100
 N_start = 10000
 N_end = 20000
 
-std_corruption = 1e-4
+std_corruption = 1e-5
 
-for fem_type in ["fem", "rmfem"]:
+for fem_type in ["fem", "bfem", "rmfem"]:
 
     fname = "../samples-{}.csv".format(fem_type)
 
@@ -57,10 +57,10 @@ for fem_type in ["fem", "rmfem"]:
     df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
     df["theta"] = df["theta"] - (0.5 * np.pi) * np.floor(df["theta"] / (0.5 * np.pi))
 
-    # Create figure and axis
-    fig, ax = plt.subplots()
-
     for h in [0.2, 0.1, 0.05]:
+        # Create figure and axis
+        fig, ax = plt.subplots()
+
         c = {0.2: "C0", 0.1: "C1", 0.05: "C2", 0.02: "C3"}[h]
         df_h = df[abs(df["h"] - h) < 1e-8]
 
@@ -84,24 +84,24 @@ for fem_type in ["fem", "rmfem"]:
             hole_patch.set_linewidth(0.5)
             ax.add_patch(hole_patch)
 
-    x_ref = refs_by_var["x"]
-    y_ref = refs_by_var["y"]
-    a_ref = refs_by_var["a"]
-    theta_ref = refs_by_var["theta"]
-    r_ref = refs_by_var["r"]
+        x_ref = refs_by_var["x"]
+        y_ref = refs_by_var["y"]
+        a_ref = refs_by_var["a"]
+        theta_ref = refs_by_var["theta"]
+        r_ref = refs_by_var["r"]
 
-    ref_patch = get_hole_patch(x_ref, y_ref, a_ref, theta_ref, r_ref)
-    ref_patch.set_edgecolor("black")
-    ref_patch.set_alpha(1.0)
-    ref_patch.set_linewidth(1.0)
-    ax.add_patch(ref_patch)
+        ref_patch = get_hole_patch(x_ref, y_ref, a_ref, theta_ref, r_ref)
+        ref_patch.set_edgecolor("black")
+        ref_patch.set_alpha(1.0)
+        ref_patch.set_linewidth(1.0)
+        ax.add_patch(ref_patch)
 
-    # Set limits and aspect ratio
-    pad = 0.1
-    ax.set_xlim(0.0 - pad, 4.0 + pad)
-    ax.set_ylim(0.0 - pad, 1.0 + pad)
-    ax.set_aspect("equal")
-    plt.axis("off")
+        # Set limits and aspect ratio
+        pad = 0.1
+        ax.set_xlim(0.0 - pad, 4.0 + pad)
+        ax.set_ylim(0.0 - pad, 1.0 + pad)
+        ax.set_aspect("equal")
+        plt.axis("off")
 
-    # Show the plot
-    plt.show()
+        # Show the plot
+        plt.show()
