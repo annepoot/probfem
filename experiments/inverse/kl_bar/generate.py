@@ -90,14 +90,12 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             file.write(f"sigma_e = fixed at {sigma_e}\n")
 
     elif fem_type == "bfem":
-        scale = 0.001044860592586493  # f_c.T @ u_c / n_c
-        rescale = False
+        scale = "mle"  # f_c.T @ u_c / n_c
         sigma_e = std_corruption
         recompute_logpdf = False
 
         if write_output:
-            file.write(f"scale = fixed at {scale}\n")
-            file.write(f"rescale = {rescale}\n")
+            file.write(f"scale = {scale}\n")
             file.write(f"sigma_e = fixed at {sigma_e}\n")
 
     elif fem_type == "rmfem":
@@ -141,7 +139,6 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
                 ref_elems=ref_elems,
                 std_corruption=std_corruption,
                 scale=scale,  # f_c.T @ u_c / n_c
-                rescale=rescale,
                 sigma_e=sigma_e,
             )
         elif fem_type == "rmfem":

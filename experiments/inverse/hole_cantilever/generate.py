@@ -83,8 +83,7 @@ for fem_type in ["fem", "bfem", "rmfem"]:
                     h=h,
                     h_meas=h_meas,
                     std_corruption=std_corruption,
-                    scale=9.105562473643324e-07,  # f_c.T @ u_c / n_c
-                    rescale=False,
+                    scale="mle",  # f_c.T @ u_c / n_c
                     sigma_e=sigma_e,
                 )
             elif fem_type == "rmfem":

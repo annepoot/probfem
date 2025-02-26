@@ -13,7 +13,7 @@ from experiments.inverse.hole_cantilever.props import get_fem_props, get_rwm_fem
 __all__ = ["get_rwm_bfem_target"]
 
 
-def get_rwm_bfem_target(*, h, h_meas, std_corruption, scale, rescale, sigma_e):
+def get_rwm_bfem_target(*, h, h_meas, std_corruption, scale, sigma_e):
     target = get_rwm_fem_target(
         h=h,
         h_meas=h_meas,
@@ -21,11 +21,11 @@ def get_rwm_bfem_target(*, h, h_meas, std_corruption, scale, rescale, sigma_e):
         sigma_e=sigma_e,
     )
 
-    # not verified yet
-    assert rescale == False
-
-    if rescale:
-        assert abs(1.0 - scale) < 1e-8
+    if scale in ["mle", "eig"]:
+        rescale = scale
+        scale = 1.0
+    else:
+        rescale = None
 
     obs_module_props = get_fem_props()
     ref_module_props = get_fem_props()

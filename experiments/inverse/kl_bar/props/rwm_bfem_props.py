@@ -1,3 +1,5 @@
+import numpy as np
+
 from probability.process import (
     GaussianProcess,
     InverseCovarianceOperator,
@@ -12,7 +14,7 @@ __all__ = ["get_rwm_bfem_target"]
 
 
 def get_rwm_bfem_target(
-    *, obs_elems, ref_elems, std_corruption, scale, rescale, sigma_e
+    *, obs_elems, ref_elems, std_corruption, scale, sigma_e
 ):
     target = get_rwm_fem_target(
         elems=obs_elems,
@@ -20,8 +22,11 @@ def get_rwm_bfem_target(
         sigma_e=sigma_e,
     )
 
-    if rescale:
-        assert abs(1.0 - scale) < 1e-8
+    if scale in ["mle", "eig"]:
+        rescale = scale
+        scale = 1.0
+    else:
+        rescale = None
 
     obs_module_props = get_fem_props()
     ref_module_props = get_fem_props()
