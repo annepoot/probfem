@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 
 from probability.univariate import Uniform
 from probability.multivariate import IsotropicGaussian
@@ -10,6 +9,7 @@ from probability import (
     IndependentJoint,
 )
 from fem.jive import CJiveRunner
+from util.io import read_csv_from
 
 from experiments.inverse.hole_cantilever.meshing import create_mesh
 from experiments.inverse.hole_cantilever.props import get_fem_props
@@ -21,7 +21,7 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
     fem_props = get_fem_props()
 
     # ground truth
-    df = pd.read_csv("ground-truth.csv", skiprows=10)
+    df = read_csv_from("ground-truth.csv", "loc_x,loc_y,inode,dof_idx,dof_type")
     ground_locs = df[["loc_x", "loc_y"]].to_numpy()
     ground_dofs = df["dof_type"].to_numpy()
     ground_truth = df["value"].to_numpy()

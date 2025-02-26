@@ -1,18 +1,7 @@
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
-def read_csv_from(fname, line, **kwargs):
-    with open(fname) as f:
-        pos = 0
-        cur_line = f.readline()
-        while not cur_line.startswith(line):
-            pos = f.tell()
-            cur_line = f.readline()
-        f.seek(pos)
-        return pd.read_csv(f, **kwargs)
+from util.io import read_csv_from
 
 
 variables = {
