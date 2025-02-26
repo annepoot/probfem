@@ -5,7 +5,7 @@ from fem.jive import CJiveRunner
 from experiments.inverse.hole_cantilever.meshing import create_mesh
 from experiments.inverse.hole_cantilever.props import get_fem_props
 
-h = 0.01
+h = 0.002
 L = 4.0
 H = 1.0
 x = 1.0
