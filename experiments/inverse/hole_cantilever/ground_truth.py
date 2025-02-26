@@ -3,11 +3,12 @@ import pandas as pd
 from fem.jive import CJiveRunner
 
 from experiments.inverse.hole_cantilever.meshing import create_mesh
+from experiments.inverse.hole_cantilever.props import get_fem_props
 
 h = 0.01
-L = 4
-H = 1
-x = 1
+L = 4.0
+H = 1.0
+x = 1.0
 y = 0.4
 a = 0.4
 theta = np.pi / 6
@@ -26,7 +27,7 @@ nodes, elems = create_mesh(
     h_meas=h_meas,
 )[0]
 
-jive = CJiveRunner(props="props/fem.pro", elems=elems)
+jive = CJiveRunner(props=get_fem_props(), elems=elems)
 globdat = jive()
 
 state0 = globdat["state0"]
@@ -47,12 +48,12 @@ for y_point in np.linspace(0, H, int(H / h_meas) + 1)[1:-1]:
     obs_locsx.append(x_point)
     obs_locsy.append(y_point)
 
-obs_inodes = np.arange(2, len(obs_locsx) + 2)
-
-for inode, locx, locy in zip(obs_inodes, obs_locsx, obs_locsy):
-    tol = 1e-8
-    coord = np.array([locx, locy])
-    assert np.allclose(nodes[inode], coord)
+obs_inodes = []
+for i, (locx, locy) in enumerate(zip(obs_locsx, obs_locsy)):
+    loc = np.array([locx, locy])
+    inodes = np.where(np.all(abs(coords - loc) < 1e-8, axis=1))[0]
+    assert len(inodes) == 1
+    obs_inodes.append(inodes[0])
 
 obs_dofs = np.tile(np.arange(0, 2), len(obs_inodes))
 obs_locsx = np.repeat(obs_locsx, 2)
