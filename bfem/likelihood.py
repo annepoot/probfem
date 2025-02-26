@@ -62,6 +62,8 @@ class BFEMObservationOperator(FEMObservationOperator):
         self.output_dofs = output_dofs
         self.rescale = rescale
 
+        self._old_alpha2_mle = 1.0
+
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
             raise ValueError
@@ -73,6 +75,19 @@ class BFEMObservationOperator(FEMObservationOperator):
             assert get_recursive(self.ref_prior.jive_runner.props, keys) is not None
             set_recursive(self.ref_prior.jive_runner.props, keys, x_i)
 
+        if self.rescale == "mle":
+            self.obs_prior.recompute_moments()
+            obsdat = self.obs_prior.globdat
+            u_obs = obsdat["state0"]
+            K_obs = obsdat["matrix0"]
+            n_obs = len(u_obs)
+            alpha2_mle = u_obs @ K_obs @ u_obs / n_obs
+
+            assert self.ref_prior.prior.cov.scale == self._old_alpha2_mle
+            self.ref_prior.prior.cov.scale = alpha2_mle
+            assert self.obs_prior.prior.cov.scale == alpha2_mle
+            self._old_alpha2_mle = alpha2_mle
+
         self.ref_prior.recompute_moments()
         self.obs_prior.recompute_moments()
 
@@ -81,7 +96,7 @@ class BFEMObservationOperator(FEMObservationOperator):
         H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.ref_prior)
         posterior = self.ref_prior.condition_on(H_obs, f_obs)
 
-        if self.rescale:
+        if self.rescale == "eig":
             oldmean = posterior.calc_mean()
             oldcov = posterior.calc_cov()
             l, Q = np.linalg.eigh(oldcov)
@@ -140,6 +155,8 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
         self.output_dofs = output_dofs
         self.rescale = rescale
 
+        self._old_alpha2_mle = 1.0
+
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
             raise ValueError
@@ -155,6 +172,19 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
         self.obs_prior.jive_runner.update_elems(obs_elems)
         self.ref_prior.jive_runner.update_elems(ref_elems)
 
+        if self.rescale == "mle":
+            self.obs_prior.recompute_moments()
+            obsdat = self.obs_prior.globdat
+            u_obs = obsdat["state0"]
+            K_obs = obsdat["matrix0"]
+            n_obs = len(u_obs)
+            alpha2_mle = u_obs @ K_obs @ u_obs / n_obs
+
+            assert self.ref_prior.prior.cov.scale == self._old_alpha2_mle
+            self.ref_prior.prior.cov.scale = alpha2_mle
+            assert self.obs_prior.prior.cov.scale == alpha2_mle
+            self._old_alpha2_mle = alpha2_mle
+
         self.obs_prior.recompute_moments()
         self.ref_prior.recompute_moments()
 
@@ -163,7 +193,7 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
         H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.ref_prior)
         posterior = self.ref_prior.condition_on(H_obs, f_obs)
 
-        if self.rescale:
+        if self.rescale == "eig":
             oldmean = posterior.calc_mean()
             oldcov = posterior.calc_cov()
             l, Q = np.linalg.eigh(oldcov)
