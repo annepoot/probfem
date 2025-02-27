@@ -1,11 +1,9 @@
 import numpy as np
 
 from myjive.names import GlobNames as gn
-from myjive.util.proputils import (
-    set_recursive,
-    get_recursive,
-    split_key,
-)
+from myjive.util.proputils import set_recursive, get_recursive, split_key
+
+from fem.meshing import find_coords_in_nodeset
 
 __all__ = [
     "LinearObservationOperator",
@@ -146,20 +144,15 @@ class RemeshFEMObservationOperator(ObservationOperator):
         assert len(self.output_locations) == len(self.output_dofs)
 
         state0 = globdat["state0"]
-        coords = globdat["nodeSet"].get_coords()
         dofs = globdat["dofSpace"]
 
-        tol = 1e-8
+        inodes = find_coords_in_nodeset(self.output_locations, globdat["nodeSet"])
 
-        for i, (loc, dof) in enumerate(zip(self.output_locations, self.output_dofs)):
-            inodes = np.where(np.all(abs(coords - loc) < tol, axis=1))[0]
-            if len(inodes) == 0:
+        for i, (inode, dof) in enumerate(zip(inodes, self.output_dofs)):
+            if inode is None:
                 output[i] = np.nan
-            elif len(inodes) == 1:
-                inode = inodes[0]
+            else:
                 idof = dofs.get_dof(inode, dof)
                 output[i] = state0[idof]
-            else:
-                assert False
 
         return output
