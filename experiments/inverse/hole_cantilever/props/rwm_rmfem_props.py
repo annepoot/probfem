@@ -9,15 +9,13 @@ def get_rwm_rmfem_target(*, h, h_meas, std_corruption, sigma_e, n_pseudomarginal
         h=h, h_meas=h_meas, std_corruption=std_corruption, sigma_e=sigma_e
     )
 
-    n_meas = int(9 / h_meas) + 1
-
     old_likelihood = target.likelihood
 
     old_operator = old_likelihood.operator
     new_operator = RemeshRMFEMObservationOperator(
         p=1,
         seed=0,
-        omit_nodes=range(0, n_meas),
+        omit_coords=old_operator.output_locations,
         jive_runner=old_operator.jive_runner,
         mesher=old_operator.mesher,
         mesh_props=old_operator.mesh_props,

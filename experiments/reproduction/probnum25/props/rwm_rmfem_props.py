@@ -1,3 +1,5 @@
+import numpy as np
+
 from rmfem import PseudoMarginalLikelihood, RMFEMObservationOperator
 
 from experiments.reproduction.probnum25.props.rwm_fem_props import get_rwm_fem_target
@@ -15,17 +17,14 @@ def get_rwm_rmfem_target(
     )
 
     old_likelihood = target.likelihood
+    old_operator = old_likelihood.operator
 
     assert isinstance(omit_nodes, bool)
     if omit_nodes:
-        n_obs = len(old_likelihood.values)
-        n_elem = len(elems)
-        assert n_elem % (n_obs + 1) == 0
-        omit_nodes_list = [i * n_elem // (n_obs + 1) for i in range(1, n_obs + 1)]
+        omit_coords = old_operator.output_locations
     else:
-        omit_nodes_list = []
+        omit_coords = np.zeros((0, 1))
 
-    old_operator = old_likelihood.operator
     new_operator = RMFEMObservationOperator(
         p=1,
         seed=0,
@@ -35,7 +34,7 @@ def get_rwm_rmfem_target(
         output_variables=old_operator.output_variables,
         output_locations=old_operator.output_locations,
         output_dofs=old_operator.output_dofs,
-        omit_nodes=omit_nodes_list,
+        omit_coords=omit_coords,
     )
     old_likelihood.operator = new_operator
 

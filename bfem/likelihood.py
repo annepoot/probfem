@@ -10,6 +10,7 @@ from probability.observation import ObservationOperator
 from probability.multivariate import GaussianLike, IndependentGaussianSum, Gaussian
 from probability.process import ProjectedPrior
 from bfem.observation import compute_bfem_observations
+from fem.meshing import find_coords_in_nodeset
 
 
 __all__ = ["BFEMLikelihood"]
@@ -26,7 +27,9 @@ class BFEMLikelihood(Likelihood):
 
     def calc_pdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        if np.isnan(np.sum(prediction.calc_mean())):
+        if prediction is None:
+            return -np.inf
+        elif np.isnan(np.sum(prediction.calc_mean())):
             return -np.inf
         else:
             de = (prediction + self.noise).to_gaussian()
@@ -34,7 +37,9 @@ class BFEMLikelihood(Likelihood):
 
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
-        if np.isnan(np.sum(prediction.calc_mean())):
+        if prediction is None:
+            return -np.inf
+        elif np.isnan(np.sum(prediction.calc_mean())):
             return -np.inf
         else:
             de = IndependentGaussianSum(prediction, self.noise)
@@ -109,18 +114,10 @@ class BFEMObservationOperator(FEMObservationOperator):
         n_out = len(self.output_locations)
         assert len(self.output_dofs) == n_out
 
-        idx = np.where(
-            np.sum(
-                np.subtract.outer(self.output_locations, refdat[gn.NSET].get_coords())
-                ** 2,
-                axis=(1, 3),
-            )
-            < 1e-8
-        )
-        assert np.all(idx[0] == np.arange(n_out))
+        inodes = find_coords_in_nodeset(self.output_locations, refdat[gn.NSET])
 
         mapper = np.zeros((n_out, refdat[gn.DOFSPACE].dof_count()))
-        for i, (inode, dof) in enumerate(zip(idx[1], self.output_dofs)):
+        for i, (inode, dof) in enumerate(zip(inodes, self.output_dofs)):
             idof = refdat[gn.DOFSPACE].get_dof(inode, dof)
             mapper[i, idof] = 1.0
 
@@ -169,6 +166,12 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
         obs_nodes, obs_elems = meshes[0]
         ref_nodes, ref_elems = meshes[1]
 
+        inodes = find_coords_in_nodeset(self.output_locations, ref_nodes)
+
+        if None in inodes:
+            # invalid mesh, return None and catch in BFEMLikelihood
+            return None
+
         self.obs_prior.jive_runner.update_elems(obs_elems)
         self.ref_prior.jive_runner.update_elems(ref_elems)
 
@@ -205,26 +208,16 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
 
         n_out = len(self.output_locations)
         assert len(self.output_dofs) == n_out
-        ref_coords = refdat[gn.NSET].get_coords()
         ref_dofs = refdat[gn.DOFSPACE]
 
-        tol = 1e-8
-
         mapper = np.zeros((n_out, ref_dofs.dof_count()))
+        for i, (inode, dof) in enumerate(zip(inodes, self.output_dofs)):
+            idof = ref_dofs.get_dof(inode, dof)
 
-        for i, (loc, dof) in enumerate(zip(self.output_locations, self.output_dofs)):
-            inodes = np.where(np.all(abs(ref_coords - loc) < tol, axis=1))[0]
-            if len(inodes) == 0:
-                warn("Observation location not found. Getting closest node instead")
-                inode = np.argmin(np.sum((ref_coords - loc) ** 2, axis=1))
-                idof = ref_dofs.get_dof(inode, dof)
-                mapper[i, idof] = np.nan
-            elif len(inodes) == 1:
-                inode = inodes[0]
-                idof = ref_dofs.get_dof(inode, dof)
-                mapper[i, idof] = 1.0
+            if inode is None:
+                raise RuntimeError("Observation node not found")
             else:
-                assert False
+                mapper[i, idof] = 1.0
 
         mapper = csr_array(mapper)
 

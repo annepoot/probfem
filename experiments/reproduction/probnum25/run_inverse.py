@@ -154,10 +154,14 @@ for fem_type in ["fem", "fem-2d", "rmfem", "rmfem-omit", "rmfem-2d"]:
             start_value=start_value,
             seed=0,
             recompute_logpdf=recompute_logpdf,
+            return_info=True,
         )
-        samples = mcmc()
+        samples, info = mcmc()
 
         df = pd.DataFrame(samples, columns=["xi_1", "xi_2", "xi_3", "xi_4"])
+
+        for header, data in info.items():
+            df[header] = data
 
         df["sample"] = df.index
         df["n_elem"] = n_elem
