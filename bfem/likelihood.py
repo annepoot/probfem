@@ -39,8 +39,6 @@ class BFEMLikelihood(Likelihood):
         prediction = self.operator.calc_prediction(x)
         if prediction is None:
             return -np.inf
-        elif np.isnan(np.sum(prediction.calc_mean())):
-            return -np.inf
         else:
             de = IndependentGaussianSum(prediction, self.noise)
             return de.calc_logpdf(self.values)

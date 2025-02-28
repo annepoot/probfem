@@ -71,7 +71,7 @@ class MCMCRunner:
             self.proposal.update_mean(xi)
             xi_prop = self.proposal.calc_sample(self._rng)
 
-            if self.tempering is not None and i % self.tune_interval == 0:
+            if self.tempering is not None:
                 old_temp = temp
                 temp = self.tempering(i)
                 self.target.set_temperature(temp)

@@ -1,5 +1,3 @@
-from copy import deepcopy
-
 from probability.process import (
     GaussianProcess,
     InverseCovarianceOperator,
@@ -8,7 +6,7 @@ from probability.process import (
 from bfem.likelihood import BFEMLikelihood, RemeshBFEMObservationOperator
 from fem.jive import CJiveRunner
 
-from experiments.inverse.hole_cantilever.props import get_fem_props, get_rwm_fem_target
+from experiments.inverse.three_point_hole.props import get_fem_props, get_rwm_fem_target
 
 __all__ = ["get_rwm_bfem_target"]
 

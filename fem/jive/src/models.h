@@ -11,7 +11,7 @@ void  declareModels();
 void  declareDirichletModel();
 void  declareElasticModel();
 // void  declareLoadDispModel();
-// void  declareNeumannModel();
+void  declareNeumannModel();
 // void  declareSolidModel();
 
 #endif
