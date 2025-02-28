@@ -12,7 +12,7 @@ void declareModels ()
   declareDirichletModel();
   declareElasticModel();
 //  declareLoadDispModel();
-//  declareNeumannModel();
+  declareNeumannModel();
 //  declareSolidModel();
 }
 

@@ -3,7 +3,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from probability.sampling import MCMCRunner
-from experiments.inverse.hole_cantilever.props import (
+from experiments.inverse.cantilever_hole.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
     get_rwm_rmfem_target,
@@ -22,7 +22,7 @@ n_sample = 20000
 tempering = linear_tempering
 
 std_corruption_range = [1e-5]
-h_range = [0.2, 0.1, 0.05, 0.02]
+h_range = [0.2, 0.1, 0.05]
 h_meas = 1.0
 
 write_output = True

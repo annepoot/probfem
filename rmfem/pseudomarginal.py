@@ -87,13 +87,18 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
             assert var in self.mesh_props
             self.mesh_props[var] = x_i
 
-        self.nodes, self.elems = self.mesher(**self.mesh_props)[0]
+        self.nodes, self.elems = self.mesher(**self.mesh_props)
 
         self._patches = get_patches_around_nodes(self.elems)
         self._ref_coords = np.copy(self.nodes.get_coords())
         self._ref_elem_sizes = calc_elem_sizes(self.elems)
         self._boundary = calc_boundary_nodes(self.elems)
-        omit_nodes = find_coords_in_nodeset(self.omit_coords, self.nodes)
+
+        if self.mandatory_coords is None:
+            omit_nodes = find_coords_in_nodeset(self.omit_coords, self.nodes)
+        else:
+            omit_coords = np.concatenate([self.omit_coords, self.mandatory_coords])
+            omit_nodes = find_coords_in_nodeset(omit_coords, self.nodes)
 
         if None in omit_nodes:
             self._invalid_mesh = True

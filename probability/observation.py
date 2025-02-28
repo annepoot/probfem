@@ -119,6 +119,7 @@ class RemeshFEMObservationOperator(ObservationOperator):
         input_variables,
         output_locations,
         output_dofs,
+        mandatory_coords=None,
     ):
         self.jive_runner = jive_runner
         self.mesher = mesher
@@ -126,6 +127,7 @@ class RemeshFEMObservationOperator(ObservationOperator):
         self.input_variables = input_variables
         self.output_locations = output_locations
         self.output_dofs = output_dofs
+        self.mandatory_coords = mandatory_coords
 
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
@@ -135,7 +137,13 @@ class RemeshFEMObservationOperator(ObservationOperator):
             assert var in self.mesh_props
             self.mesh_props[var] = x_i
 
-        nodes, elems = self.mesher(**self.mesh_props)[0]
+        nodes, elems = self.mesher(**self.mesh_props)
+
+        # check for invalid mesh
+        if self.mandatory_coords is not None:
+            if None in find_coords_in_nodeset(self.mandatory_coords, nodes):
+                return np.full(self.output_locations.shape[0], np.nan)
+
         self.jive_runner.update_elems(elems)
 
         globdat = self.jive_runner()

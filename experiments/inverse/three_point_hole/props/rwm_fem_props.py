@@ -11,8 +11,8 @@ from probability import (
 from fem.jive import CJiveRunner
 from util.io import read_csv_from
 
-from experiments.inverse.hole_cantilever.meshing import create_mesh
-from experiments.inverse.hole_cantilever.props import get_fem_props
+from experiments.inverse.three_point_hole.meshing import create_mesh
+from experiments.inverse.three_point_hole.props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
 
@@ -36,23 +36,24 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
 
     mesh_props = {
         "h": h,
-        "L": 4,
-        "H": 1,
-        "x": 2,
+        "L": 5.0,
+        "H": 1.0,
+        "U": 0.5,
+        "x": 2.5,
         "y": 0.5,
-        "a": 0.4,
+        "a": 0.5,
         "theta": 0.0,
-        "r_rel": 0.0,
+        "r_rel": 0.25,
         "h_meas": h_meas,
     }
 
-    nodes, elems = create_mesh(**mesh_props)[0]
+    nodes, elems = create_mesh(**mesh_props)
 
     jive = CJiveRunner(props=fem_props, elems=elems)
 
     target = TemperedPosterior(
         prior=IndependentJoint(
-            Uniform(0.5, 3.5),
+            Uniform(0.0, 2.5),
             Uniform(0.0, 1.0),
             Uniform(0.0, 0.5),
             Uniform(0.0, 2 * np.pi),
@@ -66,6 +67,19 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
                 input_variables=["x", "y", "a", "theta", "r_rel"],
                 output_locations=obs_locs,
                 output_dofs=obs_dofs,
+                mandatory_coords=np.array(
+                    [
+                        [0.4, 0.0],
+                        [0.5, -0.1],
+                        [0.6, 0.0],
+                        [2.4, 1.0],
+                        [2.5, 1.1],
+                        [2.6, 1.0],
+                        [4.4, 0.0],
+                        [4.5, -0.1],
+                        [4.6, 0.0],
+                    ]
+                ),
             ),
             values=obs_values,
             noise=IsotropicGaussian(mean=None, std=sigma_e, size=n_obs),

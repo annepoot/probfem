@@ -49,7 +49,11 @@ def create_mesh(*, h, L, H, x, y, a, theta, r_rel, h_meas, n_refine=0, tol=1e-8)
 
     gmsh.model.mesh.generate(2)
     nodes, elems = get_nodes_and_elems(gmsh)
-    output = ((nodes, elems),)
+
+    if n_refine > 0:
+        output = ((nodes, elems),)
+    else:
+        output = (nodes, elems)
 
     # Refine the mesh n times
     for i in range(n_refine):

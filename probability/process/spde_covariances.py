@@ -104,6 +104,8 @@ class ProjectedPrior(Gaussian):
 
     def recompute_moments(self):
         self.globdat = self.jive_runner()
+        K = self.globdat["matrix0"]
+        self.globdat["matrix0"] = 0.5 * (K + K.T)
         mean = self._compute_mean(self.globdat)
         cov = self._compute_covariance(self.globdat)
 

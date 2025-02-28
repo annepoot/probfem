@@ -112,6 +112,7 @@ class TemperedPosterior(Distribution):
         assert isinstance(likelihood, Likelihood)
         self.prior = prior
         self.likelihood = likelihood
+        self.set_temperature(1.0)
 
     def __len__(self):
         return len(self.prior)
