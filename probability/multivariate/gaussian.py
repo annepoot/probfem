@@ -3,6 +3,7 @@ from scipy.sparse import issparse, eye_array
 from scipy.sparse.linalg import spsolve
 from scipy.stats import multivariate_normal
 from warnings import warn
+import sksparse.cholmod as cm
 
 from util.linalg import Matrix, MatMulChain
 from ..distribution import MultivariateDistribution
@@ -400,67 +401,45 @@ class IndependentGaussianSum(GaussianLike):
         return samples
 
     def calc_logpdet(self):
-        assert len(self.gaussians) == 2
-        base = self.gaussians[0]
-        noise = self.gaussians[1]
-
-        assert isinstance(base, ScaledGaussian)
-        assert isinstance(base.latent, ConditionedGaussian)
-
-        scale = base.scale
-        posterior = base.latent
-        Sigma = posterior.prior.cov.expr
-        linop = posterior.linop
-
-        assert noise.cov.expr.is_diagonal
-        eI = noise.cov.expr
-
-        assert isinstance(Sigma, MatMulChain)
-        assert len(Sigma) == 1
-        downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
-        downdate.simplify()
-
-        A_prior_At = scale @ Sigma @ scale.T
-        A_downdate_At = scale @ downdate @ scale.T
-
-        A_prior_At.evaluate()
-        A_downdate_At.evaluate()
-
-        full_cov = (A_prior_At.evaluate() - A_downdate_At.evaluate()) + eI.evaluate()
-
-        slogdet = np.linalg.slogdet(full_cov)
-        assert slogdet[0] == 1.0
-
-        return slogdet[1]
+        l, Q = self._calc_eigh()
+        return np.sum(np.log(l))
 
     def calc_mahal_squared(self, x):
-        assert len(self.gaussians) == 2
-        base = self.gaussians[0]
-        noise = self.gaussians[1]
-
-        assert isinstance(base, ScaledGaussian)
-        assert isinstance(base.latent, ConditionedGaussian)
-
-        scale = base.scale
-        posterior = base.latent
-        Sigma = posterior.prior.cov.expr
-        linop = posterior.linop
-
-        assert noise.cov.expr.is_diagonal
-        eI = noise.cov.expr
-
-        assert isinstance(Sigma, MatMulChain)
-        assert len(Sigma) == 1
-        downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
-        downdate.simplify()
-
-        A_prior_At = scale @ Sigma @ scale.T
-        A_downdate_At = scale @ downdate @ scale.T
-
-        A_prior_At.evaluate()
-        A_downdate_At.evaluate()
-
-        full_cov = (A_prior_At.evaluate() - A_downdate_At.evaluate()) + eI.evaluate()
-
+        l, Q = self._calc_eigh()
         d = self.calc_mean() - x
-        return d @ np.linalg.solve(full_cov, d)
+        d_eigh = Q.T @ d
+        return d_eigh @ (d_eigh / l)
+
+    def _calc_eigh(self):
+        if not hasattr(self, "_eigh"):
+            assert len(self.gaussians) == 2
+            base = self.gaussians[0]
+            noise = self.gaussians[1]
+
+            assert isinstance(base, ScaledGaussian)
+            assert isinstance(base.latent, ConditionedGaussian)
+
+            scale = base.scale
+            posterior = base.latent
+            Sigma = posterior.prior.cov.expr
+            linop = posterior.linop
+
+            assert noise.cov.expr.is_diagonal
+            eI = noise.cov.expr
+
+            assert isinstance(Sigma, MatMulChain)
+            assert len(Sigma) == 1
+            downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
+            downdate.simplify()
+
+            A_prior_At = scale @ Sigma @ scale.T
+            A_downdate_At = scale @ downdate @ scale.T
+
+            A_prior_At.evaluate()
+            A_downdate_At.evaluate()
+
+            full_cov = A_prior_At.evaluate() - A_downdate_At.evaluate() + eI.evaluate()
+
+            self._eigh = np.linalg.eigh(full_cov)
+
+        return self._eigh
