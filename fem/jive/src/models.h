@@ -13,6 +13,7 @@ void  declareElasticModel();
 // void  declareLoadDispModel();
 void  declareNeumannModel();
 // void  declareSolidModel();
+void  declareSpringModel();
 
 #endif
 

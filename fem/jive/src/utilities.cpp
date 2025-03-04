@@ -156,7 +156,7 @@ void                  get1DShapeFuncs
   ( const Matrix&       sfuncs,
     const Vector&       n )
 {
-  sfuncs(0,0) = n[0];
+  sfuncs(0,ALL) = n;
 }
 
 // --------------------------------------------------------------------
