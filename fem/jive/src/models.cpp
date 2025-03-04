@@ -14,6 +14,7 @@ void declareModels ()
 //  declareLoadDispModel();
   declareNeumannModel();
 //  declareSolidModel();
+  declareSpringModel();
 }
 
 

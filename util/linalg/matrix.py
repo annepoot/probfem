@@ -130,7 +130,11 @@ class Matrix:
                         return factor.solve_A(other)
                 else:
                     array = self.inv.evaluate()
-                    return np.linalg.solve(array, other)
+                    if issparse(other):
+                        return np.linalg.solve(array, other.toarray())
+                    else:
+                        return np.linalg.solve(array, other)
+
             else:
                 return self.evaluate() @ other
 

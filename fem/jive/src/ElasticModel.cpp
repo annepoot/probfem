@@ -168,6 +168,7 @@ ElasticModel::ElasticModel
 
   material_->createIntPoints ( allIpCoords );
 
+  getShapeFuncs_ = getShapeFuncsFunc ( rank_ );
   getShapeGrads_ = getShapeGradsFunc ( rank_ );
 
   // In 2D, get the thickness (optionally)
@@ -257,7 +258,7 @@ bool ElasticModel::takeAction
     params.get ( mbuilder, ActionParams::MATRIX2 );
     globdat.set ( ActionParams::MATRIX2, mbuilder );
 
-    getMatrix2_( *mbuilder );
+    getMatrix2_( mbuilder );
 
     return true;
   }
@@ -374,7 +375,7 @@ void ElasticModel::getMatrix_
 
 void ElasticModel::getMatrix2_
 
-    ( MatrixBuilder&          mbuilder )
+    ( Ref<MatrixBuilder> mbuilder )
 {
   Matrix      coords     ( rank_, nodeCount_ );
   Matrix      elemMat    ( dofCount_, dofCount_ );
@@ -392,7 +393,7 @@ void ElasticModel::getMatrix2_
 
   MChain3     mc3;
 
-  double      rho = 0.0024;
+  double      rho = 1.;
 
   R = 0.0;
 
@@ -425,7 +426,7 @@ void ElasticModel::getMatrix2_
     }
 
     // Add the element secant matrix to the global stiffness matrix.
-    mbuilder.addBlock ( idofs, idofs, elemMat );
+    mbuilder->addBlock ( idofs, idofs, elemMat );
   }
 }
 
