@@ -181,10 +181,13 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
             n_obs = len(u_obs)
             alpha2_mle = u_obs @ K_obs @ u_obs / n_obs
 
-            assert self.ref_prior.prior.cov.scale == self._old_alpha2_mle
-            self.ref_prior.prior.cov.scale = alpha2_mle
-            assert self.obs_prior.prior.cov.scale == alpha2_mle
-            self._old_alpha2_mle = alpha2_mle
+            if alpha2_mle == 0.0:
+                warn("MLE produces scaling factor 0.\nNot setting scale.")
+            else:
+                assert self.ref_prior.prior.cov.scale == self._old_alpha2_mle
+                self.ref_prior.prior.cov.scale = alpha2_mle
+                assert self.obs_prior.prior.cov.scale == alpha2_mle
+                self._old_alpha2_mle = alpha2_mle
 
         self.obs_prior.recompute_moments()
         self.ref_prior.recompute_moments()

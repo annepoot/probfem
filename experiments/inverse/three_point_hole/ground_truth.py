@@ -6,7 +6,7 @@ from fem.meshing import find_coords_in_nodeset
 from experiments.inverse.three_point_hole.meshing import create_mesh
 from experiments.inverse.three_point_hole.props import get_fem_props
 
-h = 0.005
+h = 0.002
 L = 5.0
 H = 1.0
 U = 0.5
