@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from copy import deepcopy
 from datetime import datetime
@@ -100,7 +101,7 @@ for fem_type in ["fem", "bfem", "rmfem"]:
             proposal = deepcopy(target.prior)
             for dist in proposal.distributions:
                 dist.update_width(0.1 * dist.calc_width())
-            start_value = target.prior.calc_mean()
+            start_value = np.array([1.0, 0.4, 0.4, np.pi / 6, 0.25])
             mcmc = MCMCRunner(
                 target=target,
                 proposal=proposal,
