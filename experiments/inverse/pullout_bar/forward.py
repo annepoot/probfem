@@ -30,8 +30,9 @@ def u_exact(x):
     f = props["model"]["model"]["neum"]["initLoad"]
 
     nu = np.sqrt(k / E)
+    eps = f / E
 
-    A = f / (nu * (np.exp(nu) - np.exp(-nu)))
+    A = eps / (nu * (np.exp(nu) - np.exp(-nu)))
 
     return A * (np.exp(nu * x) + np.exp(-nu * x))
 

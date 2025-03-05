@@ -8,15 +8,8 @@ from util.io import read_csv_from
 
 variables = ["E", "k"]
 refs_by_var = {
-    "E": 1.0,
-    "k": 100.0,
-}
-
-plims_by_fem_type = {
-    "fem": 150,
-    "rmfem": 25,
-    "bfem": 25,
-    "statfem": 25,
+    "E": 1.2,
+    "k": 110.0,
 }
 
 

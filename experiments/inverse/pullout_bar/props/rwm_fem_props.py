@@ -19,8 +19,9 @@ def get_rwm_fem_target(*, elems, std_corruption, sigma_e):
     E = fem_props["model"]["model"]["elastic"]["material"]["E"]
     f = fem_props["model"]["model"]["neum"]["initLoad"]
     nu = np.sqrt(k / E)
+    eps = f / E
 
-    u_exact = f * (np.exp(nu) + np.exp(-nu)) / (nu * (np.exp(nu) - np.exp(-nu)))
+    u_exact = eps * (np.exp(nu) + np.exp(-nu)) / (nu * (np.exp(nu) - np.exp(-nu)))
     ground_truth = u_exact
 
     # generate repeated noisy observations
