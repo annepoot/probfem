@@ -42,7 +42,7 @@ N_elem_range = [1, 2, 4, 8, 16, 32, 64]
 plt.rc("text", usetex=True)  # use latex for text
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 
-for fem_type in ["fem", "rmfem"]:
+for fem_type in ["fem", "bfem", "rmfem"]:
     fname = os.path.join("..", "samples-{}.csv".format(fem_type))
     df = read_csv_from(fname, "E,k")
     df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]

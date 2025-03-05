@@ -33,8 +33,8 @@ def get_rwm_fem_target(*, elems, std_corruption, sigma_e):
 
     target = TemperedPosterior(
         prior=IndependentJoint(
-            LogGaussian(np.log(E), 0.1, allow_logscale_access=True),
-            LogGaussian(np.log(k), 0.1, allow_logscale_access=True),
+            LogGaussian(np.log(1.0), 0.1, allow_logscale_access=True),
+            LogGaussian(np.log(100.0), 0.1, allow_logscale_access=True),
         ),
         likelihood=Likelihood(
             operator=FEMObservationOperator(
