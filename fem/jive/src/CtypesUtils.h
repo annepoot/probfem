@@ -64,7 +64,8 @@ struct GLOBDAT {
 
 void globdatToCtypes
 	( GLOBDAT& iodat,
-	  Properties globdat );
+	  Properties globdat,
+	  long flags );
 
 #ifdef __cplusplus
 }

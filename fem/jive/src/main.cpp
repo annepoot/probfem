@@ -128,9 +128,7 @@ Ref<Module> mainModule ()
 extern "C" {
 #endif
 
-void runFromFile
-	( GLOBDAT& iodat,
-	  char* fname )
+void runFromFile ( GLOBDAT& iodat, char* fname, long flags )
 {
   int argc = 2;
   char *argv[] = { (char*)"name", fname, NULL };
@@ -142,12 +140,10 @@ void runFromFile
 
   ExposedApplication::exec ( argc, argv, & mainModule, globdat );
 
-  globdatToCtypes( iodat, globdat );
+  globdatToCtypes( iodat, globdat, flags );
 }
 
-void runFromProps
-	( GLOBDAT& iodat,
-	  char* strProps )
+void runFromProps ( GLOBDAT& iodat, char* strProps, long flags )
 {
   Ref<Tokenizer>  tokenizer = newInstance<Tokenizer> ( strProps );
 
@@ -162,7 +158,7 @@ void runFromProps
 
   ExposedApplication::execProps ( props, & mainModule, globdat );
 
-  globdatToCtypes( iodat, globdat );
+  globdatToCtypes( iodat, globdat, flags );
 }
 
 int run ( char* fname )

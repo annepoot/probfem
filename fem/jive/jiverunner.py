@@ -54,13 +54,34 @@ class CJiveRunner:
 
             self.update_elems(elems)
 
-    def __call__(self):
+    def __call__(self, *flags):
+        flags = list(flags)
+
+        if len(flags) == 0:
+            flags = [
+                "nodeSet",
+                "elementSet",
+                "dofSpace",
+                "state0",
+                "extForce",
+                "intForce",
+                "matrix0",
+                "constraints",
+                "shape",
+            ]
+        else:
+            if self.elems is not None:
+                if "elementSet" not in flags:
+                    flags.append("elementSet")
+                if "nodeSet" not in flags:
+                    flags.append("nodeSet")
 
         buffers = ctutil.initialize_buffers(
             node_count=self.node_count,
             elem_count=self.elem_count,
             rank=self.rank,
             max_elem_node_count=self.max_elem_node_count,
+            flags=flags,
         )
 
         if self.elems is not None:
@@ -70,6 +91,7 @@ class CJiveRunner:
             buffers["nodeSet"] = ctutil.to_buffer(self.elems.get_nodes())
 
         ct_globdat = ctutil.buffers_as_ctypes(buffers)
+        ct_flags = ct.c_long(ctutil.pack_output_flags(*flags))
 
         loader = ct.LibraryLoader(ct.CDLL)
         abspath = os.path.abspath(os.path.join(__file__, "..", "src", "liblinear.so"))
@@ -82,18 +104,26 @@ class CJiveRunner:
             str_props = props_to_string(self.props).encode()
 
             runFromProps = liblinear.runFromProps
-            runFromProps.argtypes = (ct.POINTER(ctutil.GLOBDAT), ct.POINTER(ct.c_char))
-            runFromProps(ct.byref(ct_globdat), str_props)
+            runFromProps.argtypes = (
+                ct.POINTER(ctutil.GLOBDAT),
+                ct.POINTER(ct.c_char),
+                ct.c_long,
+            )
+            runFromProps(ct.byref(ct_globdat), str_props, ct_flags)
 
         else:
             # get the props from a file
             fname = self.props.encode()
 
             runFromFile = liblinear.runFromFile
-            runFromFile.argtypes = (ct.POINTER(ctutil.GLOBDAT), ct.POINTER(ct.c_char))
-            runFromFile(ct.byref(ct_globdat), fname)
+            runFromFile.argtypes = (
+                ct.POINTER(ctutil.GLOBDAT),
+                ct.POINTER(ct.c_char),
+                ct.c_long,
+            )
+            runFromFile(ct.byref(ct_globdat), fname, ct_flags)
 
-        np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat)
+        np_globdat = ctutil.ctypes_globdat_to_numpy(ct_globdat, flags)
 
         return np_globdat
 

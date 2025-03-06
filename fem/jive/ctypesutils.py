@@ -225,87 +225,255 @@ def to_buffer(py_obj):
         assert False
 
 
-def initialize_buffers(*, node_count, elem_count, rank, max_elem_node_count):
+def initialize_buffers(*, node_count, elem_count, rank, max_elem_node_count, flags):
     dof_count = node_count * rank
 
-    nodes_data = np.zeros((node_count, rank), dtype=np.double)
-    elems_data = np.zeros((elem_count, max_elem_node_count), dtype=int)
-    elems_sizes = np.zeros(elem_count, dtype=int)
-    dofs = np.zeros((node_count, rank), dtype=int)
+    if len(flags) == 0:
+        nodes_data = np.zeros((node_count, rank), dtype=np.double)
+        elems_data = np.zeros((elem_count, max_elem_node_count), dtype=int)
+        elems_sizes = np.zeros(elem_count, dtype=int)
+        dofs = np.zeros((node_count, rank), dtype=int)
 
-    state0 = np.zeros(dof_count, dtype=np.double)
-    intForce = np.zeros(dof_count, dtype=np.double)
-    extForce = np.zeros(dof_count, dtype=np.double)
+        state0 = np.zeros(dof_count, dtype=np.double)
+        intForce = np.zeros(dof_count, dtype=np.double)
+        extForce = np.zeros(dof_count, dtype=np.double)
 
-    matrix0_values = np.zeros(dof_count * 20, dtype=np.double)
-    matrix0_indices = np.zeros(dof_count * 20, dtype=int)
-    matrix0_offsets = np.zeros(dof_count + 1, dtype=int)
+        matrix0_values = np.zeros(dof_count * 20, dtype=np.double)
+        matrix0_indices = np.zeros(dof_count * 20, dtype=int)
+        matrix0_offsets = np.zeros(dof_count + 1, dtype=int)
 
-    constraints_dofs = np.zeros(dof_count, dtype=int)
-    constraints_values = np.zeros(dof_count, dtype=np.double)
+        constraints_dofs = np.zeros(dof_count, dtype=int)
+        constraints_values = np.zeros(dof_count, dtype=np.double)
 
-    shape_type = ct.cast(ct.create_string_buffer(64), ct.c_char_p)
-    shape_ischeme = ct.cast(ct.create_string_buffer(64), ct.c_char_p)
+        shape_type = ct.cast(ct.create_string_buffer(64), ct.c_char_p)
+        shape_ischeme = ct.cast(ct.create_string_buffer(64), ct.c_char_p)
 
-    buffers = {
-        "nodeSet": {"data": nodes_data},
-        "elementSet": {"data": elems_data, "sizes": elems_sizes},
-        "dofSpace": {"data": dofs},
-        "state0": state0,
-        "intForce": intForce,
-        "extForce": extForce,
-        "matrix0": {
-            "values": matrix0_values,
-            "indices": matrix0_indices,
-            "offsets": matrix0_offsets,
-        },
-        "constraints": {"dofs": constraints_dofs, "values": constraints_values},
-        "shape": {"type": shape_type, "ischeme": shape_ischeme},
-    }
+        buffers = {
+            "nodeSet": {"data": nodes_data},
+            "elementSet": {"data": elems_data, "sizes": elems_sizes},
+            "dofSpace": {"data": dofs},
+            "state0": state0,
+            "extForce": extForce,
+            "intForce": intForce,
+            "matrix0": {
+                "values": matrix0_values,
+                "indices": matrix0_indices,
+                "offsets": matrix0_offsets,
+            },
+            "constraints": {"dofs": constraints_dofs, "values": constraints_values},
+            "shape": {"type": shape_type, "ischeme": shape_ischeme},
+        }
+
+    else:
+        buffers = {}
+
+        for flag in flags:
+            if flag == "nodeSet":
+                nodes_data = np.zeros((node_count, rank), dtype=np.double)
+                buffers[flag] = {"data": nodes_data}
+
+            elif flag == "elementSet":
+                elems_data = np.zeros((elem_count, max_elem_node_count), dtype=int)
+                elems_sizes = np.zeros(elem_count, dtype=int)
+                buffers[flag] = {"data": elems_data, "sizes": elems_sizes}
+
+            elif flag == "dofSpace":
+                dofs = np.zeros((node_count, rank), dtype=int)
+                buffers[flag] = {"data": dofs}
+
+            elif flag == "state0":
+                state0 = np.zeros(dof_count, dtype=np.double)
+                buffers[flag] = state0
+
+            elif flag == "extForce":
+                extForce = np.zeros(dof_count, dtype=np.double)
+                buffers[flag] = extForce
+
+            elif flag == "intForce":
+                intForce = np.zeros(dof_count, dtype=np.double)
+                buffers[flag] = intForce
+
+            elif flag == "matrix0":
+                matrix0_values = np.zeros(dof_count * 20, dtype=np.double)
+                matrix0_indices = np.zeros(dof_count * 20, dtype=int)
+                matrix0_offsets = np.zeros(dof_count + 1, dtype=int)
+                buffers[flag] = {
+                    "values": matrix0_values,
+                    "indices": matrix0_indices,
+                    "offsets": matrix0_offsets,
+                }
+
+            elif flag == "constraints":
+                constraints_dofs = np.zeros(dof_count, dtype=int)
+                constraints_values = np.zeros(dof_count, dtype=np.double)
+                buffers[flag] = {"dofs": constraints_dofs, "values": constraints_values}
+
+            elif flag == "shape":
+                shape_type = ct.cast(ct.create_string_buffer(64), ct.c_char_p)
+                shape_ischeme = ct.cast(ct.create_string_buffer(64), ct.c_char_p)
+                buffers[flag] = {"type": shape_type, "ischeme": shape_ischeme}
+
+            else:
+                assert False
 
     return buffers
 
 
 def buffers_as_ctypes(buffers):
-    ct_globdat = GLOBDAT(
-        POINTSET_PTR(to_ctypes(buffers["nodeSet"]["data"])),
-        GROUPSET_PTR(
+
+    if "nodeSet" in buffers:
+        nodeset_ptr = POINTSET_PTR(to_ctypes(buffers["nodeSet"]["data"]))
+    else:
+        nodeset_ptr = POINTSET_PTR()
+
+    if "elementSet" in buffers:
+        elementset_ptr = GROUPSET_PTR(
             to_ctypes(buffers["elementSet"]["data"]),
             to_ctypes(buffers["elementSet"]["sizes"]),
-        ),
-        DOFSPACE_PTR(to_ctypes(buffers["dofSpace"]["data"])),
-        to_ctypes(buffers["state0"]),
-        to_ctypes(buffers["intForce"]),
-        to_ctypes(buffers["extForce"]),
-        SPARSE_MAT_PTR(
+        )
+    else:
+        elementset_ptr = GROUPSET_PTR()
+
+    if "dofSpace" in buffers:
+        dofspace_ptr = DOFSPACE_PTR(to_ctypes(buffers["dofSpace"]["data"]))
+    else:
+        dofspace_ptr = DOFSPACE_PTR()
+
+    if "state0" in buffers:
+        state0_ptr = to_ctypes(buffers["state0"])
+    else:
+        state0_ptr = DOUBLE_VEC_PTR()
+
+    if "extForce" in buffers:
+        extforce_ptr = to_ctypes(buffers["extForce"])
+    else:
+        extforce_ptr = DOUBLE_VEC_PTR()
+
+    if "intForce" in buffers:
+        intforce_ptr = to_ctypes(buffers["intForce"])
+    else:
+        intforce_ptr = DOUBLE_VEC_PTR()
+
+    if "matrix0" in buffers:
+        matrix0_ptr = SPARSE_MAT_PTR(
             to_ctypes(buffers["matrix0"]["values"]),
             to_ctypes(buffers["matrix0"]["indices"]),
             to_ctypes(buffers["matrix0"]["offsets"]),
-        ),
-        CONSTRAINTS_PTR(
+        )
+    else:
+        matrix0_ptr = SPARSE_MAT_PTR()
+
+    if "constraints" in buffers:
+        constraints_ptr = CONSTRAINTS_PTR(
             to_ctypes(buffers["constraints"]["dofs"]),
             to_ctypes(buffers["constraints"]["values"]),
-        ),
-        SHAPE_PTR(buffers["shape"]["type"], buffers["shape"]["ischeme"]),
+        )
+    else:
+        constraints_ptr = CONSTRAINTS_PTR()
+
+    if "shape" in buffers:
+        shape_ptr = SHAPE_PTR(buffers["shape"]["type"], buffers["shape"]["ischeme"])
+    else:
+        shape_ptr = SHAPE_PTR()
+
+    ct_globdat = GLOBDAT(
+        nodeset_ptr,
+        elementset_ptr,
+        dofspace_ptr,
+        state0_ptr,
+        extforce_ptr,
+        intforce_ptr,
+        matrix0_ptr,
+        constraints_ptr,
+        shape_ptr,
     )
 
     return ct_globdat
 
 
-def ctypes_globdat_to_numpy(ct_globdat):
-    nodes = to_numpy(ct_globdat.nodeSet)
-    elems = to_numpy(ct_globdat.elementSet, nodes)
+def ctypes_globdat_to_numpy(ct_globdat, flags):
+    if len(flags) == 0:
+        nodes = to_numpy(ct_globdat.nodeSet)
+        elems = to_numpy(ct_globdat.elementSet, nodes)
 
-    np_globdat = {
-        gn.NSET: nodes,
-        gn.ESET: elems,
-        gn.DOFSPACE: to_numpy(ct_globdat.dofSpace),
-        gn.STATE0: to_numpy(ct_globdat.state0),
-        gn.INTFORCE: to_numpy(ct_globdat.intForce),
-        gn.EXTFORCE: to_numpy(ct_globdat.extForce),
-        gn.MATRIX0: to_numpy(ct_globdat.matrix0),
-        gn.CONSTRAINTS: to_numpy(ct_globdat.constraints),
-        gn.SHAPE: to_numpy(ct_globdat.shape),
-    }
+        np_globdat = {
+            gn.NSET: nodes,
+            gn.ESET: elems,
+            gn.DOFSPACE: to_numpy(ct_globdat.dofSpace),
+            gn.STATE0: to_numpy(ct_globdat.state0),
+            gn.EXTFORCE: to_numpy(ct_globdat.extForce),
+            gn.INTFORCE: to_numpy(ct_globdat.intForce),
+            gn.MATRIX0: to_numpy(ct_globdat.matrix0),
+            gn.CONSTRAINTS: to_numpy(ct_globdat.constraints),
+            gn.SHAPE: to_numpy(ct_globdat.shape),
+        }
+
+    else:
+        if "nodeSet" in flags or "elementSet" in flags:
+            nodes = to_numpy(ct_globdat.nodeSet)
+            elems = to_numpy(ct_globdat.elementSet, nodes)
+
+        np_globdat = {}
+
+        for flag in flags:
+            if flag == "nodeSet":
+                np_globdat[gn.NSET] = nodes
+
+            elif flag == "elementSet":
+                np_globdat[gn.ESET] = elems
+
+            elif flag == "dofSpace":
+                np_globdat[gn.DOFSPACE] = to_numpy(ct_globdat.dofSpace)
+
+            elif flag == "state0":
+                np_globdat[gn.STATE0] = to_numpy(ct_globdat.state0)
+
+            elif flag == "extForce":
+                np_globdat[gn.EXTFORCE] = to_numpy(ct_globdat.extForce)
+
+            elif flag == "intForce":
+                np_globdat[gn.INTFORCE] = to_numpy(ct_globdat.intForce)
+
+            elif flag == "matrix0":
+                np_globdat[gn.MATRIX0] = to_numpy(ct_globdat.matrix0)
+
+            elif flag == "constraints":
+                np_globdat[gn.CONSTRAINTS] = to_numpy(ct_globdat.constraints)
+
+            elif flag == "shape":
+                np_globdat[gn.SHAPE] = to_numpy(ct_globdat.shape)
+
+            else:
+                assert False
 
     return np_globdat
+
+
+flag_map = {
+    "nodeSet": 1 << 0,
+    "elementSet": 1 << 1,
+    "dofSpace": 1 << 2,
+    "state0": 1 << 3,
+    "intForce": 1 << 4,
+    "extForce": 1 << 5,
+    "matrix0": 1 << 6,
+    "constraints": 1 << 7,
+    "shape": 1 << 8,
+}
+
+
+def pack_output_flags(*flags):
+    pack = 0
+    for flag in flags:
+        shifted_bit = flag_map.get(flag)
+        assert shifted_bit is not None
+        pack += shifted_bit
+    return pack
+
+
+def unpack_output_flags(pack):
+    flags = []
+    for flag, shifted_bit in flag_map.items():
+        if pack & shifted_bit > 0:
+            flags.append(flag)
+    return flags

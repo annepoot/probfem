@@ -59,7 +59,12 @@ class FEMObservationOperator(ObservationOperator):
             assert get_recursive(self.jive_runner.props, keys) is not None
             set_recursive(self.jive_runner.props, keys, x_i)
 
-        globdat = self.jive_runner()
+        if self.output_type == "nodal":
+            flags = ["dofSpace", "state0"]
+        else:
+            flags = ["nodeSet", "elementSet", "dofSpace", "state0", "shape"]
+
+        globdat = self.jive_runner(*flags)
 
         output = np.zeros(len(self.output_variables))
         assert (
@@ -146,7 +151,7 @@ class RemeshFEMObservationOperator(ObservationOperator):
 
         self.jive_runner.update_elems(elems)
 
-        globdat = self.jive_runner()
+        globdat = self.jive_runner("nodeSet", "dofSpace", "state0")
 
         output = np.zeros(len(self.output_locations))
         assert len(self.output_locations) == len(self.output_dofs)
