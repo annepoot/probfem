@@ -122,7 +122,7 @@ class RemeshRMFEMObservationOperator(RemeshFEMObservationOperator):
             raise ValueError
 
         self.jive_runner.update_elems(self.elems)
-        globdat = self.jive_runner()
+        globdat = self.jive_runner("dofSpace", "state0")
 
         output = np.zeros(len(self.output_locations))
         assert len(self.output_locations) == len(self.output_dofs)
