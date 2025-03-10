@@ -167,8 +167,7 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
         inodes = find_coords_in_nodeset(self.output_locations, ref_nodes)
 
         if None in inodes:
-            # invalid mesh, return None and catch in BFEMLikelihood
-            return None
+            return None  # invalid mesh, catch in BFEMLikelihood
 
         self.obs_prior.jive_runner.update_elems(obs_elems)
         self.ref_prior.jive_runner.update_elems(ref_elems)
@@ -191,6 +190,9 @@ class RemeshBFEMObservationOperator(RemeshFEMObservationOperator):
 
         self.obs_prior.recompute_moments()
         self.ref_prior.recompute_moments()
+
+        if np.all(self.obs_prior.globdat["state0"] == 0.0):
+            return None  # invalid mesh, catch in BFEMLikelihood
 
         refdat = self.ref_prior.globdat
 

@@ -22,19 +22,10 @@ def create_mesh(*, h, L, H, U, x, y, a, theta, r_rel, h_meas, n_refine=0, tol=1e
     points = []
     point_tags_with_dim = []
 
-    # observations at top and bottom edge
-    for x_point in np.linspace(0, L, int(L / h_meas) + 1):
-        for y_point in [0.0, H]:
-            p = occ.addPoint(x_point, y_point, 0.0)
-            points.append(p)
-            point_tags_with_dim.append((0, p))
-
-    # observations at left and right edge
-    for y_point in np.linspace(0, H, int(H / h_meas) + 1)[1:-1]:
-        for x_point in [0.0, L]:
-            p = occ.addPoint(x_point, y_point, 0.0)
-            points.append(p)
-            point_tags_with_dim.append((0, p))
+    for obs_loc in get_observation_locations(L=L, H=H, h_meas=h_meas):
+        p = occ.addPoint(obs_loc[0], obs_loc[1], 0.0)
+        points.append(p)
+        point_tags_with_dim.append((0, p))
 
     # left support
     p = occ.addPoint(U, -h_sup, 0.0)
@@ -137,3 +128,27 @@ def get_nodes_and_elems(gmsh):
     elems.to_elementset()
 
     return nodes, elems
+
+
+def get_observation_locations(*, L, H, h_meas):
+    i = 0
+    n_obs = int(2 * (L + H) / h_meas + 0.5)
+    points = np.zeros((n_obs, 2))
+
+    # observations at top and bottom edge
+    for x_point in np.linspace(0, L, int(L / h_meas) + 1):
+        for y_point in [0.0, H]:
+            points[i, 0] = x_point
+            points[i, 1] = y_point
+            i = i + 1
+
+    # observations at left and right edge
+    for y_point in np.linspace(0, H, int(H / h_meas) + 1)[1:-1]:
+        for x_point in [0.0, L]:
+            points[i, 0] = x_point
+            points[i, 1] = y_point
+            i = i + 1
+
+    assert i == n_obs
+
+    return points
