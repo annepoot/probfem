@@ -41,7 +41,7 @@ labels_by_var = {
 
 width = 0.10
 N_burn = 10000
-N_filter = 20
+N_filter = 50
 h_range = [0.2, 0.1, 0.05]
 
 
@@ -52,12 +52,13 @@ def custom_kde_2d(x, y, *, color, label, **kwargs):
 plt.rc("text", usetex=True)  # use latex for text
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 
-for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
+for fem_type in ["fem", "bfem", "rmfem"]:
     fname = os.path.join("..", "samples-{}.csv".format(fem_type))
     df = read_csv_from(fname, "x,y,a,theta,r_rel")
     df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
     df = df[df["h"].isin(h_range)]
     df["h"] = df["h"].astype(str)
+    df["theta"] = np.fmod(df["theta"], np.pi / 2)
 
     grid = sns.PairGrid(data=df, vars=variables, hue="h", diag_sharey=True, height=1.5)
     grid.map_upper(sns.scatterplot, alpha=0.5, marker=".", linewidths=0.0)

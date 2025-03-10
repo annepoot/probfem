@@ -22,9 +22,9 @@ n_burn = 10000
 n_sample = 20000
 tempering = linear_tempering
 
-std_corruption_range = [1e-5]
+std_corruption_range = [1e-4]
 h_range = [0.2, 0.1, 0.05]
-h_meas = 0.2
+h_meas = 0.5
 
 write_output = True
 
@@ -101,6 +101,9 @@ for fem_type in ["fem", "bfem", "rmfem"]:
             proposal = deepcopy(target.prior)
             for dist in proposal.distributions:
                 dist.update_width(0.1 * dist.calc_width())
+            x_prop = proposal.distributions[0]
+            y_prop = proposal.distributions[1]
+            x_prop.update_width(y_prop.calc_width())
             start_value = np.array([1.0, 0.4, 0.4, np.pi / 6, 0.25])
             mcmc = MCMCRunner(
                 target=target,

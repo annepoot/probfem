@@ -11,7 +11,10 @@ from probability import (
 from fem.jive import CJiveRunner
 from util.io import read_csv_from
 
-from experiments.inverse.three_point_hole.meshing import create_mesh
+from experiments.inverse.three_point_hole.meshing import (
+    create_mesh,
+    get_observation_locations,
+)
 from experiments.inverse.three_point_hole.props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
@@ -20,8 +23,16 @@ __all__ = ["get_rwm_fem_target"]
 def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
     fem_props = get_fem_props()
 
+    obs_locs = get_observation_locations(L=5.0, H=1.0, h_meas=h_meas)
+
+    def is_in_obs_locs(row):
+        return np.any(np.all(np.isclose(row, obs_locs), axis=1))
+
     # ground truth
     df = read_csv_from("ground-truth.csv", "loc_x,loc_y,inode,dof_idx,dof_type")
+    df = df[df[["loc_x", "loc_y"]].apply(is_in_obs_locs, axis=1)]
+    assert len(df) == int(24 / h_meas + 0.5)
+
     ground_locs = df[["loc_x", "loc_y"]].to_numpy()
     ground_dofs = df["dof_type"].to_numpy()
     ground_truth = df["value"].to_numpy()

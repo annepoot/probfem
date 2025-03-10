@@ -57,13 +57,14 @@ def get_fem_props():
             "type": "Matrix",
             "model": {
                 "type": "Multi",
-                "models": ["elastic", "leftsup", "midsup", "rightsup", "diri", "neum"],
+                "models": ["elastic", "leftsup", "midsup", "rightsup", "diri"],
                 "diri": {
                     "type": "Dirichlet",
-                    "initDisp": 0.0,
+                    "initDisp": -0.01,
                     "dispIncr": 0.0,
-                    "nodeGroups": ["leftpoint", "leftpoint", "rightpoint"],
-                    "dofs": ["dx", "dy", "dy"],
+                    "nodeGroups": ["leftpoint", "leftpoint", "midpoint", "rightpoint"],
+                    "dofs": ["dx", "dy", "dy", "dy"],
+                    "factors": [0.0, 0.0, 1.0, 0.0],
                 },
                 "elastic": {
                     "type": "Elastic",
@@ -124,14 +125,6 @@ def get_fem_props():
                         "type": "Triangle3",
                         "intScheme": "Gauss3",
                     },
-                },
-                "neum": {
-                    "type": "Neumann",
-                    "initLoad": -0.5,
-                    "loadIncr": 0.0,
-                    "nodeGroups": ["midpoint"],
-                    "dofs": ["dy"],
-                    "factors": [1.0],
                 },
             },
         },
