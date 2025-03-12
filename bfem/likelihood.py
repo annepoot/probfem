@@ -25,16 +25,6 @@ class BFEMLikelihood(Likelihood):
         assert isinstance(noise, GaussianLike)
         self.noise = noise
 
-    def calc_pdf(self, x):
-        prediction = self.operator.calc_prediction(x)
-        if prediction is None:
-            return -np.inf
-        elif np.isnan(np.sum(prediction.calc_mean())):
-            return -np.inf
-        else:
-            de = (prediction + self.noise).to_gaussian()
-            return de.calc_pdf(self.values)
-
     def calc_logpdf(self, x):
         prediction = self.operator.calc_prediction(x)
         if prediction is None:
