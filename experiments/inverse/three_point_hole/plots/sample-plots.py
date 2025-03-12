@@ -34,7 +34,7 @@ N_end = 20000
 
 std_corruption = 1e-4
 
-for fem_type in ["fem", "bfem", "rmfem"]:
+for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
     fname = "../samples-{}.csv".format(fem_type)
 

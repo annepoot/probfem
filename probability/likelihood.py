@@ -29,12 +29,7 @@ class Likelihood(Distribution):
         self.noise = noise
 
     def calc_pdf(self, x):
-        prediction = self.operator.calc_prediction(x)
-        if np.isnan(np.sum(prediction)):
-            return -np.inf
-        else:
-            self.noise.update_mean(prediction)
-            return self.noise.calc_pdf(self.values)
+        return np.exp(self.calc_logpdf(x))
 
     def calc_logpdf(self, x):
         try:
@@ -55,17 +50,6 @@ class ParametrizedLikelihood(Likelihood):
         assert isinstance(likelihood, Likelihood)
         self.likelihood = likelihood
         self.hyperparameters = hyperparameters
-
-    def calc_pdf(self, x):
-        # split off hyperparameters from the back, and update them
-        nhyp = len(self.hyperparameters)
-        x_param, x_hyper = x[:-nhyp], x[-nhyp:]
-        for key, value in zip(self.hyperparameters, x_hyper):
-            keys = split_key(key)
-            assert get_attr_recursive(self, keys) is not None
-            set_or_call_attr_recursive(self.likelihood, keys, value)
-
-        return self.likelihood.calc_pdf(x_param)
 
     def calc_logpdf(self, x):
         # split off hyperparameters from the back, and update them
@@ -89,14 +73,6 @@ class ProportionalPosterior(Distribution):
     def __len__(self):
         return len(self.prior)
 
-    def calc_pdf(self, x):
-        prior_pdf = self.prior.calc_pdf(x)
-        if prior_pdf == 0.0:
-            return 0.0
-        else:
-            likelihood_pdf = self.likelihood.calc_pdf(x)
-            return prior_pdf * likelihood_pdf
-
     def calc_logpdf(self, x):
         prior_logpdf = self.prior.calc_logpdf(x)
         if prior_logpdf < 0.0 and np.isinf(prior_logpdf):
@@ -119,14 +95,6 @@ class TemperedPosterior(Distribution):
 
     def set_temperature(self, temp):
         self._temp = temp
-
-    def calc_pdf(self, x):
-        prior_pdf = self.prior.calc_pdf(x)
-        if prior_pdf == 0.0:
-            return 0.0
-        else:
-            likelihood_pdf = self.likelihood.calc_pdf(x)
-            return prior_pdf * likelihood_pdf**self._temp
 
     def calc_logpdf(self, x):
         prior_logpdf = self.prior.calc_logpdf(x)

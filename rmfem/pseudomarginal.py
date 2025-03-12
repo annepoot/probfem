@@ -174,19 +174,6 @@ class PseudoMarginalLikelihood(Likelihood):
         self.likelihood = likelihood
         self.n_sample = n_sample
 
-    def calc_pdf(self, x):
-        pdfs = np.zeros(self.n_sample)
-        operator = self.likelihood.operator
-
-        if isinstance(operator, RemeshRMFEMObservationOperator):
-            operator.restore_ref(x)
-
-        for i in range(self.n_sample):
-            self.likelihood.operator.perturb_nodes()
-            pdfs[i] = self.likelihood.calc_pdf(x)
-
-        return np.mean(pdfs)
-
     def calc_logpdf(self, x):
         logpdfs = np.zeros(self.n_sample)
         operator = self.likelihood.operator

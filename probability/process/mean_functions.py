@@ -10,7 +10,7 @@ class MeanFunction:
 
 class ZeroMeanFunction(MeanFunction):
     def calc_mean(self, x):
-        return np.zeros(len(x))
+        return np.zeros(x.shape[0])
 
 
 class MeanFunctionSum(MeanFunction):

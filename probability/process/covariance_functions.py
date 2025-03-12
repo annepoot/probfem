@@ -20,14 +20,21 @@ class SquaredExponential(CovarianceFunction):
 
     def calc_cov(self, x1, x2):
         if np.isscalar(x1):
+            x1 = np.array([[x1]])
+        elif len(x1.shape) == 1:
             x1 = np.array([x1])
+
         if np.isscalar(x2):
+            x2 = np.array([[x2]])
+        elif len(x2.shape) == 1:
             x2 = np.array([x2])
 
-        X1 = np.tile(x1, (len(x2), 1))
-        X2 = np.tile(x2, (len(x1), 1)).T
+        dist = np.zeros((x1.shape[0], x2.shape[0]))
+        assert x1.shape[1] == x2.shape[1]
 
-        dist = (X1 - X2) ** 2
+        for dim in range(x1.shape[1]):
+            dist += np.subtract.outer(x1[:, dim], x2[:, dim]) ** 2
+
         return self.sigma**2 * np.exp(-0.5 * dist / self.l**2)
 
 

@@ -1,5 +1,4 @@
 import numpy as np
-from warnings import warn
 
 from probability.multivariate import Gaussian
 from ..distribution import Distribution
