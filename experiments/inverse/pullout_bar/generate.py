@@ -45,7 +45,7 @@ n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
 
 write_output = True
 
-for fem_type in ["fem", "bfem", "rmfem"]:
+for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
     if write_output:
         fname = "samples-{}.csv".format(fem_type)
@@ -105,7 +105,7 @@ for fem_type in ["fem", "bfem", "rmfem"]:
                 sigma_e=sigma_e,
             )
         elif fem_type == "bfem":
-            ref_nodes, ref_elems = generate_mesh(128)
+            ref_nodes, ref_elems = generate_mesh(2 * n_elem)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
