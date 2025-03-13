@@ -7,8 +7,9 @@ from myjive.fem import XNodeSet, XElementSet
 from probability.sampling import MCMCRunner
 from experiments.inverse.pullout_bar.props import (
     get_rwm_fem_target,
-    get_rwm_rmfem_target,
     get_rwm_bfem_target,
+    get_rwm_rmfem_target,
+    get_rwm_statfem_target,
 )
 
 
@@ -84,6 +85,13 @@ for fem_type in ["fem", "bfem", "rmfem"]:
             file.write(f"sigma_e = fixed at {sigma_e}\n")
             file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
 
+    elif fem_type == "statfem":
+        sigma_e = std_corruption
+        recompute_logpdf = False
+
+        if write_output:
+            file.write(f"sigma_e = fixed at {sigma_e}\n")
+
     if write_output:
         file.close()
 
@@ -113,6 +121,12 @@ for fem_type in ["fem", "bfem", "rmfem"]:
                 n_pseudomarginal=n_pseudomarginal,
                 omit_nodes=False,
             )
+        elif fem_type == "statfem":
+            target = get_rwm_statfem_target(
+                elems=elems,
+                std_corruption=std_corruption,
+                sigma_e=sigma_e,
+            )
         else:
             raise ValueError
 
@@ -132,7 +146,12 @@ for fem_type in ["fem", "bfem", "rmfem"]:
         samples, info = mcmc()
 
         if write_output:
-            df = pd.DataFrame(samples, columns=["E", "k"])
+            if fem_type == "statfem":
+                columns = ["E", "k", "rho", "l_d", "sigma_d"]
+            else:
+                columns = ["E", "k"]
+
+            df = pd.DataFrame(samples, columns=columns)
 
             for header, data in info.items():
                 df[header] = data
@@ -148,6 +167,8 @@ for fem_type in ["fem", "bfem", "rmfem"]:
             elif fem_type == "rmfem":
                 df["sigma_e"] = sigma_e
                 df["n_pseudomarginal"] = n_pseudomarginal
+            elif fem_type == "statfem":
+                df["sigma_e"] = sigma_e
             else:
                 raise ValueError
 
