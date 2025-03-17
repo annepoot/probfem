@@ -5,7 +5,7 @@ from probability.univariate import LogGaussian
 from probability.process import GaussianProcess, SquaredExponential
 from statfem.likelihood import StatFEMLikelihood
 
-from experiments.inverse.pullout_bar.props.rwm_fem_props import get_rwm_fem_target
+from experiments.reproduction.inverse.pullout_bar.props import get_rwm_fem_target
 
 __all__ = ["get_rwm_statfem_target"]
 

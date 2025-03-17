@@ -3,11 +3,11 @@ import pandas as pd
 from fem.jive import CJiveRunner
 from fem.meshing import find_coords_in_nodeset
 
-from experiments.inverse.three_point_hole.meshing import (
+from experiments.reproduction.inverse.three_point_hole.meshing import (
     create_mesh,
     get_observation_locations,
 )
-from experiments.inverse.three_point_hole.props import get_fem_props
+from experiments.reproduction.inverse.three_point_hole.props import get_fem_props
 
 h = 0.002
 L = 5.0

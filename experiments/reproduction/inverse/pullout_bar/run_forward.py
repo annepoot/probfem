@@ -1,7 +1,7 @@
 import numpy as np
 
 from myjive.fem import XNodeSet, XElementSet
-from experiments.inverse.pullout_bar.props import get_fem_props
+from experiments.reproduction.inverse.pullout_bar.props import get_fem_props
 from fem.jive import CJiveRunner
 
 

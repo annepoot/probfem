@@ -11,11 +11,11 @@ from probability import (
 from fem.jive import CJiveRunner
 from util.io import read_csv_from
 
-from experiments.inverse.three_point_hole.meshing import (
+from experiments.reproduction.inverse.three_point_hole.meshing import (
     create_mesh,
     get_observation_locations,
 )
-from experiments.inverse.three_point_hole.props import get_fem_props
+from experiments.reproduction.inverse.three_point_hole.props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
 

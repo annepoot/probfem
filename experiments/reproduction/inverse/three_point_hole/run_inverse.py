@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 from copy import deepcopy
@@ -5,7 +6,7 @@ from datetime import datetime
 
 from probability.univariate import Uniform, LogGaussian
 from probability.sampling import MCMCRunner
-from experiments.inverse.three_point_hole.props import (
+from experiments.reproduction.inverse.three_point_hole.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
     get_rwm_rmfem_target,
@@ -33,7 +34,7 @@ write_output = True
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
     if write_output:
-        fname = "samples-{}.csv".format(fem_type)
+        fname = os.path.join("output", "samples-{}.csv".format(fem_type))
         file = open(fname, "w")
 
         current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")

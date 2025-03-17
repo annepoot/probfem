@@ -6,7 +6,7 @@ from probability.joint import IndependentJoint
 from probability.univariate import LogGaussian
 from probability import TemperedPosterior, Likelihood, FEMObservationOperator
 
-from experiments.inverse.pullout_bar.props.fem_props import get_fem_props
+from experiments.reproduction.inverse.pullout_bar.props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
 
