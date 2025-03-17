@@ -1,10 +1,11 @@
+import os
 import numpy as np
 import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
 from probability.sampling import MCMCRunner
-from experiments.inverse.three_point_hole.props import get_rwm_fem_target
+from experiments.reproduction.inverse.three_point_hole.props import get_rwm_fem_target
 
 
 def linear_tempering(i):
@@ -26,7 +27,7 @@ h_meas_range = [0.2, 0.5, 1.0]
 write_output = True
 
 if write_output:
-    fname = "noise-study.csv"
+    fname = os.path.join("output", "noise-study.csv")
     file = open(fname, "w")
 
     current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")

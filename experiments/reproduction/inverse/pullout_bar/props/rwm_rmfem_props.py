@@ -2,7 +2,7 @@ import numpy as np
 
 from rmfem import PseudoMarginalLikelihood, RMFEMObservationOperator
 
-from experiments.inverse.pullout_bar.props.rwm_fem_props import get_rwm_fem_target
+from experiments.reproduction.inverse.pullout_bar.props import get_rwm_fem_target
 
 __all__ = ["get_rwm_rmfem_target"]
 

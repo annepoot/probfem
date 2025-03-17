@@ -1,6 +1,6 @@
 from rmfem import PseudoMarginalLikelihood, RemeshRMFEMObservationOperator
 
-from experiments.inverse.three_point_hole.props.rwm_fem_props import get_rwm_fem_target
+from experiments.reproduction.inverse.three_point_hole.props import get_rwm_fem_target
 
 __all__ = ["get_rwm_rmfem_target"]
 
