@@ -1,4 +1,7 @@
+import os
 import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from myjive.fem import XNodeSet, XElementSet
 from experiments.reproduction.inverse.pullout_bar.props import get_fem_props
@@ -37,9 +40,7 @@ def u_exact(x):
     return A * (np.exp(nu * x) + np.exp(-nu * x))
 
 
-import matplotlib.pyplot as plt
-
-n_elems = np.array([1, 2, 4, 8, 16, 32, 64, 128])
+n_elems = np.array([1, 2, 4, 8, 16, 32, 64])
 us = []
 
 for n_elem in n_elems:
@@ -51,24 +52,22 @@ for n_elem in n_elems:
 u_obs = np.array([u[-1] for u in us])
 e_obs = u_exact(1) - u_obs
 
+xmarkers = np.linspace(0.0, 1.0, 6)
+ymarkers = np.linspace(-0.2, 1.0, 7)
+colors = sns.color_palette("rocket_r", n_colors=8)
+
 plt.figure()
-for n_elem, u in zip(n_elems, us):
+for i, (n_elem, u) in enumerate(zip(n_elems, us)):
     x = np.linspace(0, 1, n_elem + 1)
-    plt.plot(x, u, label=r"$N={}$".format(n_elem))
+    plt.plot(x, u, label=r"$\sfrac{1}{" + str(n_elem) + "}$", color=colors[i])
 plt.plot(x, u_exact(x), color="k")
-plt.legend()
-plt.show()
-
-plt.figure()
-for n_elem, u in zip(n_elems, us):
-    x = np.linspace(0, 1, n_elem + 1)
-    e = np.abs(u_exact(x) - u)
-    plt.semilogy(x, e, label=r"$N={}$".format(n_elem))
-plt.legend()
-plt.show()
-
-plt.figure()
-plt.loglog(n_elems, e_obs, marker="o")
-plt.xlabel(r"$N_{elem}$")
-plt.ylabel(r"$u^* - u^h$")
+plt.xticks(xmarkers)
+plt.yticks(ymarkers)
+plt.ylim(ymarkers[[0, -1]])
+legend = plt.legend(title=r"$h$")
+fontsize = "12"
+plt.setp(legend.get_texts(), fontsize=fontsize)
+plt.setp(legend.get_title(), fontsize=fontsize)
+fname = os.path.join("img", "exact-solution.pdf")
+plt.savefig(fname=fname, bbox_inches="tight")
 plt.show()
