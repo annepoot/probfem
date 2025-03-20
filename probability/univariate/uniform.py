@@ -11,11 +11,11 @@ class Uniform(UnivariateDistribution):
 
     def update_mean(self, mean):
         width = self.calc_width()
-        loc = mean - 0.5 * width
-        self.latent = uniform(loc=loc, scale=width)
+        self.latent = uniform(loc=mean - 0.5 * width, scale=width)
 
     def update_width(self, width):
-        self.latent = uniform(loc=self.calc_mean(), scale=width)
+        mean = self.calc_mean()
+        self.latent = uniform(loc=mean - 0.5 * width, scale=width)
 
     def calc_mean(self):
         return self.latent.mean()
