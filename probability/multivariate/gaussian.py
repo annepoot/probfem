@@ -280,7 +280,7 @@ class ScaledGaussian(GaussianLike):
         return self.scale @ self.latent.calc_sample(seed)
 
     def calc_samples(self, n, seed):
-        return self.latent.calc_samples(n, seed) @ self.scale.T
+        return (self.scale @ self.latent.calc_samples(n, seed).T).T
 
 
 class ShiftedGaussian(GaussianLike):
