@@ -4,7 +4,6 @@ import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
-from probability.univariate import Uniform, LogGaussian
 from probability.sampling import MCMCRunner
 from experiments.reproduction.inverse.three_point_hole.props import (
     get_rwm_fem_target,
@@ -115,26 +114,18 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             raise ValueError
 
         proposal = deepcopy(target.prior)
-        for dist in proposal.distributions:
-            if isinstance(dist, Uniform):
-                dist.update_width(0.1 * dist.calc_width())
-            elif isinstance(dist, LogGaussian):
-                dist.update_latent_std(0.1 * dist.calc_latent_std())
-            else:
-                assert False
-
-        x_prop = proposal.distributions[0]
-        y_prop = proposal.distributions[1]
+        x_prop = proposal.latent.distributions[0]
+        y_prop = proposal.latent.distributions[1]
         x_prop.update_width(y_prop.calc_width())
-        start_value = proposal.calc_mean()
-        start_value[:5] = np.array([1.0, 0.4, 0.4, np.pi / 6, 0.25])
+        start_value = proposal.latent.calc_mean()
+
         mcmc = MCMCRunner(
             target=target,
             proposal=proposal,
             n_sample=n_sample,
             n_burn=n_burn,
             start_value=start_value,
-            seed=0,
+            seed=np.random.default_rng(0),
             tempering=tempering,
             recompute_logpdf=recompute_logpdf,
             return_info=True,
