@@ -1,3 +1,4 @@
+import numpy as np
 from scipy.stats import uniform
 
 from ..distribution import UnivariateDistribution
@@ -19,6 +20,9 @@ class Uniform(UnivariateDistribution):
 
     def calc_mean(self):
         return self.latent.mean()
+
+    def calc_std(self):
+        return self.calc_width() / np.sqrt(12)
 
     def calc_width(self):
         return self.latent.kwds["scale"]

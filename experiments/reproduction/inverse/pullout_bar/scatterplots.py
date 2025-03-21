@@ -41,7 +41,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         n_elem_range = [1, 4, 16, 64]
 
     fname = os.path.join("output", "samples-{}.csv".format(fem_type))
-    df = read_csv_from(fname, "E,k")
+    df = read_csv_from(fname, "log_E,log_k")
     df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
     df = df[df["n_elem"].isin(n_elem_range)]
     df["n_elem"] = df["n_elem"].astype(str)

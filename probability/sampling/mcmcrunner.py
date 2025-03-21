@@ -1,8 +1,17 @@
 import numpy as np
+from scipy.sparse import issparse
 
 from probability import Distribution, IndependentJoint, RejectConditional
-from probability.multivariate import IsotropicGaussian, DiagonalGaussian, Gaussian
-from probability.univariate import LogGaussian, Uniform
+from probability.multivariate import (
+    IsotropicGaussian,
+    DiagonalGaussian,
+    Gaussian as MVGaussian,
+)
+from probability.univariate import (
+    LogGaussian,
+    Uniform,
+    Gaussian as UVGaussian,
+)
 
 __all__ = ["MCMCRunner"]
 
@@ -112,6 +121,11 @@ class MCMCRunner:
                 print("")
 
                 if self.tune and i <= self.n_burn:
+                    if i % (10 * self.tune_interval) == 0:
+                        if isinstance(self.proposal, MVGaussian):
+                            shaping = self._recompute_shaping(samples[:i])
+                            self._shape_proposal(self.proposal, shaping)
+
                     oldscaling = self.scaling
                     newscaling = self._recompute_scaling(oldscaling, accept_rate)
 
@@ -147,27 +161,48 @@ class MCMCRunner:
         print("")
         return scaling
 
+    def _recompute_shaping(self, samples):
+        sample_cov = np.cov(samples.T)
+        prop_cov = self.proposal.calc_cov()
+
+        if issparse(prop_cov):
+            prop_cov = prop_cov.toarray()
+
+        l_sample, Q_sample = np.linalg.eigh(sample_cov)
+        l_prop, Q_prop = np.linalg.eigh(prop_cov)
+
+        log_det_sample = np.sum(np.log(l_sample))
+        log_det_prop = np.sum(np.log(l_prop))
+        scale = np.exp((log_det_sample - log_det_prop) / (2 * len(l_prop)))
+        log_l_ratio = 0.5 * (np.log(l_sample) - np.log(l_prop))
+
+        shaping = Q_sample @ np.diag(np.exp(log_l_ratio)) @ Q_prop.T / scale
+        return shaping
+
     def _scale_proposal(self, proposal, factor):
         if isinstance(proposal, IndependentJoint):
             for dist in proposal.distributions:
                 self._scale_proposal(dist, factor)
         elif isinstance(proposal, RejectConditional):
             self._scale_proposal(proposal.latent, factor)
-        elif isinstance(proposal, IsotropicGaussian):
+        elif isinstance(proposal, UVGaussian):
             std = proposal.calc_std()
-            assert np.allclose(std, std[0])
-            proposal.update_std(np.sqrt(factor) * std[0])
-        elif isinstance(proposal, DiagonalGaussian):
-            diag = proposal.calc_diag()
-            proposal.update_diag(factor * diag)
-        elif isinstance(proposal, Gaussian):
+            proposal.update_std(np.sqrt(factor) * std)
+        elif isinstance(proposal, MVGaussian):
             cov = proposal.calc_cov()
             proposal.update_cov(factor * cov)
         elif isinstance(proposal, LogGaussian):
             logstd = proposal.calc_latent_std()
-            proposal.update_latent_std(factor * logstd)
+            proposal.update_latent_std(np.sqrt(factor) * logstd)
         elif isinstance(proposal, Uniform):
             width = proposal.calc_width()
-            proposal.update_width(factor * width)
+            proposal.update_width(np.sqrt(factor) * width)
+        else:
+            raise ValueError
+
+    def _shape_proposal(self, proposal, factor):
+        if isinstance(proposal, MVGaussian):
+            cov = proposal.calc_cov()
+            proposal.update_cov(factor @ cov @ factor.T)
         else:
             raise ValueError

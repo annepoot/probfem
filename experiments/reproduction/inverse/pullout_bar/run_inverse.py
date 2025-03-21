@@ -1,11 +1,11 @@
 import os
 import numpy as np
 import pandas as pd
-from copy import deepcopy
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
 from probability.sampling import MCMCRunner
+from probability.multivariate import Gaussian
 from experiments.reproduction.inverse.pullout_bar.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
@@ -131,8 +131,8 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         else:
             raise ValueError
 
-        proposal = deepcopy(target.prior)
         start_value = target.prior.calc_mean()
+        proposal = Gaussian(start_value, target.prior.calc_cov())
         mcmc = MCMCRunner(
             target=target,
             proposal=proposal,
