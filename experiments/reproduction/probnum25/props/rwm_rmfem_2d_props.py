@@ -32,6 +32,7 @@ def get_rwm_rmfem_2d_target(
         seed=0,
         jive_runner=old_operator.jive_runner,
         input_variables=old_operator.input_variables,
+        input_transforms=old_operator.input_transforms,
         output_type=old_operator.output_type,
         output_variables=old_operator.output_variables,
         output_locations=old_operator.output_locations,

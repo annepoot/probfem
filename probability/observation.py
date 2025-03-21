@@ -33,8 +33,10 @@ class LinearObservationOperator(ObservationOperator):
 class FEMObservationOperator(ObservationOperator):
     def __init__(
         self,
+        *,
         jive_runner,
         input_variables,
+        input_transforms,
         output_type,
         output_variables,
         output_locations,
@@ -42,6 +44,7 @@ class FEMObservationOperator(ObservationOperator):
     ):
         self.jive_runner = jive_runner
         self.input_variables = input_variables
+        self.input_transforms = input_transforms
         self.output_type = output_type
         self.output_variables = output_variables
         self.output_locations = output_locations
@@ -50,11 +53,20 @@ class FEMObservationOperator(ObservationOperator):
         if self.output_type not in ["nodal", "local"]:
             raise ValueError
 
+        if self.input_transforms is None:
+            self.input_transforms = [None] * len(self.input_variables)
+
+        if len(self.input_variables) != len(self.input_transforms):
+            raise ValueError
+
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
             raise ValueError
 
-        for x_i, var in zip(x, self.input_variables):
+        for x_i, var, trans in zip(x, self.input_variables, self.input_transforms):
+            if trans is not None:
+                x_i = trans(x_i)
+
             keys = split_key(var)
             assert get_recursive(self.jive_runner.props, keys) is not None
             set_recursive(self.jive_runner.props, keys, x_i)

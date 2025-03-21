@@ -3,7 +3,7 @@ import numpy as np
 from fem.jive import CJiveRunner
 from probability.multivariate import IsotropicGaussian
 from probability.joint import IndependentJoint
-from probability.univariate import LogGaussian
+from probability.univariate import Gaussian
 from probability import TemperedPosterior, Likelihood, FEMObservationOperator
 
 from experiments.reproduction.inverse.pullout_bar.props import get_fem_props
@@ -34,8 +34,8 @@ def get_rwm_fem_target(*, elems, std_corruption, sigma_e):
 
     target = TemperedPosterior(
         prior=IndependentJoint(
-            LogGaussian(np.log(1.0), 0.1, allow_logscale_access=True),
-            LogGaussian(np.log(100.0), 0.1, allow_logscale_access=True),
+            Gaussian(np.log(1.0), 0.1),
+            Gaussian(np.log(100.0), 0.1),
         ),
         likelihood=Likelihood(
             operator=FEMObservationOperator(
@@ -43,6 +43,10 @@ def get_rwm_fem_target(*, elems, std_corruption, sigma_e):
                 input_variables=[
                     "model.model.elastic.material.E",
                     "model.model.spring.k",
+                ],
+                input_transforms=[
+                    np.exp,
+                    np.exp,
                 ],
                 output_type="nodal",
                 output_variables=["state0"],
