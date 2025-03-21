@@ -121,9 +121,10 @@ class MCMCRunner:
                 print("")
 
                 if self.tune and i <= self.n_burn:
-                    if i % (10 * self.tune_interval) == 0:
-                        if isinstance(self.proposal, MVGaussian):
-                            shaping = self._recompute_shaping(samples[:i])
+                    if isinstance(self.proposal, MVGaussian):
+                        if accept_rate > 0.1:
+                            sample_batch = samples[i - self.tune_interval : i]
+                            shaping = self._recompute_shaping(sample_batch)
                             self._shape_proposal(self.proposal, shaping)
 
                     oldscaling = self.scaling
