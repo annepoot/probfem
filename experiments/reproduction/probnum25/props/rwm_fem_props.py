@@ -62,6 +62,7 @@ def get_rwm_fem_target(*, elems, std_corruption, sigma_e):
                     "model.model.elastic.material.params.values.2",
                     "model.model.elastic.material.params.values.3",
                 ],
+                input_transforms=None,
                 output_type="local",
                 output_variables=["state0"] * n_obs,
                 output_locations=obs_locations,

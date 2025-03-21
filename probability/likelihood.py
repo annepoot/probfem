@@ -46,16 +46,26 @@ class Likelihood(Distribution):
 
 
 class ParametrizedLikelihood(Likelihood):
-    def __init__(self, likelihood, hyperparameters):
+    def __init__(self, *, likelihood, hyperparameters, transforms):
         assert isinstance(likelihood, Likelihood)
         self.likelihood = likelihood
         self.hyperparameters = hyperparameters
+        self.transforms = transforms
+
+        if self.transforms is None:
+            self.transforms = [None] * len(self.hyperparameters)
+
+        if len(self.transforms) != len(self.hyperparameters):
+            raise ValueError
 
     def calc_logpdf(self, x):
         # split off hyperparameters from the back, and update them
         nhyp = len(self.hyperparameters)
         x_param, x_hyper = x[:-nhyp], x[-nhyp:]
-        for key, value in zip(self.hyperparameters, x_hyper):
+        for key, value, trans in zip(self.hyperparameters, x_hyper, self.transforms):
+            if trans is not None:
+                value = trans(value)
+
             keys = split_key(key)
             assert get_attr_recursive(self.likelihood, keys) is not None
             set_or_call_attr_recursive(self.likelihood, keys, value)

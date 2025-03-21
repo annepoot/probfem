@@ -41,6 +41,7 @@ class BFEMObservationOperator(FEMObservationOperator):
         obs_prior,
         ref_prior,
         input_variables,
+        input_transforms,
         output_locations,
         output_dofs,
         rescale,
@@ -51,17 +52,27 @@ class BFEMObservationOperator(FEMObservationOperator):
         self.ref_prior = ref_prior
 
         self.input_variables = input_variables
+        self.input_transforms = input_transforms
         self.output_locations = output_locations
         self.output_dofs = output_dofs
         self.rescale = rescale
 
         self._old_alpha2_mle = 1.0
 
+        if self.input_transforms is None:
+            self.input_transforms = [None] * len(self.input_variables)
+
+        if len(self.input_variables) != len(self.input_transforms):
+            raise ValueError
+
     def calc_prediction(self, x):
         if len(x) != len(self.input_variables):
             raise ValueError
 
-        for x_i, var in zip(x, self.input_variables):
+        for x_i, var, trans in zip(x, self.input_variables, self.input_transforms):
+            if trans is not None:
+                x_i = trans(x_i)
+
             keys = split_key(var)
             assert get_recursive(self.obs_prior.jive_runner.props, keys) is not None
             set_recursive(self.obs_prior.jive_runner.props, keys, x_i)

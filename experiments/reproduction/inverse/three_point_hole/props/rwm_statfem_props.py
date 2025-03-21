@@ -1,7 +1,7 @@
 import numpy as np
 
 from probability import ParametrizedLikelihood, IndependentJoint, RejectConditional
-from probability.univariate import LogGaussian
+from probability.univariate import Gaussian
 from probability.process import GaussianProcess, SquaredExponential
 from statfem.likelihood import StatFEMLikelihood
 
@@ -20,10 +20,12 @@ def get_rwm_statfem_target(*, h, h_meas, std_corruption, sigma_e):
 
     old_prior = target.prior
     old_joint = old_prior.latent.distributions
-    rho_prior = LogGaussian(np.log(1), 0.1, allow_logscale_access=True)
-    l_d_prior = LogGaussian(np.log(1), np.log(1e1), allow_logscale_access=True)
-    sigma_d_prior = LogGaussian(np.log(1e-4), np.log(1e1), allow_logscale_access=True)
-    joint_prior = IndependentJoint(*old_joint, rho_prior, l_d_prior, sigma_d_prior)
+    log_rho_prior = Gaussian(np.log(1), 0.1)
+    log_l_d_prior = Gaussian(np.log(1), np.log(1e1))
+    log_sigma_d_prior = Gaussian(np.log(1e-4), np.log(1e1))
+    joint_prior = IndependentJoint(
+        *old_joint, log_rho_prior, log_l_d_prior, log_sigma_d_prior
+    )
     target.prior = RejectConditional(latent=joint_prior, reject_if=old_prior.reject_if)
 
     old_likelihood = target.likelihood
@@ -38,6 +40,7 @@ def get_rwm_statfem_target(*, h, h_meas, std_corruption, sigma_e):
             e=old_likelihood.noise,
         ),
         hyperparameters=["rho", "d.cov.l", "d.cov.sigma"],
+        transforms=[np.exp, np.exp, np.exp],
     )
     target.likelihood = new_likelihood
 

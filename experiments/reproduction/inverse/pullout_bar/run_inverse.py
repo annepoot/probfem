@@ -148,11 +148,19 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
         if write_output:
             if fem_type == "statfem":
-                columns = ["E", "k", "rho", "l_d", "sigma_d"]
+                columns = ["log_E", "log_k", "log_rho", "log_l_d", "log_sigma_d"]
             else:
-                columns = ["E", "k"]
+                columns = ["log_E", "log_k"]
 
             df = pd.DataFrame(samples, columns=columns)
+
+            df["E"] = np.exp(df["log_E"])
+            df["k"] = np.exp(df["log_k"])
+
+            if fem_type == "statfem":
+                df["rho"] = np.exp(df["log_rho"])
+                df["l_d"] = np.exp(df["log_l_d"])
+                df["sigma_d"] = np.exp(df["log_sigma_d"])
 
             for header, data in info.items():
                 df[header] = data
@@ -160,18 +168,10 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             df["sample"] = df.index
             df["n_elem"] = n_elem
             df["std_corruption"] = std_corruption
+            df["sigma_e"] = sigma_e
 
-            if fem_type == "fem":
-                df["sigma_e"] = sigma_e
-            elif fem_type == "bfem":
-                df["sigma_e"] = sigma_e
-            elif fem_type == "rmfem":
-                df["sigma_e"] = sigma_e
+            if fem_type == "rmfem":
                 df["n_pseudomarginal"] = n_pseudomarginal
-            elif fem_type == "statfem":
-                df["sigma_e"] = sigma_e
-            else:
-                raise ValueError
 
             write_header = n_elem == n_elem_range[0]
             df.to_csv(fname, mode="a", header=write_header, index=False)

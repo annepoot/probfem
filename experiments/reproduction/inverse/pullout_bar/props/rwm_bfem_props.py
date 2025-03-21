@@ -66,6 +66,7 @@ def get_rwm_bfem_target(*, obs_elems, ref_elems, std_corruption, scale, sigma_e)
         obs_prior=obs_prior,
         ref_prior=ref_prior,
         input_variables=old_operator.input_variables,
+        input_transforms=old_operator.input_transforms,
         output_locations=output_locations,
         output_dofs=old_operator.output_dofs,
         rescale=rescale,
