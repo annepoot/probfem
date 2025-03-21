@@ -66,7 +66,8 @@ refs_by_var = {
     "r": 0.1,
 }
 
-fname = os.path.join("output", "samples-bfem.csv")
+fem_type = "fem"
+fname = os.path.join("output", "samples-{}.csv".format(fem_type))
 
 N_filter = 10
 N_start = 0
@@ -173,5 +174,6 @@ def update(frame):
 
 # Create the animation
 ani = FuncAnimation(fig, update, frames=2000, interval=1000 / 30)
-ani.save("artist_animation.mp4", writer="ffmpeg")
+fname = "mesh-animation_{}.mp4".format(fem_type)
+ani.save(fname, writer="ffmpeg")
 plt.show()
