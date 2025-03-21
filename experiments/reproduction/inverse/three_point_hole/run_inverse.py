@@ -5,6 +5,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from probability.sampling import MCMCRunner
+from probability.multivariate import Gaussian
 from experiments.reproduction.inverse.three_point_hole.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
@@ -113,11 +114,8 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         else:
             raise ValueError
 
-        proposal = deepcopy(target.prior)
-        x_prop = proposal.latent.distributions[0]
-        y_prop = proposal.latent.distributions[1]
-        x_prop.update_width(y_prop.calc_width())
-        start_value = proposal.latent.calc_mean()
+        start_value = target.prior.latent.calc_mean()
+        proposal = Gaussian(start_value, target.prior.latent.calc_cov())
 
         mcmc = MCMCRunner(
             target=target,
