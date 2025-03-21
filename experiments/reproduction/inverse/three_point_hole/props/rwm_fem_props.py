@@ -7,6 +7,7 @@ from probability import (
     Likelihood,
     RemeshFEMObservationOperator,
     IndependentJoint,
+    RejectConditional,
 )
 from fem.jive import CJiveRunner
 from util.io import read_csv_from
@@ -18,6 +19,25 @@ from experiments.reproduction.inverse.three_point_hole.meshing import (
 from experiments.reproduction.inverse.three_point_hole.props import get_fem_props
 
 __all__ = ["get_rwm_fem_target"]
+
+
+def rejection_func(params):
+    x, y, a, theta, r_rel = params[:5]
+    corner_coords = np.array([np.full(4, x), np.full(4, y)]).T
+    R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
+    iso_corners = np.array([[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]])
+    corner_coords += (0.5 * a * iso_corners) @ R.T
+
+    if np.any(corner_coords[:, 0] < 0.0):
+        return True
+    elif np.any(corner_coords[:, 0] > 5.0):
+        return True
+    elif np.any(corner_coords[:, 1] < 0.0):
+        return True
+    elif np.any(corner_coords[:, 1] > 1.0):
+        return True
+    else:
+        return False
 
 
 def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
@@ -63,12 +83,15 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
     jive = CJiveRunner(props=fem_props, elems=elems)
 
     target = TemperedPosterior(
-        prior=IndependentJoint(
-            Uniform(0.0, 5.0),
-            Uniform(0.0, 1.0),
-            Uniform(0.0, 0.5),
-            Uniform(0.0, 2 * np.pi),
-            Uniform(0.0, 0.5),
+        prior=RejectConditional(
+            latent=IndependentJoint(
+                Uniform(0.0, 5.0),
+                Uniform(0.0, 1.0),
+                Uniform(0.0, 0.5),
+                Uniform(0.0, 2 * np.pi),
+                Uniform(0.0, 0.5),
+            ),
+            reject_if=rejection_func,
         ),
         likelihood=Likelihood(
             operator=RemeshFEMObservationOperator(

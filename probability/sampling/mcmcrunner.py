@@ -1,6 +1,6 @@
 import numpy as np
 
-from probability import Distribution, IndependentJoint
+from probability import Distribution, IndependentJoint, RejectConditional
 from probability.multivariate import IsotropicGaussian, DiagonalGaussian, Gaussian
 from probability.univariate import LogGaussian, Uniform
 
@@ -151,6 +151,8 @@ class MCMCRunner:
         if isinstance(proposal, IndependentJoint):
             for dist in proposal.distributions:
                 self._scale_proposal(dist, factor)
+        elif isinstance(proposal, RejectConditional):
+            self._scale_proposal(proposal.latent, factor)
         elif isinstance(proposal, IsotropicGaussian):
             std = proposal.calc_std()
             assert np.allclose(std, std[0])
