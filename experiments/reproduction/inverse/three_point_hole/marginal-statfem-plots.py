@@ -18,7 +18,7 @@ refs_by_var = {
 hard_lims_by_var = {
     "rho": (0.9, 1.1),
     "l_d": (1e-8, 1),
-    "log_l_d": (np.log(1e-8), 0),
+    "log_l_d": (np.log(1e-4), np.log(1e4)),
     "sigma_d": (1e-8, 1),
     "log_sigma_d": (np.log(1e-8), 0),
 }
