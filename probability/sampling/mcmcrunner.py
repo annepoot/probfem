@@ -204,6 +204,7 @@ class MCMCRunner:
     def _shape_proposal(self, proposal, factor):
         if isinstance(proposal, MVGaussian):
             cov = proposal.calc_cov()
-            proposal.update_cov(factor @ cov @ factor.T)
+            noise = 1e-8 * np.identity(cov.shape[0])
+            proposal.update_cov(factor @ cov @ factor.T + noise)
         else:
             raise ValueError
