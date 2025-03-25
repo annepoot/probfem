@@ -41,7 +41,7 @@ def get_fem_props():
                         "type": "LinearIsotropic",
                         "anmodel": "BAR",
                         "rank": 1,
-                        "E": 1.2,
+                        "E": 0.8,
                         "area": 1.0,
                     },
                     "shape": {
@@ -52,7 +52,7 @@ def get_fem_props():
                 "spring": {
                     "type": "Spring",
                     "elements": "all",
-                    "k": 110.0,
+                    "k": 70.0,
                     "shape": {
                         "type": "Line2",
                         "intScheme": "Gauss4",

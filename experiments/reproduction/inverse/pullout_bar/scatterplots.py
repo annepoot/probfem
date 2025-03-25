@@ -8,8 +8,8 @@ from util.io import read_csv_from
 
 variables = ["E", "k"]
 refs_by_var = {
-    "E": 1.2,
-    "k": 110.0,
+    "E": 0.8,
+    "k": 70.0,
 }
 
 
