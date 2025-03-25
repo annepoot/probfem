@@ -245,6 +245,9 @@ void SpringModel::getMatrix_
     nodes_.getSomeCoords ( coords, inodes );
     dofs_->getDofIndices ( idofs,  inodes, dofTypes_ );
 
+    // Get the weights
+    shape_->getIntegrationWeights ( ipWeights, coords );
+
     // Assemble the element matrix and the internal force vector.
     elemMat   = 0.0;
 
