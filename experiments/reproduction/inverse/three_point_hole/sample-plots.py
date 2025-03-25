@@ -75,7 +75,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     df = df[df["sample"] <= N_end]
     df = df[df["sample"] % N_filter == 0]
     df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
-    df["theta"] = df["theta"] - (0.5 * np.pi) * np.floor(df["theta"] / (0.5 * np.pi))
+    df["theta"] = np.fmod(df["theta"], 0.5 * np.pi)
 
     for i, h in enumerate([0.2, 0.1, 0.05]):
         # Create figure and axis

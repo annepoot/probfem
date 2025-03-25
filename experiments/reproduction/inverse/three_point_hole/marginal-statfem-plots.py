@@ -1,6 +1,5 @@
 import os
 import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -8,9 +7,7 @@ from util.io import read_csv_from
 
 
 variables = ["rho", "log_l_d", "log_sigma_d"]
-fem_types = ["statfem"]
 
-# variables = ["rho", "l_d", "sigma_d"]
 refs_by_var = {
     "rho": 1.0,
 }
@@ -36,20 +33,11 @@ def lims_by_var(width):
 
 
 labels_by_var = {
-    "x": r"$x$",
-    "y": r"$y$",
-    "a": r"$a$",
-    "theta": r"$\theta$",
-    "r_rel": r"$r$",
     "rho": r"$\rho$",
     "l_d": r"$l_d$",
     "sigma_d": r"$\sigma_d$",
     "log_l_d": r"$l_d$",
     "log_sigma_d": r"$\sigma_d$",
-    "fem": r"FEM",
-    "bfem": r"BFEM",
-    "rmfem": r"RM-FEM",
-    "statfem": r"statFEM",
 }
 
 width = 0.10
@@ -57,31 +45,21 @@ N_burn = 10000
 N_filter = 50
 h_range = [0.2, 0.1, 0.05]
 
-dfs = []
-for fem_type in fem_types:
-    fname = os.path.join("output", "samples-{}.csv".format(fem_type))
-    df = read_csv_from(fname, "x,y,a,theta,r_rel")
-    df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
-    df = df[df["h"].isin(h_range)]
-    df["h"] = df["h"].astype(str)
-    df["theta"] = np.fmod(df["theta"], np.pi / 2)
+fname = os.path.join("output", "samples-statfem.csv")
+df = read_csv_from(fname, "x,y,a,theta,r_rel")
+df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
+df = df[df["h"].isin(h_range)]
+df["h"] = df["h"].astype(str)
+df["theta"] = np.fmod(df["theta"], np.pi / 2)
 
-    if fem_type == "statfem":
-        df["log_rho"] = np.log(df["rho"])
-        df["log_l_d"] = np.log(df["l_d"])
-        df["log_sigma_d"] = np.log(df["sigma_d"])
-
-    df = df.melt(id_vars=["h"], value_vars=variables)
-    df["fem_type"] = fem_type
-    dfs.append(df)
-
-df_all = pd.concat(dfs, ignore_index=True)
+df = df.melt(id_vars=["h"], value_vars=variables)
+df["fem_type"] = "statfem"
 
 plt.rc("text", usetex=True)  # use latex for text
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 
 g = sns.FacetGrid(
-    df_all,
+    df,
     row="fem_type",
     col="variable",
     hue="h",
@@ -99,37 +77,26 @@ g.add_legend(title=r"$h$")
 
 for i, var in enumerate(variables):
     lims = lims_by_var(width)[var]
-    # plims = (0, p_lims_by_var[var])
     xref = refs_by_var.get(var)
 
-    for j, fem_type in enumerate(fem_types):
-        ax = g.axes[j, i]
+    ax = g.axes[0, i]
 
-        if var == "theta":
-            labels = [r"$0$", r"$\sfrac{\pi}{4}$", r"$\sfrac{\pi}{2}$"]
-        elif "log" in var:
-            labels = [
-                r"$10^{{{:d}}}$".format(int(lim))
-                for lim in np.linspace(lims[0], lims[1], 3) / np.log(10)
-            ]
-        else:
-            labels = None
+    if "log" in var:
+        labels = [
+            r"$10^{{{:d}}}$".format(int(lim))
+            for lim in np.linspace(lims[0], lims[1], 3) / np.log(10)
+        ]
+    else:
+        labels = None
 
-        ax.set_xlim(lims)
-        ax.set_xticks(np.linspace(lims[0], lims[1], 3), labels=labels)
+    ax.set_xlim(lims)
+    ax.set_xticks(np.linspace(lims[0], lims[1], 3), labels=labels)
 
-        if xref is not None:
-            ax.axvline(x=xref, color="k", label="ref", zorder=2)
+    if xref is not None:
+        ax.axvline(x=xref, color="k", label="ref", zorder=2)
 
-        if j == len(fem_types) - 1:
-            ax.set_xlabel(labels_by_var[var])
-        else:
-            ax.set_xlabel(None)
-
-        # if i == 0:
-        #     ax.set_ylabel(labels_by_var[fem_type])
-        # else:
-        ax.set_ylabel(None)
+    ax.set_xlabel(labels_by_var[var])
+    ax.set_ylabel(None)
 
 fname = os.path.join("img", "statfem-marginals.pdf")
 plt.savefig(fname=fname, bbox_inches="tight")
