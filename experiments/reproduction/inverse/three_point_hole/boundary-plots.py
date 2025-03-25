@@ -1,9 +1,6 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.patches import FancyBboxPatch, PathPatch
-from matplotlib.path import Path
-from matplotlib.transforms import Affine2D
 import seaborn as sns
 
 from fem.meshing import calc_boundary_nodes, find_coords_in_nodeset
@@ -12,48 +9,6 @@ from util.io import read_csv_from
 
 from experiments.reproduction.inverse.three_point_hole.props import get_fem_props
 from experiments.reproduction.inverse.three_point_hole.meshing import create_mesh
-
-
-def get_hole_patch(x, y, a, theta, r):
-    theta_deg = theta / np.pi * 180
-    k = 0.55228 * r  # Approximate control point distance for circular Bézier
-
-    # Path data (moving counterclockwise)
-    path_data = [
-        (Path.MOVETO, (x + a / 2 - r, y - a / 2)),  # Start bottom-right corner
-        # Bottom-right corner arc (270° to 360°)
-        (Path.CURVE4, (x + a / 2 - r + k, y - a / 2)),
-        (Path.CURVE4, (x + a / 2, y - a / 2 + r - k)),
-        (Path.CURVE4, (x + a / 2, y - a / 2 + r)),
-        (Path.LINETO, (x + a / 2, y + a / 2 - r)),  # Right side
-        # Top-right corner arc (0° to 90°)
-        (Path.CURVE4, (x + a / 2, y + a / 2 - r + k)),
-        (Path.CURVE4, (x + a / 2 - r + k, y + a / 2)),
-        (Path.CURVE4, (x + a / 2 - r, y + a / 2)),
-        (Path.LINETO, (x - a / 2 + r, y + a / 2)),  # Top side
-        # Top-left corner arc (90° to 180°)
-        (Path.CURVE4, (x - a / 2 + r - k, y + a / 2)),
-        (Path.CURVE4, (x - a / 2, y + a / 2 - r + k)),
-        (Path.CURVE4, (x - a / 2, y + a / 2 - r)),
-        (Path.LINETO, (x - a / 2, y - a / 2 + r)),  # Left side
-        # Bottom-left corner arc (180° to 270°)
-        (Path.CURVE4, (x - a / 2, y - a / 2 + r - k)),
-        (Path.CURVE4, (x - a / 2 + r - k, y - a / 2)),
-        (Path.CURVE4, (x - a / 2 + r, y - a / 2)),
-        (Path.CLOSEPOLY, (x + a / 2 - r, y - a / 2)),  # Close the path
-    ]
-
-    codes, verts = zip(*path_data)
-    path = Path(verts, codes)
-
-    # Create the PathPatch
-    patch = PathPatch(path, edgecolor="blue", facecolor="none", lw=2)
-
-    # Apply rotation
-    transform = Affine2D().rotate_deg_around(x, y, theta_deg) + plt.gca().transData
-    patch.set_transform(transform)
-
-    return patch
 
 
 def is_on_outer_boundary(coord):

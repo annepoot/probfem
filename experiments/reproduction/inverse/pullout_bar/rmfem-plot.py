@@ -55,7 +55,7 @@ xs = []
 u_plots = []
 x_plot = plot_nodes.get_coords().flatten()
 
-for _ in range(100):
+for _ in range(n_sample):
     pert_coords = calc_perturbed_coords(
         ref_coords=ref_coords,
         elems=elems,
@@ -87,13 +87,15 @@ std = np.std(np.array(u_plots), axis=0)
 
 c = sns.color_palette("rocket_r", n_colors=8)[2]
 xmarkers = np.linspace(0.0, 1.0, 6)
-ymarkers = np.linspace(-0.5, 1.0, 7)
+ymarkers = np.linspace(-1.0, 2.0, 7)
 
 plt.figure()
 plt.plot(x_plot, mean, color=c)
 plt.plot(x_plot, u_plots[:20].T, color=c, linewidth=0.5)
 plt.fill_between(x_plot, mean - 2 * std, mean + 2 * std, color=c, alpha=0.3)
 plt.plot(x_plot, u_exact(x_plot), color="k")
+plt.xlabel(r"$x$", fontsize=12)
+plt.ylabel(r"$u$", fontsize=12)
 plt.xticks(xmarkers)
 plt.yticks(ymarkers)
 plt.ylim(ymarkers[[0, -1]])

@@ -85,7 +85,7 @@ for r in [2, 16, 90]:
     x_plot = np.linspace(0, 1, len(u_post))
 
     xmarkers = np.linspace(0.0, 1.0, 6)
-    ymarkers = np.linspace(-1.0, 1.0, 9)
+    ymarkers = np.linspace(-1.5, 1.5, 7)
 
     plt.figure()
     plt.plot(x_plot, u_prior, color=c)
@@ -101,7 +101,7 @@ for r in [2, 16, 90]:
     plt.show()
 
     xmarkers = np.linspace(0.0, 1.0, 6)
-    ymarkers = np.linspace(-0.5, 1.0, 7)
+    ymarkers = np.linspace(-1.0, 2.0, 7)
 
     plt.figure()
     plt.plot(x_plot, u_post, color=c)
@@ -110,6 +110,8 @@ for r in [2, 16, 90]:
         x_plot, u_post - 2 * std_u_post, u_post + 2 * std_u_post, color=c, alpha=0.3
     )
     plt.plot(x_plot, u_exact(x_plot), color="k")
+    plt.xlabel(r"$x$", fontsize=12)
+    plt.ylabel(r"$u$", fontsize=12)
     plt.xticks(xmarkers)
     plt.yticks(ymarkers)
     plt.ylim(ymarkers[[0, -1]])

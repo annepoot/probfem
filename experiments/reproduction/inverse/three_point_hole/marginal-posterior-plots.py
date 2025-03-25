@@ -10,7 +10,6 @@ from util.io import read_csv_from
 variables = ["x", "y", "a", "theta", "r_rel"]
 fem_types = ["fem", "bfem", "rmfem", "statfem"]
 
-# variables = ["rho", "l_d", "sigma_d"]
 refs_by_var = {
     "x": 1.0,
     "y": 0.4,
