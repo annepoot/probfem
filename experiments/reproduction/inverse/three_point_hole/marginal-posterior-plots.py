@@ -46,8 +46,8 @@ def lims_by_var(width):
 labels_by_var = {
     "x": r"$x$",
     "y": r"$y$",
-    "a": r"$a$",
-    "theta": r"$\theta$",
+    "a": r"$d$",
+    "theta": r"$\alpha$",
     "r_rel": r"$r$",
     "fem": r"FEM",
     "bfem": r"BFEM",
@@ -86,7 +86,7 @@ g = sns.FacetGrid(
     margin_titles=False,
     sharex=False,
     sharey=False,
-    palette=sns.color_palette("rocket_r", n_colors=8)[::2],
+    palette=sns.color_palette("rocket_r", n_colors=8)[1::2],
 )
 
 g.map_dataframe(sns.kdeplot, x="value", fill=False)

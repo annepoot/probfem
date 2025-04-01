@@ -93,6 +93,8 @@ for r in [2, 16, 90]:
     plt.fill_between(
         x_plot, u_prior - 2 * std_u_prior, u_prior + 2 * std_u_prior, color=c, alpha=0.3
     )
+    plt.xlabel(r"$x$", fontsize=12)
+    plt.ylabel(r"$u$", fontsize=12)
     plt.xticks(xmarkers)
     plt.yticks(ymarkers)
     plt.ylim(ymarkers[[0, -1]])

@@ -44,7 +44,7 @@ def is_on_hole_boundary(coord, inode, boundary):
             return True
 
 
-def plot_boundary(globdat, ax, **kws):
+def plot_boundary(globdat, scale, ax, **kws):
     elems = globdat["elemSet"]
     nodes = globdat["nodeSet"]
     dofs = globdat["dofSpace"]
@@ -100,7 +100,7 @@ def plot_boundary(globdat, ax, **kws):
         ax.plot(xy[:, 0], xy[:, 1], **kws)
 
 
-def plot_observation_nodes(globdat, obs_locs, ax, **kws):
+def plot_observation_nodes(globdat, obs_locs, scale, ax, **kws):
     inodes = find_coords_in_nodeset(obs_locs, globdat["nodeSet"])
     idofs = globdat["dofSpace"].get_dofs(inodes, ["dx", "dy"])
     disp_x = globdat["state0"][idofs[0::2]]
@@ -128,7 +128,7 @@ h_range = [0.2, 0.1, 0.05]
 
 for fem_type in ["fem"]:
     for i, h in enumerate(h_range):
-        color = sns.color_palette("rocket_r", n_colors=8)[2 * i]
+        color = sns.color_palette("rocket_r", n_colors=8)[2 * i + 1]
 
         fig, ax = plt.subplots()
         tol = 1e-8
@@ -146,7 +146,7 @@ for fem_type in ["fem"]:
         obs_disp_y = df[df["dof_type"] == "dy"]["value"].to_numpy()
         xs = obs_locs[:, 0] + scale * obs_disp_x
         ys = obs_locs[:, 1] + scale * obs_disp_y
-        ax.scatter(xs, ys, marker=".", color="k", zorder=2)
+        ax.scatter(xs, ys, marker=".", color="k", zorder=3)
 
         #############
         # MAP point #
@@ -184,6 +184,7 @@ for fem_type in ["fem"]:
 
         plot_boundary(
             globdat,
+            scale,
             ax,
             color=color,
             linestyle="-",
@@ -192,6 +193,7 @@ for fem_type in ["fem"]:
         plot_observation_nodes(
             globdat,
             obs_locs,
+            scale,
             ax,
             color=color,
             marker="o",
@@ -223,6 +225,7 @@ for fem_type in ["fem"]:
 
         plot_boundary(
             globdat,
+            scale,
             ax,
             color=color,
             linestyle=":",
@@ -231,6 +234,7 @@ for fem_type in ["fem"]:
         plot_observation_nodes(
             globdat,
             obs_locs,
+            scale,
             ax,
             color=color,
             marker="x",
