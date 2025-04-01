@@ -81,7 +81,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         # Create figure and axis
         fig, ax = plt.subplots()
 
-        c = sns.color_palette("rocket_r", n_colors=8)[2 * i]
+        c = sns.color_palette("rocket_r", n_colors=8)[2 * i + 1]
         df_h = df[abs(df["h"] - h) < 1e-8]
 
         # Create a rounded rectanglepatch

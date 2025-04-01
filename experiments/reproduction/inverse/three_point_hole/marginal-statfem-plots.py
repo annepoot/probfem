@@ -5,6 +5,7 @@ import seaborn as sns
 
 from util.io import read_csv_from
 
+from probability.univariate import Gaussian
 
 variables = ["rho", "log_l_d", "log_sigma_d"]
 
@@ -67,7 +68,7 @@ g = sns.FacetGrid(
     margin_titles=False,
     sharex=False,
     sharey=False,
-    palette=sns.color_palette("rocket_r", n_colors=8)[::2],
+    palette=sns.color_palette("rocket_r", n_colors=8)[1::2],
 )
 
 g.map_dataframe(sns.kdeplot, x="value", fill=False)
@@ -97,6 +98,20 @@ for i, var in enumerate(variables):
 
     ax.set_xlabel(labels_by_var[var])
     ax.set_ylabel(None)
+
+    if var == "rho":
+        x = np.linspace(lims[0], lims[1], 100)
+        logx = np.log(x)
+        pdf = Gaussian(np.log(1), 0.1).calc_pdf(logx)
+        ax.plot(x, pdf, color="0.7", zorder=0.5)
+    elif var == "log_l_d":
+        logx = np.linspace(lims[0], lims[1], 100)
+        pdf = Gaussian(np.log(1), np.log(1e1)).calc_pdf(logx)
+        ax.plot(logx, pdf, color="0.7", zorder=0.5)
+    elif var == "log_sigma_d":
+        logx = np.linspace(lims[0], lims[1], 100)
+        pdf = Gaussian(np.log(1e-4), np.log(1e1)).calc_pdf(logx)
+        ax.plot(logx, pdf, color="0.7", zorder=0.5)
 
 fname = os.path.join("img", "statfem-marginals.pdf")
 plt.savefig(fname=fname, bbox_inches="tight")
