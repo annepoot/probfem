@@ -6,13 +6,14 @@ dependencies:
   # python version
   - python=3.10
   # mandatory packages
-  - matplotlib=3.5.2
-  - pandas=2.2.2
-  - numpy=1.23.5
-  - seaborn=0.13.2
+  - matplotlib
+  - numpy<2.0.0 # otherwise, compatibility with cholmod breaks
+  - pandas
   - scikit-sparse=0.4.12 # provides cholmod library
-  - scipy>=1.8.0
+  - scipy>=1.12.0 # provides scipy.sparse.diags_arra
+  - seaborn
+  - sympy
   # myjive import
-  - myjive=0.1.8
+  - myjive=0.1.14
   # support packages
   - pytest
