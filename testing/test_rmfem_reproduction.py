@@ -2,7 +2,10 @@ import pytest
 import os
 
 cwd = os.getcwd()
-rootdir = os.path.join(cwd[: cwd.rfind(os.path.sep + "probfem")], "probfem")
+if "probfem" in cwd:
+    rootdir = os.path.join(cwd[: cwd.rfind(os.path.sep + "probfem")], "probfem")
+else:
+    rootdir = cwd
 fig2_path = os.path.join(rootdir, "experiments", "reproduction", "rmfem", "fig2")
 fig3_path = os.path.join(rootdir, "experiments", "reproduction", "rmfem", "fig3")
 

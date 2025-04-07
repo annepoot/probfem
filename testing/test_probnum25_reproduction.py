@@ -1,4 +1,3 @@
-import os
 import numpy as np
 from copy import deepcopy
 import pytest
@@ -12,25 +11,6 @@ from experiments.reproduction.probnum25.props import (
     get_rwm_fem_2d_target,
     get_rwm_rmfem_2d_target,
 )
-
-
-cwd = os.getcwd()
-rootdir = os.path.join(cwd[: cwd.rfind(os.path.sep + "probfem")], "probfem")
-fig2_path = os.path.join(rootdir, "experiments", "reproduction", "rmfem", "fig2")
-fig3_path = os.path.join(rootdir, "experiments", "reproduction", "rmfem", "fig3")
-
-# some code at the start of each script to suppress matplotlib from showing figures
-prefix = ""
-prefix += "import matplotlib\n"
-prefix += "import warnings\n"
-prefix += 'matplotlib.use("agg")\n'
-prefix += 'warnings.filterwarnings("ignore", message="Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.")\n'
-prefix += 'warnings.filterwarnings("ignore", message="FigureCanvasAgg is non-interactive, and thus cannot be shown")\n'
-
-# some code at the end of each script to suppress matplotlib from showing figures
-suffix = ""
-suffix += "import matplotlib.pyplot as plt\n"
-suffix += "plt.close()\n"
 
 
 def generate_mesh(n_elem):
@@ -294,5 +274,3 @@ def get_reference_value_map():
     }
 
     return ref_map
-
-    # for fem_type in ["fem", "fem-2d", "rmfem", "rmfem-omit", "rmfem-2d"]:

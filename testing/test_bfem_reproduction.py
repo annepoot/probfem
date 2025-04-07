@@ -18,7 +18,10 @@ from experiments.reproduction.bfem.fig245.fem_props import (
 )
 
 cwd = os.getcwd()
-rootdir = os.path.join(cwd[: cwd.rfind(os.path.sep + "probfem")], "probfem")
+if "probfem" in cwd:
+    rootdir = os.path.join(cwd[: cwd.rfind(os.path.sep + "probfem")], "probfem")
+else:
+    rootdir = cwd
 fig245_path = os.path.join(rootdir, "experiments", "reproduction", "bfem", "fig245")
 fig3_path = os.path.join(rootdir, "experiments", "reproduction", "bfem", "fig3")
 
