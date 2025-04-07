@@ -9,6 +9,7 @@ dependencies:
   - matplotlib
   - numpy<2.0.0 # otherwise, compatibility with cholmod breaks
   - pandas
+  - python-gmsh
   - scikit-sparse=0.4.12 # provides cholmod library
   - scipy>=1.12.0 # provides scipy.sparse.diags_array
   - seaborn

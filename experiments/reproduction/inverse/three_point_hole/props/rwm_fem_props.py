@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 from probability.univariate import Uniform
@@ -40,7 +41,7 @@ def rejection_func(params):
         return False
 
 
-def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
+def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e, folder=""):
     fem_props = get_fem_props()
 
     obs_locs = get_observation_locations(L=5.0, H=1.0, h_meas=h_meas)
@@ -49,7 +50,8 @@ def get_rwm_fem_target(*, h, h_meas, std_corruption, sigma_e):
         return np.any(np.all(np.isclose(row, obs_locs), axis=1))
 
     # ground truth
-    df = read_csv_from("ground-truth.csv", "loc_x,loc_y,inode,dof_idx,dof_type")
+    fname = os.path.join(folder, "ground-truth.csv")
+    df = read_csv_from(fname, "loc_x,loc_y,inode,dof_idx,dof_type")
     df = df[df[["loc_x", "loc_y"]].apply(is_in_obs_locs, axis=1)]
     assert len(df) == int(24 / h_meas + 0.5)
 

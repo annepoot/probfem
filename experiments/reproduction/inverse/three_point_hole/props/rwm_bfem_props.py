@@ -14,12 +14,13 @@ from experiments.reproduction.inverse.three_point_hole.props import (
 __all__ = ["get_rwm_bfem_target"]
 
 
-def get_rwm_bfem_target(*, h, h_meas, std_corruption, scale, sigma_e):
+def get_rwm_bfem_target(*, h, h_meas, std_corruption, scale, sigma_e, folder=""):
     target = get_rwm_fem_target(
         h=h,
         h_meas=h_meas,
         std_corruption=std_corruption,
         sigma_e=sigma_e,
+        folder=folder,
     )
 
     if scale in ["mle", "eig"]:
