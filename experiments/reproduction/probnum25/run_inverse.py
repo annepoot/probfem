@@ -3,6 +3,8 @@ import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
+from myjive.fem import XNodeSet, XElementSet
+
 from probability.sampling import MCMCRunner
 from experiments.reproduction.probnum25.props import (
     get_rwm_fem_target,
@@ -15,9 +17,6 @@ n_burn = 10000
 n_sample = 20000
 std_corruption = 1e-5
 n_elem_range = [10, 20, 40]
-
-from myjive.fem import XNodeSet, XElementSet
-
 
 def generate_mesh(n_elem):
     node_coords = np.linspace(0, 1, n_elem + 1).reshape((-1, 1))

@@ -1,6 +1,7 @@
-import pytest
 import os
 import numpy as np
+import pytest
+import warnings
 
 from probability.process.spde_covariances import (
     InverseCovarianceOperator,
@@ -22,16 +23,17 @@ fig245_path = os.path.join(rootdir, "experiments", "reproduction", "bfem", "fig2
 fig3_path = os.path.join(rootdir, "experiments", "reproduction", "bfem", "fig3")
 
 # some code at the start of each script to suppress matplotlib from showing figures
-prefix = ""
-prefix += "import matplotlib\n"
-prefix += "import warnings\n"
-prefix += 'matplotlib.use("agg")\n'
-prefix += 'warnings.filterwarnings("ignore", message="Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.")\n'
+prefix = (
+    "import matplotlib\n"
+    + 'matplotlib.use("agg")\n'
+    + 'warnings.filterwarnings("ignore", message="Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.")\n'
+    + 'warnings.filterwarnings("ignore", message="FigureCanvasAgg is non-interactive, and thus cannot be shown")\n'
+    + 'warnings.filterwarnings("ignore", message="explicit covariance computation")\n'
+    + 'warnings.filterwarnings("ignore", message="invalid value encountered in sqrt")\n'
+)
 
 # some code at the end of each script to suppress matplotlib from showing figures
-suffix = ""
-suffix += "import matplotlib.pyplot as plt\n"
-suffix += "plt.close()\n"
+suffix = "import matplotlib.pyplot as plt\n" + "plt.close()\n"
 
 
 @pytest.mark.bfem
@@ -71,6 +73,8 @@ def test_bfem_reproduction_fig5_runs(monkeypatch):
 @pytest.mark.values
 def test_bfem_reproduction_fig3_values(ref_values, monkeypatch):
     monkeypatch.chdir(fig3_path)
+
+    warnings.filterwarnings("ignore", message="explicit covariance computation")
 
     for cov_name in ["K", "M"]:
         module_props = get_fig3_props()
@@ -118,6 +122,8 @@ def test_bfem_reproduction_fig3_values(ref_values, monkeypatch):
 @pytest.mark.values
 def test_bfem_reproduction_fig245_values(ref_values, monkeypatch):
     monkeypatch.chdir(fig245_path)
+
+    warnings.filterwarnings("ignore", message="explicit covariance computation")
 
     for cov_name in ["K", "M"]:
         module_props = get_fig245_props()

@@ -329,7 +329,7 @@ class RandomMeshModel(Model):
             grads, _ = shape.get_shape_gradients(coords)
             disp = globdat[gn.STATE0][idofs]
             strain = grads[0] @ disp
-            return strain
+            return strain[0]
 
         this_strain = get_strain(ielem)
         that_strain = get_strain(ielem + offset)
