@@ -1,4 +1,3 @@
-import os
 import numpy as np
 import ctypes as ct
 
@@ -7,10 +6,6 @@ from fem.meshing import get_patches_around_nodes
 
 
 __all__ = ["calc_perturbed_coords"]
-
-loader = ct.LibraryLoader(ct.CDLL)
-abspath = os.path.abspath(os.path.join(__file__, "..", "libperturbation.so"))
-libpermutation = loader.LoadLibrary(abspath)
 
 PTR = ct.POINTER
 
@@ -100,7 +95,7 @@ def calc_perturbed_coords_cpp(
     if patches is None:
         patches = get_patches_around_nodes(elems)
 
-    omit_nodes_arr = np.array(omit_nodes, dtype=np.long)
+    omit_nodes_arr = np.array(omit_nodes, dtype=int)
 
     pert_coords_ptr = pert_coords.ctypes.data_as(PTR(ct.c_double))
     pert_coords_shape = pert_coords.ctypes.shape_as(ct.c_long)

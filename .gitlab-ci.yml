@@ -1,0 +1,22 @@
+image: annepoot/myjive:latest
+
+stages:
+  - test
+
+test_code:
+  stage: test
+  script:
+    - echo "Installing environment"
+    - conda env create -f ENVIRONMENT.yml
+    - source $(conda info --base)/etc/profile.d/conda.sh
+    - conda activate probfem
+    - echo "Compiling C++ code"
+    - cd fem/jive/src
+    - make clean-all
+    - make
+    - cd ../../..
+    - echo "Running tests"
+    - pytest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+

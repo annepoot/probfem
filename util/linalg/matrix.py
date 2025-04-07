@@ -536,7 +536,7 @@ class MatMulChain:
                 product = product @ array
 
         if issparse(product):
-            if product.nnz > 0.5 * np.product(product.shape):
+            if product.nnz > 0.5 * np.prod(product.shape):
                 product = product.toarray()
 
         product *= self.scale

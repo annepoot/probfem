@@ -150,7 +150,7 @@ class ReferenceModel(Model):
                 return sgrads @ eldisp
 
             def error_func(x):
-                return (exact_func(x) - fem_func(x)) ** 2
+                return np.sum((exact_func(x) - fem_func(x)) ** 2)
 
             norm = np.sqrt(quad(error_func, coords[0, 0], coords[1, 0])[0])
 

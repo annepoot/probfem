@@ -7,11 +7,13 @@ fig2_path = os.path.join(rootdir, "experiments", "reproduction", "rmfem", "fig2"
 fig3_path = os.path.join(rootdir, "experiments", "reproduction", "rmfem", "fig3")
 
 # some code at the start of each script to suppress matplotlib from showing figures
-prefix = ""
-prefix += "import matplotlib\n"
-prefix += "import warnings\n"
-prefix += 'matplotlib.use("agg")\n'
-prefix += 'warnings.filterwarnings("ignore", message="Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.")\n'
+prefix = (
+    "import matplotlib\n"
+    + "import warnings\n"
+    + 'matplotlib.use("agg")\n'
+    + 'warnings.filterwarnings("ignore", message="Matplotlib is currently using agg, which is a non-GUI backend, so cannot show the figure.")\n'
+    + 'warnings.filterwarnings("ignore", message="FigureCanvasAgg is non-interactive, and thus cannot be shown")\n'
+)
 
 # some code at the end of each script to suppress matplotlib from showing figures
 suffix = ""
