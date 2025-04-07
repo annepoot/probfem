@@ -2,6 +2,7 @@ FROM continuumio/miniconda3:latest
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    # basics
     git \
     build-essential \
     autoconf \
@@ -9,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libtool \
     # readline
     libreadline6-dev \
-    # zlip
+    # zlib
     zlib1g-dev \
     # openssl
     libssl-dev \

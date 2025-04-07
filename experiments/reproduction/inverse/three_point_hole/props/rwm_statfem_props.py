@@ -10,12 +10,13 @@ from experiments.reproduction.inverse.three_point_hole.props import get_rwm_fem_
 __all__ = ["get_rwm_statfem_target"]
 
 
-def get_rwm_statfem_target(*, h, h_meas, std_corruption, sigma_e):
+def get_rwm_statfem_target(*, h, h_meas, std_corruption, sigma_e, folder=""):
     target = get_rwm_fem_target(
         h=h,
         h_meas=h_meas,
         std_corruption=std_corruption,
         sigma_e=sigma_e,
+        folder=folder,
     )
 
     old_prior = target.prior
