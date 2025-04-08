@@ -66,7 +66,7 @@ class GaussianLike(MultivariateDistribution):
         return self.__mul__(scale)
 
     def __matmul__(self, scale):
-        if issparse(scale) or isinstance(scale, np.ndarray):
+        if issparse(scale) or isinstance(scale, (np.ndarray, Matrix, MatMulChain)):
             return ScaledGaussian(self, scale.T)
         else:
             raise ValueError("cannot handle matmul of type '{}'".format(type(scale)))
@@ -261,11 +261,19 @@ class ScaledGaussian(GaussianLike):
 
         if np.isscalar(scale):
             self.scale = Matrix(scale * eye_array(len(self.latent)), name="aI")
-        else:
-            assert issparse(scale) or isinstance(scale, np.ndarray)
+        elif issparse(scale) or isinstance(scale, np.ndarray):
             assert len(scale.shape) == 2
             assert scale.shape[1] == len(self.latent)
             self.scale = Matrix(scale, name="A")
+        else:
+            assert isinstance(scale, (Matrix, MatMulChain))
+            assert len(scale.shape) == 2
+            assert scale.shape[1] == len(self.latent)
+            self.scale = scale
+
+        if isinstance(self.latent, ScaledGaussian):
+            self.scale = self.scale @ self.latent.scale
+            self.latent = self.latent.latent
 
     def __len__(self):
         return self.scale.shape[0]
@@ -434,9 +442,6 @@ class IndependentGaussianSum(GaussianLike):
 
             A_prior_At = scale @ Sigma @ scale.T
             A_downdate_At = scale @ downdate @ scale.T
-
-            A_prior_At.evaluate()
-            A_downdate_At.evaluate()
 
             full_cov = A_prior_At.evaluate() - A_downdate_At.evaluate() + eI.evaluate()
 
