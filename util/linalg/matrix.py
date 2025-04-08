@@ -121,19 +121,22 @@ class Matrix:
                             sol.data[np.abs(sol.data) < self.tol] = 0
                             sol.eliminate_zeros()
                         return sol
-                elif self.is_sparse:
-                    array = self.inv.evaluate()
-                    factor = cm.cholesky(csc_matrix(array))
-                    if issparse(other):
-                        return factor.solve_A(other.toarray())
+                elif len(other.shape) == 1 or other.shape[0] > other.shape[1]:
+                    if self.is_sparse:
+                        array = self.inv.evaluate()
+                        factor = cm.cholesky(csc_matrix(array))
+                        if issparse(other):
+                            return factor.solve_A(other.toarray())
+                        else:
+                            return factor.solve_A(other)
                     else:
-                        return factor.solve_A(other)
+                        array = self.inv.evaluate()
+                        if issparse(other):
+                            return np.linalg.solve(array, other.toarray())
+                        else:
+                            return np.linalg.solve(array, other)
                 else:
-                    array = self.inv.evaluate()
-                    if issparse(other):
-                        return np.linalg.solve(array, other.toarray())
-                    else:
-                        return np.linalg.solve(array, other)
+                    return self.evaluate() @ other
 
             else:
                 return self.evaluate() @ other
@@ -289,6 +292,8 @@ class Matrix:
 
     def is_equal(self, other, tol=0):
         if self.is_factor != other.is_factor:
+            return False
+        elif self.is_sparse != other.is_sparse:
             return False
         elif self.is_inverted != other.is_inverted:
             return False
@@ -462,86 +467,56 @@ class MatMulChain:
     def evaluate(self):
         self.simplify()
 
-        inv_pattern = [mat.is_inverted and not mat.is_diagonal for mat in self]
+        lst = [mat for mat in self]
 
-        if sum(inv_pattern) == 1 and len(self) > 1:
-            idx = np.where(inv_pattern)[0][0]
-            inv = self[idx]
+        if len(lst) > 1:
+            for _ in range(100):
+                cost = np.zeros(len(lst) - 1)
+                for i in range(len(lst) - 1):
+                    mati = lst[i]
+                    matj = lst[i + 1]
 
-            k, l = self.shape
-            n = inv.shape[0]
-
-            if idx == 0:
-                left = None
-            else:
-                left = self[0].evaluate()
-                for mat in self[1:idx]:
-                    left = left @ mat.evaluate()
-
-            if idx == len(self) - 1:
-                right = None
-            else:
-                right = self[-1].evaluate()
-                for mat in self[idx + 1 : -1][::-1]:
-                    right = mat.evaluate() @ right
-
-            if left is None:
-                if n > l:  # solve from the right
-                    product = inv @ right
-                else:  # explicit inversion
-                    product = inv.evaluate() @ right
-
-            elif right is None:
-                if k < n:  # solve from the left
-                    product = (inv.T @ left.T).T
-                else:  # explicit inversion
-                    product = left @ inv.evaluate()
-
-            else:
-                if min(k, l) > n:  # explicit inversion
-                    product = left @ inv.evaluate() @ right
-                elif k >= l:  # solve from the right
-                    product = left @ (inv @ right)
-                else:  # solve from the left
-                    product = (inv.T @ left.T).T @ right
-
-        else:
-            lst = [None] * len(self)
-            for i, matrix in enumerate(self):
-                if lst[i] is None:
-                    if matrix.is_inverted:
-                        if matrix.is_diagonal:
-                            inv = matrix.evaluate()
+                    if isinstance(mati, Matrix) and isinstance(matj, Matrix):
+                        if mati.is_inverted and matj.is_inverted:
+                            cost[i] = np.inf
                         else:
-                            warnings.warn("explicit matrix inversion")
-                            not_inv = matrix.inv.evaluate()
-                            if matrix.is_sparse:
-                                inv = np.linalg.inv(not_inv.todense())
-                            else:
-                                inv = np.linalg.inv(not_inv)
-                        lst[i] = inv
-
-                        # check for any identical inverses ahead
-                        for j, upcoming in enumerate(self[i + 1 :]):
-                            if upcoming == matrix:
-                                lst[i + j + 1] = inv
-                            elif upcoming.T == matrix:
-                                lst[i + j + 1] = inv.T
-
+                            cost[i] = mati.shape[0] * mati.shape[1] * matj.shape[1]
                     else:
-                        lst[i] = matrix.evaluate()
+                        cost[i] = mati.shape[0] * mati.shape[1] * matj.shape[1]
 
-            product = eye_array(self.shape[0])
-            for array in lst:
-                product = product @ array
+                opt_idx = np.argmin(cost)
+                mati = lst[opt_idx]
+                matj = lst[opt_idx + 1]
 
-        if issparse(product):
-            if product.nnz > 0.5 * np.prod(product.shape):
-                product = product.toarray()
+                if isinstance(mati, Matrix):
+                    if not mati.is_inverted:
+                        mati = mati.evaluate()
 
-        product *= self.scale
+                if isinstance(matj, Matrix):
+                    if not matj.is_inverted:
+                        matj = matj.evaluate()
 
-        return product
+                if isinstance(mati, np.ndarray) and isinstance(matj, Matrix):
+                    lst[opt_idx] = (matj.T @ mati.T).T
+                else:
+                    lst[opt_idx] = mati @ matj
+                lst.pop(opt_idx + 1)
+
+                if len(lst) == 1:
+                    break
+
+        result = lst[0]
+
+        if isinstance(result, Matrix):
+            result = result.evaluate()
+
+        if issparse(result):
+            if result.nnz > 0.5 * np.prod(result.shape):
+                result = result.toarray()
+
+        result *= self.scale
+
+        return result
 
     def factorize(self):
         assert self.is_symmetric
