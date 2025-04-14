@@ -64,9 +64,11 @@ N_filter = 200
 N_start = 10000
 N_end = 20000
 
+fem_types = ["fem", "bfem", "rmfem", "statfem"]
+h_range = [0.2, 0.1, 0.05]
 std_corruption = 1e-4
 
-for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
+for fem_type in fem_types:
 
     fname = "output/samples-{}.csv".format(fem_type)
 
@@ -77,7 +79,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
     df["theta"] = np.fmod(df["theta"], 0.5 * np.pi)
 
-    for i, h in enumerate([0.2, 0.1, 0.05]):
+    for i, h in enumerate(h_range):
         # Create figure and axis
         fig, ax = plt.subplots()
 
