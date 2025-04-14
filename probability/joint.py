@@ -61,7 +61,11 @@ class IndependentJoint(MultivariateDistribution):
         offset = 0
         for dist in self.distributions:
             l = len(dist)
-            sample[offset : offset + l] = dist.calc_sample(seed)
+            if isinstance(dist, UnivariateDistribution):
+                assert l == 1
+                sample[offset] = dist.calc_sample(seed)
+            else:
+                sample[offset : offset + l] = dist.calc_sample(seed)
             offset += l
         assert offset == length
         return sample
@@ -72,7 +76,11 @@ class IndependentJoint(MultivariateDistribution):
         offset = 0
         for dist in self.distributions:
             l = len(dist)
-            samples[:, offset : offset + l] = dist.calc_samples(n, seed)
+            if isinstance(dist, UnivariateDistribution):
+                assert l == 1
+                samples[:, offset] = dist.calc_samples(n, seed)
+            else:
+                samples[:, offset : offset + l] = dist.calc_samples(n, seed)
             offset += l
         assert offset == length
         return samples
