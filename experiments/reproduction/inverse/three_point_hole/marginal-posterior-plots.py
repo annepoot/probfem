@@ -8,7 +8,6 @@ from util.io import read_csv_from
 
 
 variables = ["x", "y", "a", "theta", "r_rel"]
-fem_types = ["fem", "bfem", "rmfem", "statfem"]
 
 refs_by_var = {
     "x": 1.0,
@@ -58,13 +57,17 @@ labels_by_var = {
 width = 0.10
 N_burn = 10000
 N_filter = 50
+
+fem_types = ["fem", "bfem", "rmfem", "statfem"]
 h_range = [0.2, 0.1, 0.05]
+std_corruption = 1e-4
 
 dfs = []
-for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
+for fem_type in fem_types:
     fname = os.path.join("output", "samples-{}.csv".format(fem_type))
     df = read_csv_from(fname, "x,y,a,theta,r_rel")
     df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
+    df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
     df = df[df["h"].isin(h_range)]
     df["h"] = df["h"].astype(str)
     df["theta"] = np.fmod(df["theta"], np.pi / 2)

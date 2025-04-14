@@ -73,7 +73,7 @@ def get_fem_props():
                         "type": "LinearIsotropic",
                         "anmodel": "PLANE_STRAIN",
                         "rank": 2,
-                        "E": 1000.0,
+                        "E": 30000.0,
                         "nu": 0.2,
                     },
                     "shape": {
