@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -47,6 +48,14 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     df["n_elem"] = df["n_elem"].astype(str)
     df["h"] = r"\sfrac{1}{" + df["n_elem"] + "}"
 
+    rng = np.random.default_rng(0)
+    prior_mean = np.log(np.array([1.0, 100.0]))
+    prior_cov = 0.1**2 * np.identity(2)
+    n_sample = len(df) // len(n_elem_range)
+    samples = rng.multivariate_normal(prior_mean, prior_cov, size=n_sample)
+    E_prior = np.exp(samples[:, 0])
+    k_prior = np.exp(samples[:, 1])
+
     fig, ax = plt.subplots(figsize=(4, 4))
 
     plot = sns.scatterplot(
@@ -73,16 +82,19 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     ax.xaxis.set_label_text(labels_by_var["E"])
     ax.yaxis.set_label_text(labels_by_var["k"])
 
+    ax.scatter(
+        E_prior, k_prior, color="0.7", marker=".", alpha=0.4, zorder=0, linewidth=0
+    )
     ax.scatter([ref_E], [ref_k], color="k", zorder=2)
     E = np.linspace(lims_E[0] + 1e-8, lims_E[1], 1000)
     k = ref_E * ref_k / E
     ax.plot(E, k, color="k", linestyle=":")
 
-    legend = ax.legend(title=r"$h$")
+    legend = ax.legend(title=r"$h$", loc="upper left")
     fontsize = "12"
     plt.setp(legend.get_texts(), fontsize=fontsize)
     plt.setp(legend.get_title(), fontsize=fontsize)
-    for handle in legend.legendHandles:
+    for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
     fname = os.path.join("img", "scatterplot_{}.pdf".format(fem_type))
