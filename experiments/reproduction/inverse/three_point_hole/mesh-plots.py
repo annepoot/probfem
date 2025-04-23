@@ -66,7 +66,7 @@ refs_by_var = {
 }
 
 # Create figure and axis
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(9.0, 2.4), tight_layout=True)
 
 # Create a rounded rectanglepatch
 rect = FancyBboxPatch(

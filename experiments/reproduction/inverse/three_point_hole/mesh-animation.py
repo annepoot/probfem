@@ -85,7 +85,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         frames = []
 
         # Create figure and axis
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(figsize=(9.0, 2.4), tight_layout=True)
         plt.axis("off")
 
         # Set limits and aspect ratio
@@ -188,8 +188,9 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             return hole, plot_edges
 
         # Create the animation
-        ani = FuncAnimation(fig, update, frames=2000, interval=1000 / 30)
-        fname = "mesh-animation_{}_h-{:.2f}.mp4".format(fem_type, h)
+        fps = 60
+        ani = FuncAnimation(fig, update, frames=2000, interval=1000 / fps)
+        fname = "mesh-animation_{}_h-{:.2f}_fps-{}.mp4".format(fem_type, h, fps)
         fname = os.path.join("ani", fname)
         ani.save(fname, writer="ffmpeg")
         plt.show()
