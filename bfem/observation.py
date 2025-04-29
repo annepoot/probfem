@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.sparse import csr_array, issparse
 
 from myjive.names import GlobNames as gn
 from myjive.solver import Constrainer
@@ -42,18 +41,28 @@ def compute_bfem_observations(coarse_prior, fine_prior):
     f = fine_globdat["extForce"]
     conman = Constrainer(c, K)
     Kc = conman.get_output_matrix()
-    fc = conman.get_rhs(f)
     Phi = create_phi_from_globdat(coarse_globdat, fine_globdat)
 
-    cdofs = coarse_globdat[gn.CONSTRAINTS].get_constraints()[0]
-    keepidx = np.delete(np.arange(Phi.shape[1]), cdofs)
-    Phic = Phi[:, keepidx]
+    cdofs, cvals = coarse_globdat[gn.CONSTRAINTS].get_constraints()
+    cdofs, cvals = np.array(cdofs), np.array(cvals)
+    inhom_idx = np.where(abs(cvals) > 1e-8)[0]
+
+    if len(inhom_idx) == 0:
+        f_inhom = np.zeros_like(f)
+    else:
+        f_inhom = -K @ (Phi[:, cdofs[inhom_idx]] @ cvals[inhom_idx])
+
+    if len(cdofs) > 0:
+        keepidx = np.delete(np.arange(Phi.shape[1]), cdofs)
+        Phic = Phi[:, keepidx]
+    else:
+        Phic = Phi
 
     Kc = Matrix(Kc, name="Kc")
     Phic = Matrix(Phic, name="Phic")
 
     H_obs = Phic.T @ Kc
-    f_obs = Phic.T @ fc
+    f_obs = Phic.T @ (f + f_inhom)
 
     return H_obs, f_obs
 

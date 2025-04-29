@@ -1,7 +1,6 @@
 from warnings import warn
 import numpy as np
-from scipy.sparse import issparse, diags_array
-from scipy.sparse.linalg import spsolve
+from scipy.sparse import diags_array
 
 from copy import deepcopy
 
@@ -112,31 +111,7 @@ class ProjectedPrior(Gaussian):
         super().__init__(mean, cov, use_scipy_latent=False)
 
     def _compute_mean(self, globdat):
-        K = globdat[gn.MATRIX0].copy()
-        c = globdat[gn.CONSTRAINTS]
-
-        cdofs, cvals = c.get_constraints()
-        cdofs = np.array(cdofs)
-        cvals = np.array(cvals)
-        idx_inhom = np.where(abs(cvals) > 1e-8)
-
-        if len(idx_inhom[0]) == 0:
-            mean = np.zeros(K.shape[0])
-
-        else:
-            Kib = K[:, cdofs]
-            f_inhom = -Kib @ cvals
-            f_inhom[cdofs] = cvals
-
-            K[:, cdofs] *= 0.0
-            K[cdofs, :] *= 0.0
-            K[cdofs, cdofs] = 1.0
-
-            if issparse(K):
-                mean = spsolve(K, f_inhom)
-            else:
-                mean = np.linalg.solve(K, f_inhom)
-
+        mean = np.zeros_like(globdat[gn.STATE0])
         return mean
 
     def _compute_covariance(self, globdat):
