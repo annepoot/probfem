@@ -79,7 +79,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
     elif fem_type == "rmfem":
         sigma_e = std_corruption
-        n_pseudomarginal = 10
+        n_pseudomarginal = 100
         recompute_logpdf = True
 
         if write_output:
