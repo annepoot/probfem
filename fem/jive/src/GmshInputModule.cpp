@@ -8,6 +8,7 @@
 #include <jem/util/ArrayBuffer.h>
 #include <jive/app/ModuleFactory.h>
 #include <jive/fem/NodeGroup.h>
+#include <jem/base/Slice.h>
 
 #include "GmshInputModule.h"
 
@@ -16,6 +17,8 @@ using jem::util::SparseArray;
 using jem::util::ArrayBuffer;
 using jive::Vector;
 using jive::Matrix;
+using jive::IntVector;
+using jive::StringVector;
 using jive::fem::NodeGroup;
 using jive::fem::NodeSet;
 using jive::fem::ElementSet;
@@ -205,6 +208,31 @@ void GmshInputModule::readMesh_
   iFile_->readLine();
   line = iFile_->readLine().stripWhite();
 
+  StringVector groupNames;
+  IntVector groupDims;
+  IntVector groupTags;
+
+  if ( line == "$PhysicalNames")
+  {
+    idx_t numGroups = iFile_->parseInt();
+
+    groupNames.resize(numGroups);
+    groupDims.resize(numGroups);
+    groupTags.resize(numGroups);
+
+    for ( idx_t ig = 0; ig < numGroups; ++ig )
+    {
+        groupDims[ig] = iFile_->parseInt();
+        groupTags[ig] = iFile_->parseInt();
+        String groupName = iFile_->readLine().stripWhite();
+        groupName = groupName[jem::SliceFromTo(1, groupName.size() - 1)];
+        groupNames[ig] = groupName;
+    }
+    iFile_->readLine();
+  }
+
+  line = iFile_->readLine().stripWhite();
+
   if ( line != "$Nodes" )
   {
     System::out() << line.size() << line << endl;
@@ -344,14 +372,21 @@ void GmshInputModule::readMesh_
     {
       groupElems.ref ( it->value.toArray() );
 
+      int groupTag = it->index[0];
+      groupName = "gmsh" + String(groupTag);
+
+      for ( idx_t ig = 0; ig < groupNames.size(); ++ig ){
+        if ( groupTags[ig] == groupTag ){
+          groupName = groupNames[ig];
+          break;
+        }
+      }
+
       newGroup  = newElementGroup( groupElems, elems_ );
-
-      groupName = "gmsh" + String(it->index[0]);
-
       newGroup.store( groupName, globdat );
 
-      System::out() << " ... stored ElementGroup " << groupName << 
-        " with " << groupElems.size() << " elements.\n";
+      System::out() << " ... stored ElementGroup `" << groupName <<
+        "' with " << groupElems.size() << " elements.\n";
     }
   }
 
