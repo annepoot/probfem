@@ -1,5 +1,6 @@
 import os
 import ctypes as ct
+import numpy as np
 
 from myjive.app import main
 from myjive.util.proputils import props_to_string
@@ -54,7 +55,7 @@ class CJiveRunner:
 
             self.update_elems(elems)
 
-    def __call__(self, *flags):
+    def __call__(self, *flags, **backdoor):
         flags = list(flags)
 
         if len(flags) == 0:
@@ -89,6 +90,15 @@ class CJiveRunner:
             buffers["elementSet"] = ctutil.to_buffer(self.elems)
             assert "nodeSet" in buffers
             buffers["nodeSet"] = ctutil.to_buffer(self.elems.get_nodes())
+
+        nbac = len(backdoor)
+        if nbac > 0:
+            buffers["backdoor"] = {}
+            fields = np.array(list(backdoor.keys()))
+            values = np.array(list(backdoor.values())).reshape((nbac, -1)).copy()
+
+            buffers["backdoor"]["ipfields"] = fields
+            buffers["backdoor"]["ipvalues"] = values
 
         ct_globdat = ctutil.buffers_as_ctypes(buffers)
         ct_flags = ct.c_long(ctutil.pack_output_flags(*flags))

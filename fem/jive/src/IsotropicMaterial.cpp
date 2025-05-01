@@ -12,6 +12,7 @@
 #include <jem/base/Error.h>
 #include <jem/base/System.h>
 #include <jem/base/Array.h>
+#include <jem/base/rtti.h>
 #include <jem/util/Properties.h>
 #include <jem/numeric/algebra/matmul.h>
 #include <jem/numeric/algebra/utilities.h>
@@ -21,6 +22,7 @@
 #include "IsotropicMaterial.h"
 
 #include "utilities.h"
+#include "CtypesUtils.h"
 
 #include <cstdlib>
 
@@ -112,7 +114,44 @@ void IsotropicMaterial::configure
     argvals[5 + i] = paramValues_[i];
   }
 
-  FuncUtils::configFunc ( e_, args, E_PROP, myProps, globdat );
+  Ref<Object> eObj;
+  Ref<Object> ipFieldObj;
+  Ref<Object> ipValueObj;
+
+  STRING_ARRAY_PTR ipFields;
+  DOUBLE_ARRAY_PTR ipValues = DOUBLE_ARRAY_PTR();
+  int eFieldOffset = -1;
+  int xFieldOffset = -1;
+  int yFieldOffset = -1;
+
+  props.get( eObj, E_PROP );
+
+  if ( isInstance<String>( eObj ) && toValue<String>(eObj) == "globdat" ){
+    e_ = nullptr;
+
+    globdat.get(ipFieldObj, "input.ipfields");
+    globdat.get(ipValueObj, "input.ipvalues");
+    ipFields = ObjectTraits<STRING_ARRAY_PTR>::toValue(ipFieldObj);
+    ipValues = ObjectTraits<DOUBLE_ARRAY_PTR>::toValue(ipValueObj);
+
+    System::out() << "Looping over ipFields\n\n";
+    for ( int i = 0; i < ipFields.shape[0]; ++i ){
+      if ( strcmp(ipFields.ptr[i], "e") == 0 ){
+        eFieldOffset = i * ipValues.shape[1];
+      } else if ( strcmp(ipFields.ptr[i], "xcoord") == 0 ){
+        xFieldOffset = i * ipValues.shape[1];
+      } else if ( strcmp(ipFields.ptr[i], "ycoord") == 0 ){
+        yFieldOffset = i * ipValues.shape[1];
+      }
+    }
+
+    if ( eFieldOffset < 0 || xFieldOffset < 0 || yFieldOffset < 0 ){
+      throw Error ( JEM_FUNC, "Field not found" );
+    }
+  } else {
+    FuncUtils::configFunc ( e_, args, E_PROP, myProps, globdat );
+  }
+
   if ( rank_ == 1 ){
     FuncUtils::configFunc ( area_, args, AREA_PROP, myProps, globdat );
   } else {
@@ -124,7 +163,19 @@ void IsotropicMaterial::configure
       argvals[ir + 2] = ipCoords_(ir, ipoint);
     }
 
-    es_[ipoint] = e_->getValue(argvals);
+    if ( e_ ){
+      es_[ipoint] = e_->getValue(argvals);
+    } else {
+      double xdiff = ipValues.ptr[ipoint + xFieldOffset] - ipCoords_(0, ipoint);
+      double ydiff = ipValues.ptr[ipoint + yFieldOffset] - ipCoords_(1, ipoint);
+
+      if ( fabs(xdiff) > 1e-8 || fabs(ydiff) > 1e-8 ){
+        throw Error ( JEM_FUNC, "Incorrect integration point location assumed" );
+      }
+
+      es_[ipoint] = ipValues.ptr[ipoint + eFieldOffset];
+    }
+
     if ( rank_ == 1 ){
       areas_[ipoint] = area_->getValue(argvals);
     } else {
