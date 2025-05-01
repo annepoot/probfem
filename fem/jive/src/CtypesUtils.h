@@ -21,6 +21,12 @@ struct DOUBLE_ARRAY_PTR{
   long dim;
 };
 
+struct STRING_ARRAY_PTR{
+  char** ptr;
+  long* shape;
+  long dim;
+};
+
 struct SPARSE_MAT_PTR{
   DOUBLE_ARRAY_PTR values;
   LONG_ARRAY_PTR indices;
@@ -50,6 +56,11 @@ struct DOFSPACE_PTR{
   LONG_ARRAY_PTR data;
 };
 
+struct BACKDOOR_PTR{
+  STRING_ARRAY_PTR ipfields;
+  DOUBLE_ARRAY_PTR ipvalues;
+};
+
 struct GLOBDAT {
   POINTSET_PTR nodeSet;
   GROUPSET_PTR elementSet;
@@ -60,6 +71,7 @@ struct GLOBDAT {
   SPARSE_MAT_PTR matrix0;
   CONSTRAINTS_PTR constraints;
   SHAPE_PTR shape;
+  BACKDOOR_PTR backdoor;
 };
 
 void globdatToCtypes

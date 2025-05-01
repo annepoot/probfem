@@ -26,6 +26,14 @@ class DOUBLE_ARRAY_PTR(ct.Structure):
     ]
 
 
+class STRING_ARRAY_PTR(ct.Structure):
+    _fields_ = [
+        ("ptr", PTR(ct.c_char_p)),
+        ("shape", PTR(ct.c_long)),
+        ("dim", ct.c_long),
+    ]
+
+
 class LONG_VEC_PTR(LONG_ARRAY_PTR):
     def __init__(self, *args, **kw):
         if len(args) == 0:
@@ -70,6 +78,17 @@ class DOUBLE_MAT_PTR(DOUBLE_ARRAY_PTR):
             super().__init__(*args, 2, **kw)
 
 
+class STRING_VEC_PTR(STRING_ARRAY_PTR):
+    def __init__(self, *args, **kw):
+        if len(args) == 0:
+            super().__init__(*args, **kw)
+        else:
+            assert len(args) == 2
+            assert args[0]._type_ is ct.c_char_p
+            assert args[1]._length_ == 1
+            super().__init__(*args, 1, **kw)
+
+
 class SPARSE_MAT_PTR(ct.Structure):
     _fields_ = [
         ("values", DOUBLE_VEC_PTR),
@@ -111,6 +130,13 @@ class DOFSPACE_PTR(ct.Structure):
     ]
 
 
+class BACKDOOR_PTR(ct.Structure):
+    _fields_ = [
+        ("ipfields", STRING_VEC_PTR),
+        ("ipvalues", DOUBLE_MAT_PTR),
+    ]
+
+
 class GLOBDAT(ct.Structure):
     _fields_ = [
         ("nodeSet", POINTSET_PTR),
@@ -122,6 +148,7 @@ class GLOBDAT(ct.Structure):
         ("matrix0", SPARSE_MAT_PTR),
         ("constraints", CONSTRAINTS_PTR),
         ("shape", SHAPE_PTR),
+        ("backdoor", BACKDOOR_PTR),
     ]
 
 
@@ -187,9 +214,13 @@ def to_numpy(c_obj, *args):
 
 
 def to_ctypes(arr):
-    ctype = np.ctypeslib.as_ctypes_type(arr.dtype)
-    ptr = arr.ctypes.data_as(ct.POINTER(ctype))
-    shape = arr.ctypes.shape_as(ct.c_long)
+    if np.issubdtype(arr.dtype, (str, np.str_)):
+        ptr = (ct.c_char_p * len(arr))(*[s.encode("utf-8") for s in arr])
+        shape = arr.ctypes.shape_as(ct.c_long)
+    else:
+        ctype = np.ctypeslib.as_ctypes_type(arr.dtype)
+        ptr = arr.ctypes.data_as(ct.POINTER(ctype))
+        shape = arr.ctypes.shape_as(ct.c_long)
 
     assert arr.base is None
 
@@ -198,6 +229,8 @@ def to_ctypes(arr):
             return LONG_VEC_PTR(ptr, shape)
         elif ptr._type_ is ct.c_double:
             return DOUBLE_VEC_PTR(ptr, shape)
+        elif ptr._type_ is ct.c_char_p:
+            return STRING_VEC_PTR(ptr, shape)
         else:
             assert False
     elif shape._length_ == 2:
@@ -376,6 +409,14 @@ def buffers_as_ctypes(buffers):
     else:
         shape_ptr = SHAPE_PTR()
 
+    if "backdoor" in buffers:
+        backdoor_ptr = BACKDOOR_PTR(
+            to_ctypes(buffers["backdoor"]["ipfields"]),
+            to_ctypes(buffers["backdoor"]["ipvalues"]),
+        )
+    else:
+        backdoor_ptr = BACKDOOR_PTR()
+
     ct_globdat = GLOBDAT(
         nodeset_ptr,
         elementset_ptr,
@@ -386,6 +427,7 @@ def buffers_as_ctypes(buffers):
         matrix0_ptr,
         constraints_ptr,
         shape_ptr,
+        backdoor_ptr,
     )
 
     return ct_globdat

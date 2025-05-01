@@ -138,6 +138,9 @@ void runFromFile ( GLOBDAT& iodat, char* fname, long flags )
   globdat.set("input.nodeSet", ObjectTraits<POINTSET_PTR>::toObject(iodat.nodeSet));
   globdat.set("input.elementSet", ObjectTraits<GROUPSET_PTR>::toObject(iodat.elementSet));
 
+  globdat.set("input.ipfields",  ObjectTraits<STRING_ARRAY_PTR>::toObject(iodat.backdoor.ipfields));
+  globdat.set("input.ipvalues",  ObjectTraits<DOUBLE_ARRAY_PTR>::toObject(iodat.backdoor.ipvalues));
+
   ExposedApplication::exec ( argc, argv, & mainModule, globdat );
 
   globdatToCtypes( iodat, globdat, flags );
@@ -155,6 +158,9 @@ void runFromProps ( GLOBDAT& iodat, char* strProps, long flags )
 
   globdat.set("input.nodeSet", ObjectTraits<POINTSET_PTR>::toObject(iodat.nodeSet));
   globdat.set("input.elementSet", ObjectTraits<GROUPSET_PTR>::toObject(iodat.elementSet));
+
+  globdat.set("input.ipfields",  ObjectTraits<STRING_ARRAY_PTR>::toObject(iodat.backdoor.ipfields));
+  globdat.set("input.ipvalues",  ObjectTraits<DOUBLE_ARRAY_PTR>::toObject(iodat.backdoor.ipvalues));
 
   ExposedApplication::execProps ( props, & mainModule, globdat );
 
