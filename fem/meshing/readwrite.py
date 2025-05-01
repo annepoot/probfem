@@ -1,7 +1,8 @@
 import os
 import numpy as np
+from warnings import warn
 
-from myjive.fem import XNodeSet, XElementSet
+from myjive.fem import XNodeSet, XElementSet, ElementGroup
 
 __all__ = ["write_mesh", "read_mesh", "get_gmsh_elem_info", "get_gmsh_elem_type"]
 
@@ -17,13 +18,15 @@ def write_mesh(elems, fname):
         raise ValueError("Invalid file type passed to write_mesh")
 
 
-def read_mesh(fname):
+def read_mesh(fname, *, read_groups=False):
     file, extension = os.path.splitext(fname)
 
     if extension == ".mesh":
+        if read_groups:
+            warn("Element groups cannot be read from manual mesh")
         return _read_manual(fname)
     elif extension == ".msh":
-        return _read_gmsh(fname)
+        return _read_gmsh(fname, read_groups=read_groups)
     else:
         raise ValueError("Invalid file type passed to write_mesh")
 
@@ -96,12 +99,18 @@ def _write_gmsh(elems, fname):
         file.write("$EndElements\n")
 
 
-def _read_gmsh(fname):
+def _read_gmsh(fname, *, read_groups=False):
     nodes = XNodeSet()
     elems = XElementSet(nodes)
 
     parse_nodes = False
     parse_elems = False
+
+    if read_groups:
+        groups = {}
+        group_name_map = {}
+        parse_names = False
+
     ranks = []
 
     with open(fname) as msh:
@@ -116,6 +125,12 @@ def _read_gmsh(fname):
                 parse_elems = True
             elif line == "$EndElements\n":
                 parse_elems = False
+
+            if read_groups:
+                if line == "$PhysicalNames\n":
+                    parse_names = True
+                elif line == "$EndPhysicalNames\n":
+                    parse_names = False
 
             if parse_nodes and len(sp) > 1:
                 node_id = int(sp[0])
@@ -135,6 +150,20 @@ def _read_gmsh(fname):
 
                 elems.add_element(nodes.find_nodes(inodes), elem_id)
 
+                if read_groups:
+                    ielem = len(elems) - 1
+                    group_tag = int(sp[3])
+
+                    if group_tag not in groups:
+                        groups[group_tag] = ElementGroup(elems)
+
+                    groups[group_tag].add_element(ielem)
+
+            if read_groups and parse_names and len(sp) > 1:
+                group_tag = int(sp[1])
+                group_name = sp[2].strip('"')
+                group_name_map[group_tag] = group_name
+
         mesh_rank = np.max(ranks)
         coords = nodes.get_coords()
         if coords.shape[1] > mesh_rank:
@@ -143,7 +172,16 @@ def _read_gmsh(fname):
     nodes.to_nodeset()
     elems.to_elementset()
 
-    return nodes, elems
+    if read_groups:
+        named_groups = {}
+
+        for group_tag, group in groups.items():
+            group_name = group_name_map.get(group_tag, "gmsh" + str(group_tag))
+            named_groups[group_name] = group
+
+        return nodes, elems, named_groups
+    else:
+        return nodes, elems
 
 
 def _read_manual(fname):
