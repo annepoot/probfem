@@ -2,33 +2,34 @@ import numpy as np
 import gmsh
 
 
-def calc_fiber_locations(*, n_fiber, a, r, tol=0.001, seed=0):
+def calc_fibers(*, n_fiber, a, r, tol=0.001, seed=0):
     rng = np.random.default_rng(seed)
 
     fiber_coords = []
 
     for i in range(n_fiber):
         for _ in range(int(1e5)):
-            new_coords = rng.uniform(0, a, size=2)
+            new_coords = rng.uniform(-a, a, size=2)
 
             fib, dist = calc_closest_fiber(new_coords, fiber_coords, a)
 
             if dist > 2 * r + tol:
-                for x_off in [-1, 0, 1]:
-                    x_mod = new_coords[0] + x_off * a
+                for x_off in [-2 * a, 0, 2 * a]:
+                    x_mod = new_coords[0] + x_off
 
-                    if x_mod < -r - tol or x_mod > a + r + tol:
+                    if x_mod < -a - r - tol or x_mod > a + r + tol:
                         continue
 
-                    for y_off in [-1, 0, 1]:
-                        y_mod = new_coords[1] + y_off * a
+                    for y_off in [-2 * a, 0, 2 * a]:
+                        y_mod = new_coords[1] + y_off
 
-                        if y_mod < -r - tol or y_mod > a + r + tol:
+                        if y_mod < -a - r - tol or y_mod > a + r + tol:
                             continue
 
                         fiber_coords.append(np.array([x_mod, y_mod]))
                 break
         else:
+            print("fiber number:", i)
             raise RuntimeError("Number of tries exceeded (no fiber location found!)")
 
     return np.array(fiber_coords)
@@ -43,7 +44,7 @@ def create_mesh(*, fibers, a, r, h, fname):
 
     occ = gmsh.model.occ
 
-    matrix_tag = occ.addRectangle(0.0, 0.0, 0.0, a, a)
+    matrix_tag = occ.addRectangle(-a, -a, 0.0, 2 * a, 2 * a)
     matrix_dimtag = [(2, matrix_tag)]
 
     fiber_dimtags = []
@@ -95,10 +96,10 @@ def calc_closest_fiber(point, fibers, rve_size):
 
     ghost_points = np.zeros((9, 2))
 
-    for ix, x_off in enumerate([-1, 0, 1]):
-        for iy, y_off in enumerate([-1, 0, 1]):
-            ghost_points[3 * ix + iy, 0] = point[0] + x_off * rve_size
-            ghost_points[3 * ix + iy, 1] = point[1] + y_off * rve_size
+    for ix, x_off in enumerate([-2 * rve_size, 0, 2 * rve_size]):
+        for iy, y_off in enumerate([-2 * rve_size, 0, 2 * rve_size]):
+            ghost_points[3 * ix + iy, 0] = point[0] + x_off
+            ghost_points[3 * ix + iy, 1] = point[1] + y_off
 
     for i, fiber in enumerate(fibers):
         dist = np.min(np.sqrt(np.sum((ghost_points - fiber) ** 2, axis=1)))
@@ -109,14 +110,14 @@ def calc_closest_fiber(point, fibers, rve_size):
     return argmin, min_dist
 
 
-n_fiber = 16
+n_fiber = 30
 a = 1.0
-r = 0.1
-tol = 0.001
-h = 0.05
+r = 0.15
+tol = 0.01
+h = 0.01
 seed = 0
 
-fibers = calc_fiber_locations(n_fiber=n_fiber, a=a, r=r, tol=tol, seed=seed)
+fibers = calc_fibers(n_fiber=n_fiber, a=a, r=r, tol=tol, seed=seed)
 
 np.save("meshes/rve_nfib-{}.npy".format(n_fiber), fibers)
 fname = "meshes/rve_nfib-{}_h-{}.msh".format(n_fiber, h)
