@@ -1,12 +1,24 @@
+import os
 import numpy as np
 
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh
 from experiments.inverse.frp_damage.props import get_fem_props
 from experiments.inverse.frp_damage.meshing import calc_closest_fiber
+from experiments.inverse.frp_damage import caching
 
 props = get_fem_props()
 fname = props["userinput"]["gmsh"]["file"]
+
+base = os.path.splitext(os.path.basename(fname))[0]
+for keyval in base.split("_"):
+    if "-" in keyval:
+        key, val = keyval.split("-")
+        if key == "nfib":
+            n_fiber = int(val)
+        elif key == "h":
+            h = float(val)
+
 nodes, elems, groups = read_mesh(fname, read_groups=True)
 
 from myjive.fem import Tri3Shape
@@ -37,7 +49,35 @@ def calc_integration_points(egroup, shape):
     return ipoints
 
 
-ipoints = calc_integration_points(egroup, shape)
+name = "fibers"
+dependencies = {"nfib": n_fiber}
+path = caching.get_cache_fpath(name, dependencies)
+
+fibers = caching.read_cache(path)
+
+name = "ipoints"
+dependencies = {"nfib": n_fiber, "h": h}
+path = caching.get_cache_fpath(name, dependencies)
+
+if caching.is_cached(path):
+    ipoints = caching.read_cache(path)
+else:
+    ipoints = calc_integration_points(egroup, shape)
+    caching.write_cache(path, ipoints)
+
+name = "distances"
+dependencies = {"nfib": n_fiber, "h": h}
+path = caching.get_cache_fpath(name, dependencies)
+
+if caching.is_cached(path):
+    distances = caching.read_cache(path)
+else:
+    distances = np.zeros(ipoints.shape[0])
+    for ip, ipoint in enumerate(ipoints):
+        fiber, dist = calc_closest_fiber(ipoint, fibers, 1.0)
+        distances[ip] = dist
+    caching.write_cache(path, distances)
+
 
 backdoor = {}
 backdoor["xcoord"] = ipoints[:, 0]
@@ -45,14 +85,11 @@ backdoor["ycoord"] = ipoints[:, 1]
 backdoor["e"] = np.zeros(ipoints.shape[0])
 
 E = 1000
-decay = 33
+decay = 20
 reduction = 0.5
 
-fibers = np.load("meshes/rve_nfib-16.npy")
-
 for ip, ipoint in enumerate(ipoints):
-
-    fiber, dist = calc_closest_fiber(ipoint, fibers, 1.0)
+    dist = distances[ip]
     assert dist >= 0.09
     surf_dist = max(dist - 0.1, 0.0)
     moisture = np.exp(-decay * surf_dist)
@@ -76,7 +113,8 @@ for group_name, egroup in groups.items():
             elem_stiffness[ielem] = E * (1 - damage)
     elif group_name == "fiber":
         ielems = egroup.get_indices()
-        elem_stiffness[ielems] = props["model"]["model"]["fiber"]["material"]["E"]
+        # elem_stiffness[ielems] = props["model"]["model"]["fiber"]["material"]["E"]
+        elem_stiffness[ielems] = 0
     else:
         assert False
 

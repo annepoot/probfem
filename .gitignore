@@ -17,6 +17,7 @@ OBJ/
 *.dmp
 *.mp4
 *.gif
+*.npy
 
 !experiments/inverse/cantilever_hole/ground-truth.csv
 !experiments/inverse/three_point_hole/ground-truth.csv
