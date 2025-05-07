@@ -126,7 +126,7 @@ void IsotropicMaterial::configure
 
   props.get( eObj, E_PROP );
 
-  if ( isInstance<String>( eObj ) && toValue<String>(eObj) == "globdat" ){
+  if ( isInstance<String>( eObj ) && toValue<String>(eObj) == "backdoor" ){
     e_ = nullptr;
 
     globdat.get(ipFieldObj, "input.ipfields");
