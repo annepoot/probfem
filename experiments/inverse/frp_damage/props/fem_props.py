@@ -21,17 +21,33 @@ def get_fem_props():
             },
             "ngroups": {
                 "type": "GroupInput",
-                "nodeGroups": ["left", "right", "bottom", "top"],
-                "left": {
+                "nodeGroups": ["l", "r", "b", "t", "lb", "rb", "lt", "rt"],
+                "l": {
                     "xtype": "min",
                 },
-                "right": {
+                "r": {
                     "xtype": "max",
                 },
-                "bottom": {
+                "b": {
                     "ytype": "min",
                 },
-                "top": {
+                "t": {
+                    "ytype": "max",
+                },
+                "lb": {
+                    "xtype": "min",
+                    "ytype": "min",
+                },
+                "rb": {
+                    "xtype": "max",
+                    "ytype": "min",
+                },
+                "lt": {
+                    "xtype": "min",
+                    "ytype": "max",
+                },
+                "rt": {
+                    "xtype": "max",
                     "ytype": "max",
                 },
             },
@@ -75,7 +91,7 @@ def get_fem_props():
                     "type": "Dirichlet",
                     "initDisp": -0.01,
                     "dispIncr": 0.0,
-                    "nodeGroups": ["left", "right", "bottom", "top"],
+                    "nodeGroups": ["l", "r", "b", "t"],
                     "dofs": ["dx", "dx", "dy", "dy"],
                     "factors": [0.0, 1.0, 0.0, 0.0],
                 },
