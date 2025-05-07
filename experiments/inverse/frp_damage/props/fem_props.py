@@ -5,7 +5,7 @@ def get_fem_props():
     fem_props = {
         "log": {
             "pattern": "*.info",
-            "rank": 0,
+            "rank": 1,
             "file": "-$(CASE_NAME).log",
         },
         "control": {
@@ -16,7 +16,7 @@ def get_fem_props():
             "gmsh": {
                 "type": "GmshInput",
                 "dim": 2,
-                "file": "meshes/rve_nfib-16_h-0.02.msh",
+                "file": "meshes/rve_nfib-16_h-0.05.msh",
                 "doElemGroups": True,
             },
             "ngroups": {
@@ -48,7 +48,7 @@ def get_fem_props():
                         "type": "LinearIsotropic",
                         "anmodel": "PLANE_STRAIN",
                         "rank": 2,
-                        "E": 30.0,
+                        "E": "backdoor",
                         "nu": 0.2,
                     },
                     "shape": {
