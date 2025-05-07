@@ -1,6 +1,8 @@
 import numpy as np
 import gmsh
 
+from experiments.inverse.frp_damage import caching
+
 
 def calc_fibers(*, n_fiber, a, r, tol=0.001, seed=0):
     rng = np.random.default_rng(seed)
@@ -114,12 +116,19 @@ n_fiber = 30
 a = 1.0
 r = 0.15
 tol = 0.01
-h = 0.01
+h = 0.05
 seed = 0
 
-fibers = calc_fibers(n_fiber=n_fiber, a=a, r=r, tol=tol, seed=seed)
+name = "fibers"
+dependencies = {"nfib": n_fiber}
+path = caching.get_cache_fpath(name, dependencies)
 
-np.save("meshes/rve_nfib-{}.npy".format(n_fiber), fibers)
-fname = "meshes/rve_nfib-{}_h-{}.msh".format(n_fiber, h)
+if caching.is_cached(path):
+    fibers = caching.read_cache(path)
+else:
+    fibers = calc_fibers(n_fiber=n_fiber, a=a, r=r, tol=tol, seed=seed)
+    caching.write_cache(path, fibers)
+
+fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
 
 create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname)

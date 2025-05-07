@@ -16,7 +16,7 @@ def get_fem_props():
             "gmsh": {
                 "type": "GmshInput",
                 "dim": 2,
-                "file": "meshes/rve_nfib-16_h-0.05.msh",
+                "file": "meshes/rve_h-0.05_nfib-30.msh",
                 "doElemGroups": True,
             },
             "ngroups": {
