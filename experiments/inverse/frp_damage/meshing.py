@@ -1,4 +1,7 @@
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.patches import Circle
+from scipy.spatial import Delaunay
 import gmsh
 
 from experiments.inverse.frp_damage import caching
@@ -112,11 +115,50 @@ def calc_closest_fiber(point, fibers, rve_size):
     return argmin, min_dist
 
 
+def calc_connectivity(speckles, max_edge=0.1, min_ratio=2.1):
+    tri = Delaunay(speckles)
+    triangles = tri.simplices
+    neighbors = tri.neighbors
+
+    mask = np.ones(len(triangles), dtype=bool)
+
+    for _ in range(100):
+        pruned_something = False
+        is_boundary = np.any(neighbors == -1, axis=1)
+
+        for i, triangle in enumerate(triangles):
+            if not mask[i]:
+                continue
+
+            if is_boundary[i]:
+                vertices = speckles[triangle]
+                edges = np.linalg.norm(vertices - np.roll(vertices, -1, axis=0), axis=1)
+
+                if np.max(edges) > max_edge:
+                    prune = True
+                elif np.sum(edges) / np.max(edges) < min_ratio:
+                    prune = True
+                else:
+                    prune = False
+
+                if prune:
+                    pruned_something = True
+                    mask[i] = False
+
+                    for neigh in neighbors[i]:
+                        if neigh > -1:
+                            neighbors[neigh][np.where(neighbors[neigh] == i)] = -1
+
+        if not pruned_something:
+            break
+
+    return triangles[mask]
+
+
 n_fiber = 30
-a = 1.0
-r = 0.15
+rve_size = 1.0
+r_fiber = 0.15
 tol = 0.01
-h = 0.05
 seed = 0
 
 name = "fibers"
@@ -126,9 +168,51 @@ path = caching.get_cache_fpath(name, dependencies)
 if caching.is_cached(path):
     fibers = caching.read_cache(path)
 else:
-    fibers = calc_fibers(n_fiber=n_fiber, a=a, r=r, tol=tol, seed=seed)
+    fibers = calc_fibers(n_fiber=n_fiber, a=rve_size, r=r_fiber, tol=tol, seed=seed)
     caching.write_cache(path, fibers)
 
+n_obs = 200
+obs_size = 0.3
+r_speckle = 0.015
+tol = 0.001
+seed = 0
+
+name = "speckles"
+dependencies = {"nobs": n_obs}
+path = caching.get_cache_fpath(name, dependencies)
+
+if caching.is_cached(path):
+    speckles = caching.read_cache(path)
+else:
+    speckles = calc_fibers(n_fiber=n_obs, a=obs_size, r=r_speckle, tol=tol, seed=seed)
+    caching.write_cache(path, speckles)
+
+name = "connectivity"
+dependencies = {"nobs": n_obs}
+path = caching.get_cache_fpath(name, dependencies)
+
+if caching.is_cached(path):
+    connectivity = caching.read_cache(path)
+else:
+    connectivity = calc_connectivity(speckles=speckles)
+    caching.write_cache(path, connectivity)
+
+fig, ax = plt.subplots()
+
+for fiber in fibers:
+    ax.add_patch(Circle(fiber, r_fiber, color="C0", alpha=0.5))
+
+for speckle in speckles:
+    ax.add_patch(Circle(speckle, 0.5 * r_speckle, color="C1", alpha=0.5))
+
+ax.triplot(speckles[:, 0], speckles[:, 1], connectivity, color="C1", alpha=0.5)
+
+ax.set_aspect("equal")
+ax.set_xlim((-rve_size, rve_size))
+ax.set_ylim((-rve_size, rve_size))
+plt.show()
+
+h = 0.05
 fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
 
-create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname)
+create_mesh(fibers=fibers, a=rve_size, r=r_fiber, h=h, fname=fname)
