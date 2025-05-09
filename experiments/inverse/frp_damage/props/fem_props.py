@@ -16,7 +16,7 @@ def get_fem_props():
             "gmsh": {
                 "type": "GmshInput",
                 "dim": 2,
-                "file": "meshes/rve_h-0.05_nfib-30.msh",
+                "file": "meshes/rve_h-0.020_nfib-28.msh",
                 "doElemGroups": True,
             },
             "ngroups": {
@@ -79,7 +79,7 @@ def get_fem_props():
                         "type": "LinearIsotropic",
                         "anmodel": "PLANE_STRAIN",
                         "rank": 2,
-                        "E": 30000.0,
+                        "E": 22000.0,
                         "nu": 0.2,
                     },
                     "shape": {
@@ -91,9 +91,9 @@ def get_fem_props():
                     "type": "Dirichlet",
                     "initDisp": -0.01,
                     "dispIncr": 0.0,
-                    "nodeGroups": ["l", "r", "b", "t"],
-                    "dofs": ["dx", "dx", "dy", "dy"],
-                    "factors": [0.0, 1.0, 0.0, 0.0],
+                    "nodeGroups": ["l", "l", "r", "r"],
+                    "dofs": ["dx", "dy", "dx", "dy"],
+                    "factors": [0.0, 0.0, 1.0, 0.0],
                 },
             },
         },

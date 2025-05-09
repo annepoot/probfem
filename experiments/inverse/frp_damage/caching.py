@@ -1,5 +1,6 @@
 import os
 import numpy as np
+from scipy.sparse import save_npz, load_npz, issparse
 
 
 def get_cache_folder():
@@ -8,10 +9,25 @@ def get_cache_folder():
 
 def get_cache_fname(name, dependencies):
     fname = name
+
+    if "sparse" in dependencies:
+        sparse = dependencies.pop("sparse")
+    else:
+        sparse = False
+
     for key in sorted(dependencies.keys()):
         value = dependencies[key]
-        fname += "_" + str(key) + "-" + str(value)
-    fname += ".npy"
+
+        if key == "h":
+            fname += "_{}-{:.3f}".format(key, value)
+        else:
+            fname += "_{}-{}".format(key, value)
+
+    if sparse:
+        fname += ".npz"
+    else:
+        fname += ".npy"
+
     return fname
 
 
@@ -33,8 +49,28 @@ def write_cache(fpath, array):
     if not cache_exists():
         os.mkdir(get_cache_folder())
 
-    np.save(fpath, array)
+    ext = os.path.splitext(fpath)[1]
+
+    if ext == ".npy":
+        assert isinstance(array, np.ndarray)
+        np.save(fpath, array)
+    elif ext == ".npz":
+        assert issparse(array)
+        save_npz(fpath, array)
+    else:
+        assert False
 
 
 def read_cache(fpath):
-    return np.load(fpath)
+    ext = os.path.splitext(fpath)[1]
+
+    if ext == ".npy":
+        array = np.load(fpath)
+        assert isinstance(array, np.ndarray)
+        return array
+    elif ext == ".npz":
+        array = load_npz(fpath)
+        assert issparse(array)
+        return array
+    else:
+        assert False
