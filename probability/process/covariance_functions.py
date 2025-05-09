@@ -22,12 +22,12 @@ class SquaredExponential(CovarianceFunction):
         if np.isscalar(x1):
             x1 = np.array([[x1]])
         elif len(x1.shape) == 1:
-            x1 = np.array([x1])
+            x1 = np.reshape(x1, (-1, 1))
 
         if np.isscalar(x2):
             x2 = np.array([[x2]])
         elif len(x2.shape) == 1:
-            x2 = np.array([x2])
+            x2 = np.reshape(x2, (-1, 1))
 
         dist = np.zeros((x1.shape[0], x2.shape[0]))
         assert x1.shape[1] == x2.shape[1]
