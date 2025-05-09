@@ -4,8 +4,8 @@ import numpy as np
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh
 from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage.meshing import calc_closest_fiber
-from experiments.inverse.frp_damage import caching
+from experiments.inverse.frp_damage import caching, misc
+
 
 # Reference values for material properties from
 # On the response to hygrothermal aging of pultruded FRPs used in the civil engineering sector
@@ -37,9 +37,14 @@ G_matrix = 3800  # 3.8 GPa (unaged, in-plane shear stiffness)
 nu_matrix = 0.2
 E_matrix = 9120  # 2 * G_matrix * (1 + nu_matrix)
 
-# conclusion: reduction = 0.8 and decay = 20 is all right
-# results in a 11% decrease in shear stiffness.
-# max horizontal displacement goes from 0.09 to 0.10 (h=0.01, nfib=30)
+# conclusion: the following parameter setting is all right:
+# E = 9120
+# alpha = 50.0
+# beta = 25.0
+# c = 0.02
+# d = 0.5
+# This results in a 15% decrease in shear stiffness.
+# max horizontal displacement goes from 0.15 to 0.17 (h=0.01, nfib=30)
 
 props["model"]["model"]["fiber"]["E"] = E_fiber
 props["model"]["model"]["fiber"]["nu"] = nu_fiber
@@ -84,16 +89,19 @@ backdoor["xcoord"] = ipoints[:, 0]
 backdoor["ycoord"] = ipoints[:, 1]
 backdoor["e"] = np.zeros(ipoints.shape[0])
 
-decay = 20
-reduction = 0.8
+E = 9120
+alpha = 50.0
+beta = 25.0
+c = 0.02
+d = 0.5
 
 for ip, ipoint in enumerate(ipoints):
     dist = distances[ip]
-    assert dist >= 0.09
-    surf_dist = max(dist - 0.1, 0.0)
-    moisture = np.exp(-decay * surf_dist)
-    damage = reduction * moisture
-    backdoor["e"][ip] = E_matrix * (1 - damage)
+    assert dist >= 0.15
+    surf_dist = max(dist - 0.15, 0.0)
+    sat = misc.saturation(surf_dist, alpha, beta, c)
+    dam = misc.damage(sat, d)
+    backdoor["e"][ip] = E * (1 - dam)
 
 jive = CJiveRunner(props, elems=elems)
 globdat = jive(**backdoor)
@@ -104,5 +112,4 @@ QuickViewer(
     globdat["state0"],
     globdat,
     comp=0,
-    title=r"max strain, $N_e = {}$".format(len(elems)),
 )

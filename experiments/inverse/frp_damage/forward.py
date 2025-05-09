@@ -4,8 +4,7 @@ import numpy as np
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh
 from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage.meshing import calc_closest_fiber
-from experiments.inverse.frp_damage import caching
+from experiments.inverse.frp_damage import caching, misc, params
 
 props = get_fem_props()
 fname = props["userinput"]["gmsh"]["file"]
@@ -26,29 +25,6 @@ from myjive.fem import Tri3Shape
 shape = Tri3Shape("Gauss3")
 egroup = groups["matrix"]
 
-
-def calc_integration_points(egroup, shape):
-    elems = egroup.get_elements()
-    nodes = elems.get_nodes()
-
-    ipcount = len(egroup) * shape.ipoint_count()
-    ipoints = np.zeros((ipcount, nodes.rank()))
-    ip = 0
-
-    for ielem in egroup:
-        inodes = elems[ielem]
-        coords = nodes[inodes]
-
-        for ipoint in shape.get_global_integration_points(coords):
-            ipoints[ip] = ipoint
-            ip += 1
-
-    if ip != ipcount:
-        raise RuntimeError("Mismatched number of integration points")
-
-    return ipoints
-
-
 name = "fibers"
 dependencies = {"nfib": n_fiber}
 path = caching.get_cache_fpath(name, dependencies)
@@ -62,20 +38,23 @@ path = caching.get_cache_fpath(name, dependencies)
 if caching.is_cached(path):
     ipoints = caching.read_cache(path)
 else:
-    ipoints = calc_integration_points(egroup, shape)
+    ipoints = misc.calc_integration_points(egroup, shape)
     caching.write_cache(path, ipoints)
 
 name = "distances"
 dependencies = {"nfib": n_fiber, "h": h}
 path = caching.get_cache_fpath(name, dependencies)
 
+r_fiber = params.geometry_params["r_fiber"]
+
 if caching.is_cached(path):
     distances = caching.read_cache(path)
 else:
     distances = np.zeros(ipoints.shape[0])
     for ip, ipoint in enumerate(ipoints):
-        fiber, dist = calc_closest_fiber(ipoint, fibers, 1.0)
-        distances[ip] = dist
+        fiber, dist = misc.calc_closest_fiber(ipoint, fibers, 1.0)
+        distances[ip] = dist - r_fiber
+    assert 0.0 < np.min(distances) < 0.1 * h
     caching.write_cache(path, distances)
 
 
@@ -84,36 +63,27 @@ backdoor["xcoord"] = ipoints[:, 0]
 backdoor["ycoord"] = ipoints[:, 1]
 backdoor["e"] = np.zeros(ipoints.shape[0])
 
-E = 1000
-decay = 20
-reduction = 0.5
+E = params.material_params["E_matrix"]
+alpha = params.material_params["alpha"]
+beta = params.material_params["beta"]
+c = params.material_params["c"]
+d = params.material_params["d"]
 
 for ip, ipoint in enumerate(ipoints):
     dist = distances[ip]
-    assert dist >= 0.09
-    surf_dist = max(dist - 0.1, 0.0)
-    moisture = np.exp(-decay * surf_dist)
-    damage = reduction * moisture
-    backdoor["e"][ip] = E * (1 - damage)
-
+    sat = misc.saturation(dist, alpha, beta, c)
+    dam = misc.damage(sat, d)
+    backdoor["e"][ip] = E * (1 - dam)
 
 elem_stiffness = np.zeros(len(elems))
 
 for group_name, egroup in groups.items():
     if group_name == "matrix":
-        for ielem in egroup:
-            inodes = elems[ielem]
-            coords = nodes[inodes]
-            midpoint = np.mean(coords, axis=0)
-            fiber, dist = calc_closest_fiber(midpoint, fibers, 1.0)
-            assert dist >= 0.09
-            surf_dist = max(dist - 0.1, 0.0)
-            moisture = np.exp(-decay * surf_dist)
-            damage = reduction * moisture
-            elem_stiffness[ielem] = E * (1 - damage)
+        for ie, ielem in enumerate(egroup):
+            ip_stiffness = backdoor["e"][3 * ie : 3 * (ie + 1)]
+            elem_stiffness[ielem] = np.mean(ip_stiffness)
     elif group_name == "fiber":
         ielems = egroup.get_indices()
-        # elem_stiffness[ielems] = props["model"]["model"]["fiber"]["material"]["E"]
         elem_stiffness[ielems] = 0
     else:
         assert False
@@ -164,17 +134,15 @@ def calc_strains(globdat):
 
 eps_xx, eps_yy, gamma_xy = calc_strains(globdat)
 
-eps_avg = 0.5 * (eps_xx + eps_yy)
-eps_diff = 0.5 * (eps_xx - eps_yy)
+from myjivex.util import QuickViewer, ElemViewer
 
-eps_1 = eps_avg + np.sqrt(eps_diff**2 + (0.5 * gamma_xy) ** 2)
-eps_2 = eps_avg - np.sqrt(eps_diff**2 + (0.5 * gamma_xy) ** 2)
-
-
-from myjivex.util import ElemViewer
-
+QuickViewer(
+    globdat["state0"],
+    globdat,
+    comp=0,
+)
 ElemViewer(
-    abs(eps_1[:, 0]),
+    eps_xx[:, 0],
     globdat,
     maxcolor=0.01,
     title=r"max strain, $N_e = {}$".format(len(elems)),
@@ -182,6 +150,6 @@ ElemViewer(
 ElemViewer(
     elem_stiffness,
     globdat,
-    maxcolor=1000,
+    maxcolor=E,
     title=r"stiffness, $N_e = {}$".format(len(elems)),
 )
