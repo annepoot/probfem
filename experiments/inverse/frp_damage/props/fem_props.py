@@ -12,12 +12,9 @@ def get_fem_props():
             "runWhile": "i<1",
         },
         "userinput": {
-            "modules": ["gmsh", "ngroups"],
-            "gmsh": {
-                "type": "GmshInput",
-                "dim": 2,
-                "file": "meshes/rve_h-0.050_nfib-28.msh",
-                "doElemGroups": True,
+            "modules": ["globdat", "ngroups"],
+            "globdat": {
+                "type": "GlobdatInput",
             },
             "ngroups": {
                 "type": "GroupInput",

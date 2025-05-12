@@ -28,6 +28,7 @@ class CJiveRunner:
         props,
         *,
         elems=None,
+        egroups=None,
         node_count=None,
         elem_count=None,
         rank=None,
@@ -36,12 +37,14 @@ class CJiveRunner:
         self.props = props
 
         if elems is None:
+            assert egroups is None
             assert node_count is not None
             assert elem_count is not None
             assert rank is not None
             assert max_elem_node_count is not None
 
             self.elems = None
+            self.egroups = None
             self.node_count = node_count
             self.elem_count = elem_count
             self.rank = rank
@@ -55,6 +58,13 @@ class CJiveRunner:
 
             self.update_elems(elems)
 
+            if egroups is None:
+                self.egroups = None
+            else:
+                self.egroups = egroups
+                for egroup in self.egroups.values():
+                    assert self.elems is egroup.get_elements()
+
     def __call__(self, *flags, **backdoor):
         flags = list(flags)
 
@@ -62,6 +72,7 @@ class CJiveRunner:
             flags = [
                 "nodeSet",
                 "elementSet",
+                "elementGroups",
                 "dofSpace",
                 "state0",
                 "extForce",
@@ -76,10 +87,15 @@ class CJiveRunner:
                     flags.append("elementSet")
                 if "nodeSet" not in flags:
                     flags.append("nodeSet")
+            if self.egroups is not None:
+                if "elementGroups" not in flags:
+                    flags.append("elementGroups")
 
         buffers = ctutil.initialize_buffers(
             node_count=self.node_count,
             elem_count=self.elem_count,
+            ngroup_count=0,
+            egroup_count=0 if self.egroups is None else len(self.egroups),
             rank=self.rank,
             max_elem_node_count=self.max_elem_node_count,
             flags=flags,
@@ -90,6 +106,10 @@ class CJiveRunner:
             buffers["elementSet"] = ctutil.to_buffer(self.elems)
             assert "nodeSet" in buffers
             buffers["nodeSet"] = ctutil.to_buffer(self.elems.get_nodes())
+
+        if self.egroups is not None:
+            assert "elementGroups" in buffers
+            buffers["elementGroups"] = ctutil.to_buffer(self.egroups)
 
         nbac = len(backdoor)
         if nbac > 0:

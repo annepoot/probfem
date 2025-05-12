@@ -67,7 +67,7 @@ plt.show()
 ##########################
 
 props = get_fem_props()
-fname = props["userinput"]["gmsh"]["file"]
+fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
 nodes, elems, groups = read_mesh(fname, read_groups=True)
 egroup = groups["matrix"]
 shape = Tri3Shape("Gauss3")
@@ -168,7 +168,7 @@ for damage in damage_samples:
         else:
             assert False
 
-    jive = CJiveRunner(props, elems=elems)
+    jive = CJiveRunner(props, elems=elems, egroups=groups)
     globdat = jive(**backdoor)
 
     eps_xx, eps_yy, gamma_xy = calc_strains(globdat)

@@ -52,6 +52,12 @@ struct GROUPSET_PTR{
   LONG_ARRAY_PTR sizes;
 };
 
+struct NAMEDGROUPSET_PTR{
+  LONG_ARRAY_PTR data;
+  LONG_ARRAY_PTR sizes;
+  STRING_ARRAY_PTR names;
+};
+
 struct DOFSPACE_PTR{
   LONG_ARRAY_PTR data;
 };
@@ -64,6 +70,8 @@ struct BACKDOOR_PTR{
 struct GLOBDAT {
   POINTSET_PTR nodeSet;
   GROUPSET_PTR elementSet;
+  NAMEDGROUPSET_PTR nodeGroups;
+  NAMEDGROUPSET_PTR elementGroups;
   DOFSPACE_PTR dofSpace;
   DOUBLE_ARRAY_PTR state0;
   DOUBLE_ARRAY_PTR intForce;

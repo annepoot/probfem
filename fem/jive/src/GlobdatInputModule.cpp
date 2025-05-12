@@ -8,6 +8,7 @@
 #include <jem/util/SparseArray.h>
 #include <jem/util/ArrayBuffer.h>
 #include <jive/app/ModuleFactory.h>
+#include <jive/fem/ElementGroup.h>
 
 #include "GlobdatInputModule.h"
 #include "CtypesUtils.h"
@@ -24,6 +25,7 @@ using jive::fem::newXElementSet;
 using jive::fem::newXNodeSet;
 using jive::fem::toXElementSet;
 using jive::fem::toXNodeSet;
+using jive::fem::ElementGroup;
 
 //=======================================================================
 //   class GlobdatInputModule
@@ -142,6 +144,7 @@ void GlobdatInputModule::readMesh_
 {
   POINTSET_PTR inputNodes = ObjectTraits<POINTSET_PTR>::toValue(globdat.get("input.nodeSet"));
   GROUPSET_PTR inputElems = ObjectTraits<GROUPSET_PTR>::toValue(globdat.get("input.elementSet"));
+  NAMEDGROUPSET_PTR inputElemGroups = ObjectTraits<NAMEDGROUPSET_PTR>::toValue(globdat.get("input.elementGroups"));
 
   if ( inputNodes.data.dim != 2 || inputElems.data.dim != 2 || inputElems.sizes.dim != 1 ){
     throw Error ( JEM_FUNC, "dimensionality mismatch" );
@@ -154,6 +157,14 @@ void GlobdatInputModule::readMesh_
   rank_ = inputNodes.data.shape[1];
   numElems_ = inputElems.data.shape[0];
   maxElemNodeCount_ = inputElems.data.shape[1];
+
+  if ( inputElemGroups.data.ptr ){
+    numElemGroups_ = inputElemGroups.data.shape[0];
+    maxGroupSize_ = inputElemGroups.data.shape[1];
+  } else {
+    numElemGroups_ = 0;
+    maxGroupSize_ = 0;
+  }
 
   Vector     coords( rank_ );
   IdxVector  inodes;
@@ -186,6 +197,26 @@ void GlobdatInputModule::readMesh_
     elems_.addElement ( inodes );
   }
   elems_.store( globdat );
+
+  // read and store the element groups
+  Assignable<ElementGroup> newGroup;
+
+  for ( int ig = 0; ig < numElemGroups_; ig++ )
+  {
+    int groupSize = inputElemGroups.sizes.ptr[ig];
+    String groupName(inputElemGroups.names.ptr[ig]);
+    IdxVector groupElems(groupSize);
+
+    for ( int ie = 0; ie < groupSize; ie++ ){
+      groupElems[ie] = inputElemGroups.data.ptr[ig * maxGroupSize_ + ie];
+    }
+
+    newGroup  = newElementGroup( groupElems, elems_ );
+    newGroup.store( groupName, globdat );
+
+    System::out() << " ... stored ElementGroup `" << groupName <<
+      "' with " << groupElems.size() << " elements.\n";
+  }
 }
 
 //-----------------------------------------------------------------------

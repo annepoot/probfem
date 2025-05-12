@@ -38,8 +38,7 @@ else:
 ############
 
 h = 0.002
-
-fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
+fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
 
 if not os.path.exists(fname):
     print("Computing mesh")
@@ -126,11 +125,10 @@ for group_name, egroup in groups.items():
 #####################
 
 props = get_fem_props()
-props["userinput"]["gmsh"]["file"] = fname
 
 print("Computing solution")
 
-jive = CJiveRunner(props, elems=elems)
+jive = CJiveRunner(props, elems=elems, egroups=groups)
 globdat = jive(**backdoor)
 
 QuickViewer(
