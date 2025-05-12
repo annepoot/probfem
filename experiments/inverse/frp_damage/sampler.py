@@ -16,7 +16,7 @@ class EllipticalSliceSampler:
         seed=None,
         tempering=None,
         recompute_logpdf=False,
-        return_info=False
+        return_info=False,
     ):
         assert isinstance(prior, Gaussian)
         assert isinstance(likelihood, Likelihood)
@@ -55,15 +55,6 @@ class EllipticalSliceSampler:
             temperatures[0] = temp
 
         for i in range(1, self.n_sample + 1):
-            nu = self.prior.calc_sample(self._rng)
-            u = self._rng.uniform()
-
-            logy = logpdf + np.log(u)
-
-            theta = self._rng.uniform(0, 2 * np.pi)
-            theta_min = theta - 2 * np.pi
-            theta_max = theta
-
             if self.tempering is not None:
                 old_temp = temp
                 temp = self.tempering(i)
@@ -72,7 +63,16 @@ class EllipticalSliceSampler:
                 recompute_logpdf = self.recompute_logpdf
 
             if recompute_logpdf:
-                logpdf = self.likelihood.calc_logpdf(f)
+                logpdf = temp * self.likelihood.calc_logpdf(f)
+
+            nu = self.prior.calc_sample(self._rng)
+            u = self._rng.uniform()
+
+            logy = logpdf + np.log(u)
+
+            theta = self._rng.uniform(0, 2 * np.pi)
+            theta_min = theta - 2 * np.pi
+            theta_max = theta
 
             for j in range(100):
                 f_prop = f * np.cos(theta) + nu * np.sin(theta)
@@ -86,10 +86,14 @@ class EllipticalSliceSampler:
                 else:
                     theta_max = theta
                 theta = self._rng.uniform(theta_min, theta_max)
+            else:
+                raise RuntimeError("No acceptable proposal found")
 
             f = f_prop
             logpdf = logpdf_prop
             samples[i] = f
+
+            print(f"sample {i} (needed {j} evaluations)")
 
             if self.return_info:
                 logpdfs[i] = logpdf
