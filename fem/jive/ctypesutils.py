@@ -2,7 +2,15 @@ import numpy as np
 import ctypes as ct
 from scipy.sparse import csr_array
 
-from myjive.fem import NodeSet, XNodeSet, ElementSet, XElementSet, DofSpace
+from myjive.fem import (
+    NodeSet,
+    XNodeSet,
+    ElementSet,
+    XElementSet,
+    NodeGroup,
+    ElementGroup,
+    DofSpace,
+)
 from myjive.names import GlobNames as gn
 from myjive.solver import Constraints
 from myjive.declare import declare_shapes
@@ -124,6 +132,14 @@ class GROUPSET_PTR(ct.Structure):
     ]
 
 
+class NAMEDGROUPSET_PTR(ct.Structure):
+    _fields_ = [
+        ("data", LONG_MAT_PTR),
+        ("sizes", LONG_VEC_PTR),
+        ("names", STRING_VEC_PTR),
+    ]
+
+
 class DOFSPACE_PTR(ct.Structure):
     _fields_ = [
         ("data", LONG_MAT_PTR),
@@ -141,6 +157,8 @@ class GLOBDAT(ct.Structure):
     _fields_ = [
         ("nodeSet", POINTSET_PTR),
         ("elementSet", GROUPSET_PTR),
+        ("nodeGroups", NAMEDGROUPSET_PTR),
+        ("elementGroups", NAMEDGROUPSET_PTR),
         ("dofSpace", DOFSPACE_PTR),
         ("state0", DOUBLE_VEC_PTR),
         ("intForce", DOUBLE_VEC_PTR),
@@ -175,6 +193,41 @@ def to_numpy(c_obj, *args):
         elems.add_elements(to_numpy(c_obj.data), to_numpy(c_obj.sizes))
         elems.to_elementset()
         return elems
+
+    elif isinstance(c_obj, NAMEDGROUPSET_PTR):
+        assert len(args) == 1
+        if isinstance(args[0], NodeSet):
+            nodes = args[0]
+            ngroups = {}
+
+            group_indices = to_numpy(c_obj.data)
+            group_sizes = to_numpy(c_obj.sizes)
+
+            for i, (indices, size) in enumerate(zip(group_indices, group_sizes)):
+                group_name = c_obj.names.ptr[i].decode("UTF-8")
+                group = NodeGroup(nodes)
+                group.add_nodes(indices[:size])
+                ngroups[group_name] = group
+
+            return ngroups
+
+        elif isinstance(args[0], ElementSet):
+            elems = args[0]
+            egroups = {}
+
+            group_indices = to_numpy(c_obj.data)
+            group_sizes = to_numpy(c_obj.sizes)
+
+            for i, (indices, size) in enumerate(zip(group_indices, group_sizes)):
+                group_name = c_obj.names.ptr[i].decode("UTF-8")
+                group = ElementGroup(elems)
+                group.add_elements(indices[:size])
+                egroups[group_name] = group
+
+            return egroups
+
+        else:
+            assert False
 
     elif isinstance(c_obj, DOFSPACE_PTR):
         assert len(args) == 0
@@ -254,17 +307,58 @@ def to_buffer(py_obj):
             "data": py_obj._data[:size].copy(),
             "sizes": py_obj._groupsizes[:size].copy(),
         }
+    elif isinstance(py_obj, dict):
+        size = len(py_obj)
+        first_value = next(iter(py_obj.values()))
+
+        if isinstance(first_value, ElementGroup):
+            n = len(first_value.get_elements())
+
+            buffer = {
+                "data": np.zeros((size, n), dtype=int),
+                "sizes": np.zeros(size, dtype=int),
+                "names": np.zeros(size, dtype="U64"),
+            }
+
+            for i, (name, group) in enumerate(py_obj.items()):
+                groupsize = len(group)
+                buffer["data"][i][:groupsize] = group.get_indices()
+                buffer["sizes"][i] = groupsize
+                buffer["names"][i] = name
+
+            return buffer
+        else:
+            assert False
+
     else:
         assert False
 
 
-def initialize_buffers(*, node_count, elem_count, rank, max_elem_node_count, flags):
+def initialize_buffers(
+    *,
+    node_count,
+    ngroup_count,
+    elem_count,
+    egroup_count,
+    rank,
+    max_elem_node_count,
+    flags
+):
     dof_count = node_count * rank
 
     if len(flags) == 0:
         nodes_data = np.zeros((node_count, rank), dtype=np.double)
         elems_data = np.zeros((elem_count, max_elem_node_count), dtype=int)
         elems_sizes = np.zeros(elem_count, dtype=int)
+
+        ngroup_data = np.zeros((ngroup_count, node_count), dtype=int)
+        ngroup_sizes = np.zeros(ngroup_count, dtype=int)
+        ngroup_names = np.zeros(ngroup_count, dtype=str)
+
+        egroup_data = np.zeros((egroup_count, elem_count), dtype=int)
+        egroup_sizes = np.zeros(egroup_count, dtype=int)
+        egroup_names = np.zeros(egroup_count, dtype=str)
+
         dofs = np.zeros((node_count, rank), dtype=int)
 
         state0 = np.zeros(dof_count, dtype=np.double)
@@ -284,6 +378,16 @@ def initialize_buffers(*, node_count, elem_count, rank, max_elem_node_count, fla
         buffers = {
             "nodeSet": {"data": nodes_data},
             "elementSet": {"data": elems_data, "sizes": elems_sizes},
+            "nodeGroups": {
+                "data": ngroup_data,
+                "sizes": ngroup_sizes,
+                "names": ngroup_names,
+            },
+            "elementGroups": {
+                "data": egroup_data,
+                "sizes": egroup_sizes,
+                "names": egroup_names,
+            },
             "dofSpace": {"data": dofs},
             "state0": state0,
             "extForce": extForce,
@@ -309,6 +413,26 @@ def initialize_buffers(*, node_count, elem_count, rank, max_elem_node_count, fla
                 elems_data = np.zeros((elem_count, max_elem_node_count), dtype=int)
                 elems_sizes = np.zeros(elem_count, dtype=int)
                 buffers[flag] = {"data": elems_data, "sizes": elems_sizes}
+
+            elif flag == "nodeGroups":
+                ngroup_data = np.zeros((ngroup_count, node_count), dtype=int)
+                ngroup_sizes = np.zeros(ngroup_count, dtype=int)
+                ngroup_names = np.zeros(ngroup_count, dtype=str)
+                buffers[flag] = {
+                    "data": ngroup_data,
+                    "sizes": ngroup_sizes,
+                    "names": ngroup_names,
+                }
+
+            elif flag == "elementGroups":
+                egroup_data = np.zeros((egroup_count, elem_count), dtype=int)
+                egroup_sizes = np.zeros(egroup_count, dtype=int)
+                egroup_names = np.zeros(egroup_count, dtype=str)
+                buffers[flag] = {
+                    "data": egroup_data,
+                    "sizes": egroup_sizes,
+                    "names": egroup_names,
+                }
 
             elif flag == "dofSpace":
                 dofs = np.zeros((node_count, rank), dtype=int)
@@ -367,6 +491,24 @@ def buffers_as_ctypes(buffers):
     else:
         elementset_ptr = GROUPSET_PTR()
 
+    if "nodeGroups" in buffers:
+        nodegroups_ptr = NAMEDGROUPSET_PTR(
+            to_ctypes(buffers["nodeGroups"]["data"]),
+            to_ctypes(buffers["nodeGroups"]["sizes"]),
+            to_ctypes(buffers["nodeGroups"]["names"]),
+        )
+    else:
+        nodegroups_ptr = NAMEDGROUPSET_PTR()
+
+    if "elementGroups" in buffers:
+        elementgroups_ptr = NAMEDGROUPSET_PTR(
+            to_ctypes(buffers["elementGroups"]["data"]),
+            to_ctypes(buffers["elementGroups"]["sizes"]),
+            to_ctypes(buffers["elementGroups"]["names"]),
+        )
+    else:
+        elementgroups_ptr = NAMEDGROUPSET_PTR()
+
     if "dofSpace" in buffers:
         dofspace_ptr = DOFSPACE_PTR(to_ctypes(buffers["dofSpace"]["data"]))
     else:
@@ -420,6 +562,8 @@ def buffers_as_ctypes(buffers):
     ct_globdat = GLOBDAT(
         nodeset_ptr,
         elementset_ptr,
+        nodegroups_ptr,
+        elementgroups_ptr,
         dofspace_ptr,
         state0_ptr,
         extforce_ptr,
@@ -437,10 +581,14 @@ def ctypes_globdat_to_numpy(ct_globdat, flags):
     if len(flags) == 0:
         nodes = to_numpy(ct_globdat.nodeSet)
         elems = to_numpy(ct_globdat.elementSet, nodes)
+        ngroups = to_numpy(ct_globdat.nodeGroups, nodes)
+        egroups = to_numpy(ct_globdat.elementGroups, elems)
 
         np_globdat = {
             gn.NSET: nodes,
             gn.ESET: elems,
+            gn.NGROUPS: ngroups,
+            gn.EGROUPS: egroups,
             gn.DOFSPACE: to_numpy(ct_globdat.dofSpace),
             gn.STATE0: to_numpy(ct_globdat.state0),
             gn.EXTFORCE: to_numpy(ct_globdat.extForce),
@@ -463,6 +611,12 @@ def ctypes_globdat_to_numpy(ct_globdat, flags):
 
             elif flag == "elementSet":
                 np_globdat[gn.ESET] = elems
+
+            elif flag == "nodeGroups":
+                np_globdat[gn.NGROUPS] = to_numpy(ct_globdat.nodeGroups, nodes)
+
+            elif flag == "elementGroups":
+                np_globdat[gn.EGROUPS] = to_numpy(ct_globdat.elementGroups, elems)
 
             elif flag == "dofSpace":
                 np_globdat[gn.DOFSPACE] = to_numpy(ct_globdat.dofSpace)
@@ -501,6 +655,8 @@ flag_map = {
     "matrix0": 1 << 6,
     "constraints": 1 << 7,
     "shape": 1 << 8,
+    "nodeGroups": 1 << 9,
+    "elementGroups": 1 << 10,
 }
 
 

@@ -4,7 +4,7 @@ import numpy as np
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh
 from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import caching, misc
+from experiments.inverse.frp_damage import caching, misc, params
 
 
 # Reference values for material properties from
@@ -31,11 +31,11 @@ props["model"]["model"]["neum"] = {
     "factors": [1.0],
 }
 
-E_fiber = 22000  # 22 GPa (unaged, tensile stiffness)
+E_fiber = 22000.0  # 22 GPa (unaged, tensile stiffness)
 nu_fiber = 0.2
-G_matrix = 3800  # 3.8 GPa (unaged, in-plane shear stiffness)
+G_matrix = 3800.0  # 3.8 GPa (unaged, in-plane shear stiffness)
 nu_matrix = 0.2
-E_matrix = 9120  # 2 * G_matrix * (1 + nu_matrix)
+E_matrix = 9120.0  # 2 * G_matrix * (1 + nu_matrix)
 
 # conclusion: the following parameter setting is all right:
 # E = 9120
@@ -46,22 +46,16 @@ E_matrix = 9120  # 2 * G_matrix * (1 + nu_matrix)
 # This results in a 15% decrease in shear stiffness.
 # max horizontal displacement goes from 0.15 to 0.17 (h=0.01, nfib=30)
 
-props["model"]["model"]["fiber"]["E"] = E_fiber
-props["model"]["model"]["fiber"]["nu"] = nu_fiber
-props["model"]["model"]["matrix"]["E"] = E_matrix
-props["model"]["model"]["matrix"]["nu"] = nu_matrix
+props["model"]["model"]["fiber"]["material"]["E"] = E_fiber
+props["model"]["model"]["fiber"]["material"]["nu"] = nu_fiber
+props["model"]["model"]["matrix"]["material"]["E"] = "backdoor"
+props["model"]["model"]["matrix"]["material"]["nu"] = nu_matrix
 
-fname = props["userinput"]["gmsh"]["file"]
+n_fiber = params.geometry_params["n_fiber"]
+r_fiber = params.geometry_params["r_fiber"]
+h = 0.01
 
-base = os.path.splitext(os.path.basename(fname))[0]
-for keyval in base.split("_"):
-    if "-" in keyval:
-        key, val = keyval.split("-")
-        if key == "nfib":
-            n_fiber = int(val)
-        elif key == "h":
-            h = float(val)
-
+fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
 nodes, elems, groups = read_mesh(fname, read_groups=True)
 
 from myjive.fem import Tri3Shape
@@ -97,13 +91,11 @@ d = 0.5
 
 for ip, ipoint in enumerate(ipoints):
     dist = distances[ip]
-    assert dist >= 0.15
-    surf_dist = max(dist - 0.15, 0.0)
-    sat = misc.saturation(surf_dist, alpha, beta, c)
+    sat = misc.saturation(dist, alpha, beta, c)
     dam = misc.damage(sat, d)
     backdoor["e"][ip] = E * (1 - dam)
 
-jive = CJiveRunner(props, elems=elems)
+jive = CJiveRunner(props, elems=elems, egroups=groups)
 globdat = jive(**backdoor)
 
 from myjivex.util import QuickViewer

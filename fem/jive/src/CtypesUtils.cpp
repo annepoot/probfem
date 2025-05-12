@@ -43,6 +43,8 @@ long INTFORCE_MASK      = 1 << 5;
 long MATRIX0_MASK       = 1 << 6;
 long CONSTRAINTS_MASK   = 1 << 7;
 long SHAPE_MASK         = 1 << 8;
+long NGROUP_MASK        = 1 << 9;
+long EGROUP_MASK        = 1 << 10;
 
 
 void globdatToCtypes

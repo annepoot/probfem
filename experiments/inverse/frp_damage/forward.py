@@ -1,4 +1,3 @@
-import os
 import numpy as np
 
 from fem.jive import CJiveRunner
@@ -7,17 +6,12 @@ from experiments.inverse.frp_damage.props import get_fem_props
 from experiments.inverse.frp_damage import caching, misc, params
 
 props = get_fem_props()
-fname = props["userinput"]["gmsh"]["file"]
 
-base = os.path.splitext(os.path.basename(fname))[0]
-for keyval in base.split("_"):
-    if "-" in keyval:
-        key, val = keyval.split("-")
-        if key == "nfib":
-            n_fiber = int(val)
-        elif key == "h":
-            h = float(val)
+n_fiber = params.geometry_params["n_fiber"]
+r_fiber = params.geometry_params["r_fiber"]
+h = 0.05
 
+fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
 nodes, elems, groups = read_mesh(fname, read_groups=True)
 
 from myjive.fem import Tri3Shape
@@ -44,8 +38,6 @@ else:
 name = "distances"
 dependencies = {"nfib": n_fiber, "h": h}
 path = caching.get_cache_fpath(name, dependencies)
-
-r_fiber = params.geometry_params["r_fiber"]
 
 if caching.is_cached(path):
     distances = caching.read_cache(path)
@@ -89,7 +81,7 @@ for group_name, egroup in groups.items():
         assert False
 
 
-jive = CJiveRunner(props, elems=elems)
+jive = CJiveRunner(props, elems=elems, egroups=groups)
 globdat = jive(**backdoor)
 
 

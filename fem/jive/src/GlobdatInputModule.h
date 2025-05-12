@@ -72,6 +72,8 @@ class GlobdatInputModule : public Module
   idx_t                    maxElemNodeCount_;
   idx_t                    numNodes_;
   idx_t                    numElems_;
+  idx_t                    numElemGroups_;
+  idx_t                    maxGroupSize_;
 
   Assignable<XElemSet>     elems_;
   Assignable<XNodeSet>     nodes_;
