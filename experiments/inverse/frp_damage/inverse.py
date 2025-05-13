@@ -96,7 +96,7 @@ for h in [0.05, 0.02, 0.01]:
             else:
                 return 1.0
 
-        sampler = sampler.EllipticalSliceSampler(
+        ess = sampler.EllipticalSliceSampler(
             prior=prior,
             likelihood=likelihood,
             n_sample=n_sample,
@@ -106,7 +106,7 @@ for h in [0.05, 0.02, 0.01]:
             return_info=True,
         )
 
-        samples, info = sampler()
+        samples, info = ess()
 
         fname = "posterior-samples_h-{:.3f}_noise-{:.0e}.npy".format(h, sigma_e)
         fname = os.path.join("output", fname)
