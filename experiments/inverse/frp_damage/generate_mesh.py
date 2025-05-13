@@ -3,45 +3,26 @@ from matplotlib.patches import Circle
 
 from experiments.inverse.frp_damage import caching, misc, params
 
+#######################
+# get fiber locations #
+#######################
+fibers = caching.get_or_calc_fibers()
 
-n_fiber = params.geometry_params["n_fiber"]
+#########################
+# get speckle locations #
+#########################
+
+speckles = caching.get_or_calc_speckles()
+
+#########################
+# get speckle neighbors #
+#########################
+
+connectivity = caching.get_or_calc_connectivity()
+
 r_fiber = params.geometry_params["r_fiber"]
-tol = params.geometry_params["tol_fiber"]
-rve_size = params.geometry_params["rve_size"]
-seed = params.geometry_params["seed_fiber"]
-
-name = "fibers"
-dependencies = {"nfib": n_fiber}
-path = caching.get_cache_fpath(name, dependencies)
-
-print("Computing fibers")
-fibers = misc.calc_fibers(n=n_fiber, a=rve_size, r=r_fiber, tol=tol, seed=seed)
-print("Writing fibers to cache")
-caching.write_cache(path, fibers)
-
-n_speckle = params.geometry_params["n_speckle"]
 r_speckle = params.geometry_params["r_speckle"]
-tol = params.geometry_params["tol_speckle"]
 obs_size = params.geometry_params["obs_size"]
-seed = params.geometry_params["seed_speckle"]
-
-name = "speckles"
-dependencies = {"nobs": n_speckle}
-path = caching.get_cache_fpath(name, dependencies)
-
-print("Computing speckles")
-speckles = misc.calc_fibers(n=n_speckle, a=obs_size, r=r_speckle, tol=tol, seed=seed)
-print("Writing speckles to cache")
-caching.write_cache(path, speckles)
-
-name = "connectivity"
-dependencies = {"nobs": n_speckle}
-path = caching.get_cache_fpath(name, dependencies)
-
-print("Computing connectivity")
-connectivity = misc.calc_connectivity(speckles=speckles)
-print("Writing connectivity to cache")
-caching.write_cache(path, connectivity)
 
 fig, ax = plt.subplots()
 
@@ -61,7 +42,9 @@ ax.set_xlim((-obs_size, obs_size))
 ax.set_ylim((-obs_size, obs_size))
 plt.show()
 
+############
+# get mesh #
+############
+
 for h in [0.1, 0.05, 0.02, 0.01, 0.005, 0.002, 0.001]:
-    print("Computing mesh for h =", h)
-    fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
-    misc.create_mesh(fibers=fibers, a=rve_size, r=r_fiber, h=h, fname=fname)
+    nodes, elems, egroups = caching.get_or_calc_mesh(h=h)

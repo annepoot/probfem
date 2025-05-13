@@ -62,21 +62,8 @@ from myjive.fem import Tri3Shape
 
 shape = Tri3Shape("Gauss3")
 egroup = groups["matrix"]
-
-name = "fibers"
-dependencies = {"nfib": n_fiber}
-path = caching.get_cache_fpath(name, dependencies)
-fibers = caching.read_cache(path)
-
-name = "ipoints"
-dependencies = {"nfib": n_fiber, "h": h}
-path = caching.get_cache_fpath(name, dependencies)
-ipoints = caching.read_cache(path)
-
-name = "distances"
-dependencies = {"nfib": n_fiber, "h": h}
-path = caching.get_cache_fpath(name, dependencies)
-distances = caching.read_cache(path)
+ipoints = caching.get_or_calc_ipoints(egroup=egroup, h=h)
+distances = caching.get_or_calc_distances(egroup=egroup, h=h)
 
 backdoor = {}
 backdoor["xcoord"] = ipoints[:, 0]

@@ -211,32 +211,90 @@ def calc_observer(speckles, connectivity, elems, dofs, shape):
         ielem1 = speckle_ielems[ispeckle1]
         inodes1 = elems[ielem1]
         coords1 = nodes[inodes1]
-        idofs1 = dofs.get_dofs(inodes1, ["dx", "dy"])
+        idofs1 = dofs[inodes1]
         sfuncs1 = shape.eval_global_shape_functions(speckle1, coords1)
 
         speckle2 = speckles[ispeckle2]
         ielem2 = speckle_ielems[ispeckle2]
         inodes2 = elems[ielem2]
         coords2 = nodes[inodes2]
-        idofs2 = dofs.get_dofs(inodes2, ["dx", "dy"])
+        idofs2 = dofs[inodes2]
         sfuncs2 = shape.eval_global_shape_functions(speckle2, coords2)
 
         rowidx.extend(np.full(6, 2 * i + 0))
-        colidx.extend(idofs1[0::2])
+        colidx.extend(idofs1[:, 0])
         values.extend(-sfuncs1)
-        colidx.extend(idofs2[0::2])
+        colidx.extend(idofs2[:, 0])
         values.extend(sfuncs2)
 
         rowidx.extend(np.full(6, 2 * i + 1))
-        colidx.extend(idofs1[1::2])
+        colidx.extend(idofs1[:, 1])
         values.extend(-sfuncs1)
-        colidx.extend(idofs2[1::2])
+        colidx.extend(idofs2[:, 1])
         values.extend(sfuncs2)
 
-    n_obs = 2 * len(connectivity)
-    n_dof = dofs.dof_count()
+    n_obs = dofs.shape[1] * len(connectivity)
+    n_dof = dofs.shape[0] * dofs.shape[1]
 
     return csr_array((values, (rowidx, colidx)), shape=(n_obs, n_dof))
+
+
+def calc_strains(globdat):
+    state0 = globdat["state0"]
+    elems = globdat["elemSet"]
+    dofs = globdat["dofSpace"]
+    shape = globdat["shape"]
+
+    nodes = elems.get_nodes()
+
+    ipcount = shape.ipoint_count()
+    nodecount = shape.node_count()
+    strains_xx = np.zeros((len(elems), ipcount))
+    strains_yy = np.zeros((len(elems), ipcount))
+    strains_xy = np.zeros((len(elems), ipcount))
+
+    for ielem, inodes in enumerate(elems):
+        idofs = dofs.get_dofs(inodes, ["dx", "dy"])
+        eldisp = state0[idofs]
+
+        coords = nodes[inodes]
+        grads, wts = shape.get_shape_gradients(coords)
+
+        for ip in range(ipcount):
+            B = np.zeros((3, 2 * nodecount))
+
+            for n in range(nodecount):
+                B[0, 2 * n + 0] = grads[ip, 0, n]
+                B[1, 2 * n + 1] = grads[ip, 1, n]
+                B[2, 2 * n + 0] = grads[ip, 1, n]
+                B[2, 2 * n + 1] = grads[ip, 0, n]
+
+            ipstrain = B @ eldisp
+
+            strains_xx[ielem, ip] = ipstrain[0]
+            strains_yy[ielem, ip] = ipstrain[1]
+            strains_xy[ielem, ip] = ipstrain[2]
+
+    return strains_xx, strains_yy, strains_xy
+
+
+def calc_elem_stiffnesses(ip_stiffnesses, egroups):
+    elems = next(iter(egroups.values())).get_elements()
+    elem_stiffnesses = np.zeros(len(elems))
+
+    for group_name, egroup in egroups.items():
+        if group_name == "matrix":
+            for ie, ielem in enumerate(egroup):
+                ip_stiffness = ip_stiffnesses[3 * ie : 3 * (ie + 1)]
+                elem_stiffness = np.mean(ip_stiffness)
+                elem_stiffnesses[ielem] = elem_stiffness
+        elif group_name == "fiber":
+            ielems = egroup.get_indices()
+            elem_stiffnesses[ielems] = 0
+        else:
+            assert False
+
+    return elem_stiffnesses
 
 
 def sigmoid(x, decay, shift):
