@@ -7,7 +7,7 @@ from myjive.fem import Tri3Shape, DofSpace
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh, write_mesh
 
-from experiments.inverse.frp_damage import params, misc
+from experiments.inverse.frp_damage import params, misc, pod
 from experiments.inverse.frp_damage.props import get_fem_props
 
 
@@ -380,3 +380,69 @@ def get_or_calc_true_observations(*, egroups, h):
         write_cache(path, truth)
 
     return truth
+
+
+def get_or_calc_pod_snapshots(*, h):
+    n_fiber = params.geometry_params["n_fiber"]
+    n_snapshot = params.pod_params["n_snapshot"]
+
+    name = "snapshots"
+    dependencies = {"nsnap": n_snapshot, "h": h, "nfib": n_fiber}
+    path = get_cache_fpath(name, dependencies)
+
+    if is_cached(path):
+        print("Reading snapshots from cache")
+        snapshots = read_cache(path)
+    else:
+        print("Computing snapshots")
+        snapshots = pod.calc_snapshots(n_snapshot=n_snapshot, h=h)
+        print("Writing snapshots to cache")
+        write_cache(path, snapshots)
+
+    return snapshots
+
+
+def get_or_calc_pod_lifting(*, h):
+    n_fiber = params.geometry_params["n_fiber"]
+
+    name = "lifting"
+    dependencies = {"h": h, "nfib": n_fiber}
+    path = get_cache_fpath(name, dependencies)
+
+    if is_cached(path):
+        print("Reading lifting from cache")
+        lifting = read_cache(path)
+    else:
+        print("Computing lifting")
+        lifting = pod.calc_lifting(h=h)
+        print("Writing lifting to cache")
+        write_cache(path, lifting)
+
+    return lifting
+
+
+def get_or_calc_pod_basis(*, h):
+    n_fiber = params.geometry_params["n_fiber"]
+    n_snapshot = params.pod_params["n_snapshot"]
+
+    name = "basis"
+    dependencies = {"nsnap": n_snapshot, "h": h, "nfib": n_fiber}
+    path = get_cache_fpath(name, dependencies)
+
+    if is_cached(path):
+        print("Reading basis from cache")
+        basis = read_cache(path)
+    else:
+        snapshots = get_or_calc_pod_snapshots(h=h)
+        lifting = get_or_calc_pod_lifting(h=h)
+
+        for i in range(snapshots.shape[0]):
+            snapshots[i] -= lifting
+
+        print("Computing basis")
+        basis, d, VT = np.linalg.svd(snapshots.T, full_matrices=False)
+
+        print("Writing basis to cache")
+        write_cache(path, basis)
+
+    return basis

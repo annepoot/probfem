@@ -18,3 +18,7 @@ material_params = {
     "c": 0.02,
     "d": 0.5,
 }
+
+pod_params = {
+    "n_snapshot": 1000,
+}
