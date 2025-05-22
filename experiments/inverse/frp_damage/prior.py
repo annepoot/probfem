@@ -1,9 +1,11 @@
 import numpy as np
+from scipy.sparse import diags_array
 import matplotlib.pyplot as plt
 
 from fem.jive import CJiveRunner
-from probability.multivariate import Gaussian
+from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
+from util.linalg import Matrix
 
 from experiments.inverse.frp_damage.props import get_fem_props
 from experiments.inverse.frp_damage import caching, misc, params
@@ -22,9 +24,14 @@ target = GaussianProcess(
     cov=SquaredExponential(l=0.02, sigma=2.0),
 )
 
-std_pd = 1e-6
-fixed_cov = target.calc_cov(x, x) + std_pd**2 * np.identity(len(x))
-fixed_target = Gaussian(mean=None, cov=fixed_cov, use_scipy_latent=False)
+U, s, _ = np.linalg.svd(target.calc_cov(x, x))
+
+trunc = 10
+eigenfuncs = U[:, :trunc]
+eigenvalues = s[:trunc]
+
+kl_cov = SymbolicCovariance(Matrix(diags_array(eigenvalues), name="S"))
+kl_target = Gaussian(mean=None, cov=kl_cov)
 
 rng = np.random.default_rng(0)
 
@@ -43,7 +50,7 @@ fig, ax = plt.subplots()
 damage_samples = []
 
 for i in range(20):
-    sample = fixed_target.calc_sample(rng)
+    sample = eigenfuncs @ kl_target.calc_sample(rng)
     damage_sample = misc.sigmoid(sample, 1.0, 0.0)
     damage_samples.append(damage_sample)
     ax.plot(x, damage_sample, color="C0", alpha=0.5)
