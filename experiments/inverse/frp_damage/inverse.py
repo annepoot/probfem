@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from scipy.sparse import eye
+from scipy.sparse import eye_array, diags_array
 
 from fem.jive import CJiveRunner
 from probability import Likelihood
@@ -28,8 +28,14 @@ for h in [0.05, 0.02, 0.01]:
             cov=SquaredExponential(l=0.02, sigma=2.0),
         )
 
-        cov = inf_prior.calc_cov(domain, domain) + std_pd**2 * np.identity(len(domain))
-        prior = Gaussian(mean=None, cov=cov, use_scipy_latent=False)
+        U, s, _ = np.linalg.svd(inf_prior.calc_cov(domain, domain))
+
+        trunc = 10
+        eigenfuncs = U[:, :trunc]
+        eigenvalues = s[:trunc]
+
+        kl_cov = SymbolicCovariance(Matrix(diags_array(eigenvalues), name="S"))
+        kl_prior = Gaussian(mean=None, cov=kl_cov)
 
         #########################
         # get precomputed stuff #
@@ -54,15 +60,16 @@ for h in [0.05, 0.02, 0.01]:
                 self.operator = obs_operator
                 self.observations = truth
                 n_obs = len(self.observations)
-                self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye(n_obs)))
+                self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
                 self.dist = Gaussian(self.observations, self.noise)
+                self.eigenfuncs = eigenfuncs
 
                 self._input_map = (len(domain) - 1) / np.max(domain)
                 self._props = get_fem_props()
                 self._E_matrix = params.material_params["E_matrix"]
 
             def calc_logpdf(self, x):
-                damage = misc.sigmoid(x, 1.0, 0.0)
+                damage = misc.sigmoid(self.eigenfuncs @ x, 1.0, 0.0)
 
                 for ip, ipoint in enumerate(ipoints):
                     dist = distances[ip]
@@ -97,7 +104,7 @@ for h in [0.05, 0.02, 0.01]:
                 return 1.0
 
         ess = sampler.EllipticalSliceSampler(
-            prior=prior,
+            prior=kl_prior,
             likelihood=likelihood,
             n_sample=n_sample,
             n_burn=n_burn,

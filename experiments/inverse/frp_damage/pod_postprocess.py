@@ -2,6 +2,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
+
 from experiments.inverse.frp_damage import params, misc
 
 rve_size = params.geometry_params["rve_size"]
@@ -46,9 +48,25 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, np.inf]:
         saturation = misc.saturation(domain, alpha, beta, c)
         damage = misc.damage(saturation, d)
 
+        target = GaussianProcess(
+            mean=ZeroMeanFunction(),
+            cov=SquaredExponential(l=0.02, sigma=2.0),
+        )
+
+        U, s, _ = np.linalg.svd(target.calc_cov(domain, domain))
+
+        trunc = 10
+        eigenfuncs = U[:, :trunc]
+        eigenvalues = s[:trunc]
+
         fig, ax = plt.subplots()
         for i, sample in enumerate(samples):
-            damage_sample = misc.sigmoid(sample, 1.0, 0.0)
+            if len(sample) == 10:
+                damage_sample = misc.sigmoid(eigenfuncs @ sample, 1.0, 0.0)
+            elif len(sample) == 101:
+                damage_sample = misc.sigmoid(sample, 1.0, 0.0)
+            else:
+                assert False
 
             if i > 2000 and i % 10 == 0:
                 alpha = 0.2 + 0.8 * i / len(samples)
