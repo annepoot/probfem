@@ -49,9 +49,14 @@ for i in range(20):
     ax.plot(x, damage_sample, color="C0", alpha=0.5)
 
 damage_samples = np.array(damage_samples)
-
 ax.plot(x, damage, color="k")
 ax.set_title("Prior samples of damage field")
+ax.set_xlim((0, 0.2))
+ax.set_ylim((-0.1, 1.1))
+ax.set_xlabel(r"Distance to fiber")
+ax.set_ylabel(r"Damage")
+ax.set_xticks([0.00, 0.05, 0.10, 0.15, 0.20])
+ax.set_yticks([0.0, 0.5, 1.0])
 plt.show()
 
 #########################

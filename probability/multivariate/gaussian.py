@@ -408,6 +408,61 @@ class IndependentGaussianSum(GaussianLike):
             samples += gaussian.calc_samples(n, rng)
         return samples
 
+    def calc_logpdf_via_woodbury(self, x):
+        assert len(self.gaussians) == 2
+        base = self.gaussians[0]
+        noise = self.gaussians[1]
+
+        # Assuming the following form:
+        # Cov = A Phi^T S S^T Phi A + sigma_e^2 I
+        # Its (pseudo)inverse is given by:
+        # Cov^-1 = sigma_e^-2 I + sigma_e^-2 A Phi^T S (I + sigma_e^-2 S^T Phi A^T A Phi^T S)^-1 S^T Phi A^T
+        # Its (pseudo)determinant is given by:
+        # Det(Cov) = Det(I + sigma_e^-2 S^T Phi A^T A Phi^T S) * Det(sigma_e^2 I)
+
+        assert isinstance(base, Gaussian)
+        assert noise.cov.expr.is_diagonal
+
+        cov = base.get_cov().expr
+
+        assert isinstance(cov, MatMulChain)
+        assert len(cov) % 2 == 1
+        imid = (len(cov) - 1) // 2
+
+        APhiT = MatMulChain(*cov[:imid])
+        Sigma = cov[imid]
+        PhiAT = MatMulChain(*cov[imid + 1 :])
+
+        eI = noise.cov.expr
+        eIinv = eI.inv.evaluate()
+
+        U, s, VT = np.linalg.svd(Sigma.evaluate())
+        tol = 1e-8 * np.max(s)
+        rank = np.sum(abs(s) > tol)
+        assert np.all(s[:rank] >= tol)
+        assert np.allclose(U.T[:rank], VT[:rank])
+        U = U[:, :rank]
+        s = s[:rank]
+        VT = VT[:rank]
+        S = U @ np.diag(np.sqrt(s))
+        S = Matrix(S, name="sqrtSigma")
+
+        update = MatMulChain(S.T, PhiAT, eIinv, APhiT, S)
+        M = np.identity(rank) + update.evaluate()
+
+        # Matrix determinant
+        logdetM = np.linalg.slogdet(M)[1]
+        logdetA = -np.sum(np.log(eIinv.diagonal()))
+        logdet = logdetM + logdetA
+
+        # Mahalanobis distance
+        M = Matrix(M, name="M")
+        downdate = MatMulChain(eIinv, APhiT, S, M.inv, S.T, PhiAT, eIinv)
+        d = self.calc_mean() - x
+        mahal = d @ eIinv @ d - d @ (downdate @ d)
+
+        return -0.5 * len(self) * np.log(2 * np.pi) - 0.5 * logdet - 0.5 * mahal
+
     def calc_logpdet(self):
         l, Q = self._calc_eigh()
         return np.sum(np.log(l))
