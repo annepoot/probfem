@@ -314,3 +314,32 @@ def saturation(x, alpha, beta, c):
 
 def damage(saturation, d):
     return d * saturation
+
+
+def calc_damage_map(ipoints, distances, domain):
+    # maps damage in 1D domain to damage per integration point
+    rowidx = []
+    colidx = []
+    values = []
+
+    input_map = (len(domain) - 1) / np.max(domain)
+
+    for ip, ipoint in enumerate(ipoints):
+        dist = distances[ip]
+        idx_l = int(dist * input_map)
+        idx_r = idx_l + 1
+
+        x_l = domain[idx_l]
+        x_r = domain[idx_r]
+
+        rowidx.append(ip)
+        rowidx.append(ip)
+        colidx.append(idx_l)
+        colidx.append(idx_r)
+        values.append(1.0 - (dist - x_l) / (x_r - x_l))
+        values.append(1.0 - (x_r - dist) / (x_r - x_l))
+
+    valrowcol = (values, (rowidx, colidx))
+    shape = (len(ipoints), len(domain))
+
+    return csr_array(valrowcol, shape=shape)

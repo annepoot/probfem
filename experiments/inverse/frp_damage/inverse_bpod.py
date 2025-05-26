@@ -75,31 +75,17 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500]:
                 self.e = Gaussian(np.zeros(n_obs), self.noise)
                 self.eigenfuncs = eigenfuncs
 
-                self._input_map = (len(domain) - 1) / np.max(domain)
                 self._props = get_fem_props()
                 self._props["usermodules"]["solver"]["solver"] = {
                     "type": "GMRES",
                     "precision": 1e100,
                 }
                 self._E_matrix = params.material_params["E_matrix"]
+                self._damage_map = misc.calc_damage_map(ipoints, distances, domain)
 
             def calc_logpdf(self, x):
                 damage = misc.sigmoid(self.eigenfuncs @ x, 1.0, 0.0)
-
-                for ip, ipoint in enumerate(ipoints):
-                    dist = distances[ip]
-                    idx_l = int(dist * self._input_map)
-                    idx_r = idx_l + 1
-
-                    x_l = domain[idx_l]
-                    x_r = domain[idx_r]
-                    d_l = damage[idx_l]
-                    d_r = damage[idx_r]
-
-                    assert x_l <= dist <= x_r
-
-                    dam = d_l + (dist - x_l) / (x_r - x_l) * (d_r - d_l)
-                    backdoor["e"][ip] = self._E_matrix * (1 - dam)
+                backdoor["e"] = self._E_matrix * (1 - self._damage_map @ damage)
 
                 jive = CJiveRunner(self._props, elems=elems, egroups=egroups)
                 globdat = jive(**backdoor)
