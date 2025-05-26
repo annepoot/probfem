@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from scipy.spatial import Delaunay
 from scipy.sparse import csr_array
@@ -110,6 +111,8 @@ def create_mesh(*, fibers, a, r, h, fname):
     gmsh.model.mesh.generate(2)
 
     gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+
+    os.makedirs(os.path.dirname(fname), exist_ok=True)
     gmsh.write(fname)
 
     gmsh.model.remove()
