@@ -61,7 +61,7 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500]:
         backdoor["e"] = np.zeros(ipoints.shape[0])
 
         obs_operator = caching.get_or_calc_obs_operator(elems=elems, h=h)
-        truth = caching.get_or_calc_true_observations(egroups=egroups, h=0.002)
+        truth = caching.get_or_calc_true_observations(h=0.002)
 
         class CustomLikelihood(Likelihood):
 
@@ -123,7 +123,7 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500]:
                 Ix = Matrix(eye_array(Psi.shape[1], Phi.shape[1]), name="Ix")
                 Phi = Matrix(Phi, name="Phi")
                 Psi = Matrix(Psi, name="Psi")
-                K_psi = Matrix(K_psi, name="K_psi")
+                K_psi = Matrix(0.5 * (K_psi + K_psi.T), name="K_psi")
                 A = Matrix(self.operator, name="A")
                 alpha2 = u_phi @ K_phi @ u_phi / len(u_phi)
 
@@ -133,7 +133,7 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500]:
                 observations = f_phi
                 posterior = prior.condition_on(operator, observations)
                 Sigma = posterior.calc_cov()
-                Sigma = Matrix(Sigma, name="Sigma")
+                Sigma = Matrix(0.5 * (Sigma + Sigma.T), name="Sigma")
 
                 mean = A @ u_lifted
                 cov = SymbolicCovariance(A @ Psi @ Sigma @ Psi.T @ A.T)

@@ -60,7 +60,7 @@ obs_operator = caching.get_or_calc_obs_operator(elems=elems, h=h)
 # get ground truth #
 ####################
 
-truth = caching.get_or_calc_true_observations(egroups=egroups, h=h)
+truth = caching.get_or_calc_true_observations(h=h)
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl

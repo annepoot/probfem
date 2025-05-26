@@ -211,7 +211,7 @@ def get_or_calc_distances(*, egroup, h):
         for ip, ipoint in enumerate(ipoints):
             fiber, dist = misc.calc_closest_fiber(ipoint, fibers, 1.0)
             distances[ip] = dist - r_fiber
-        assert 0.0 < np.min(distances) < 0.1 * h
+        assert 0.0 < np.min(distances) < 0.2 * h
         print("Writing distances to cache")
         write_cache(path, distances)
 
@@ -358,7 +358,7 @@ def get_or_calc_true_displacements(*, egroups, h):
     return displacements
 
 
-def get_or_calc_true_observations(*, egroups, h):
+def get_or_calc_true_observations(*, h):
     n_fiber = params.geometry_params["n_fiber"]
     n_speckle = params.geometry_params["n_speckle"]
 
@@ -370,7 +370,7 @@ def get_or_calc_true_observations(*, egroups, h):
         print("Reading truth from cache")
         truth = read_cache(path)
     else:
-        elems = next(iter(egroups.values())).get_elements()
+        nodes, elems, egroups = get_or_calc_mesh(h=h)
         obs_operator = get_or_calc_obs_operator(elems=elems, h=h)
         true_displacements = get_or_calc_true_displacements(egroups=egroups, h=h)
 

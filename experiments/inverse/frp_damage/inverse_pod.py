@@ -56,7 +56,7 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]:
         backdoor["e"] = np.zeros(ipoints.shape[0])
 
         obs_operator = caching.get_or_calc_obs_operator(elems=elems, h=h)
-        truth = caching.get_or_calc_true_observations(egroups=egroups, h=0.002)
+        truth = caching.get_or_calc_true_observations(h=0.002)
 
         class CustomLikelihood(Likelihood):
 
