@@ -6,40 +6,38 @@ from scipy.sparse import eye_array, diags_array
 from myjive.solver import Constrainer
 
 from fem.jive import CJiveRunner
-from probability import Likelihood
+from probability import Likelihood, TemperedPosterior
 from probability.multivariate import (
     Gaussian,
     SymbolicCovariance,
     IndependentGaussianSum,
 )
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
+from probability.sampling import MCMCRunner
 from util.linalg import Matrix, MatMulChain
 
 from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import caching, misc, params, sampler
+from experiments.inverse.frp_damage import caching, misc, params
 
-n_burn = 1000
-n_sample = 5000
+n_burn = 10000
+n_sample = 20000
 std_pd = 1e-6
 
 h = 0.02
 l = 10
 
 ks = [1, 2, 5, 10, 20, 50, 100, 200, 500]
-alpha2s = [1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6]
 sigma_e = 1e-5
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
-    alpha2 = alpha2s[run_idx % len(alpha2s)]
-    k = ks[run_idx // len(alpha2s)]
+    k = ks[run_idx]
 
     print("############")
     print("# SETTINGS #")
     print("############")
     print("run idx:\t", run_idx)
     print("k:      \t", k)
-    print("alpha^2:\t", alpha2)
     print("")
 
     nodes, elems, egroups = caching.get_or_calc_mesh(h=h)
@@ -127,7 +125,7 @@ if __name__ == "__main__":
             Psi = Matrix(Psi, name="Psi")
             K_psi = Matrix(0.5 * (K_psi + K_psi.T), name="K_psi")
             A = Matrix(self.operator, name="A")
-            # alpha2 = u_phi @ K_phi @ u_phi / len(u_phi)
+            alpha2 = u_phi @ K_phi @ u_phi / len(u_phi)
 
             cov_prior = SymbolicCovariance(alpha2 * K_psi.inv)
             prior = Gaussian(mean=None, cov=cov_prior)
@@ -153,9 +151,12 @@ if __name__ == "__main__":
         else:
             return 1.0
 
-    ess = sampler.EllipticalSliceSampler(
-        prior=kl_prior,
-        likelihood=likelihood,
+    target = TemperedPosterior(kl_prior, likelihood)
+    proposal = Gaussian(None, kl_prior.calc_cov().toarray(), allow_singular=True)
+
+    mcmc = MCMCRunner(
+        target=target,
+        proposal=proposal,
         n_sample=n_sample,
         n_burn=n_burn,
         seed=0,
@@ -163,9 +164,9 @@ if __name__ == "__main__":
         return_info=True,
     )
 
-    samples, info = ess()
+    samples, info = mcmc()
 
-    fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_alpha2-1e{}.npy"
-    fname = fname.format(h, sigma_e, k, l, int(np.log10(alpha2)))
+    fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_alpha2-{}.npy"
+    fname = fname.format(h, sigma_e, k, l, "opt")
     fname = os.path.join("output", fname)
     np.save(fname, samples)
