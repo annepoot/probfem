@@ -142,6 +142,10 @@ def get_or_calc_dofspace(*, h):
         print("Computing dofspace")
         props = get_fem_props()
         props["model"]["model"]["matrix"]["material"]["E"] = 1.0  # dummy value
+        props["usermodules"]["solver"]["solver"] = {  # dummy solver
+            "type": "GMRES",
+            "precision": 1e100,
+        }
         jive = CJiveRunner(props, elems=elems, egroups=egroups)
         globdat = jive()
         dofs = globdat["dofSpace"]
@@ -149,7 +153,7 @@ def get_or_calc_dofspace(*, h):
         ntype = dofs.type_count()
         nnode = dofs.dof_count() // ntype
 
-        dofspace = np.zeros((nnode, ntype))
+        dofspace = np.zeros((nnode, ntype), dtype=int)
 
         for key in dofs.get_types():
             if key == "dx":
@@ -265,6 +269,31 @@ def get_or_calc_connectivity():
     return connectivity
 
 
+def get_or_calc_dic_grid():
+    h_dic = params.geometry_params["h_dic"]
+    n_fiber = params.geometry_params["n_fiber"]
+
+    name = "grid"
+    dependencies = {"hdic": h_dic, "nfib": n_fiber}
+    path = get_cache_fpath(name, dependencies)
+
+    if is_cached(path):
+        print("Reading grid from cache")
+        grid = read_cache(path)
+    else:
+        fibers = get_or_calc_fibers()
+        obs_size = params.geometry_params["obs_size"]
+        rve_size = params.geometry_params["rve_size"]
+        r_fiber = params.geometry_params["r_fiber"]
+
+        print("Computing grid")
+        grid = misc.calc_dic_grid(h_dic, fibers, r_fiber, obs_size, rve_size)
+        print("Writing grid to cache")
+        write_cache(path, grid)
+
+    return grid
+
+
 def get_or_calc_obs_operator(*, elems, h):
     n_fiber = params.geometry_params["n_fiber"]
     n_speckle = params.geometry_params["n_speckle"]
@@ -285,6 +314,31 @@ def get_or_calc_obs_operator(*, elems, h):
         print("Computing observer")
         obs_operator = misc.calc_observer(speckles, connectivity, elems, dofs, shape)
         print("Writing observer to cache")
+        write_cache(path, obs_operator)
+
+    return obs_operator
+
+
+def get_or_calc_dic_operator(*, elems, h):
+    h_dic = params.geometry_params["h_dic"]
+    n_fiber = params.geometry_params["n_fiber"]
+    shape = Tri3Shape("Gauss3")
+
+    name = "dicoperator"
+    dependencies = {"hdic": h_dic, "h": h, "nfib": n_fiber, "sparse": True}
+    path = get_cache_fpath(name, dependencies)
+
+    if is_cached(path):
+        print("Reading dicoperator from cache")
+        obs_operator = read_cache(path)
+    else:
+        fibers = get_or_calc_fibers()
+        grid = get_or_calc_dic_grid()
+        dofs = get_or_calc_dofspace(h=h)
+
+        print("Computing dicoperator")
+        obs_operator = misc.calc_dic_operator(fibers, grid, elems, dofs, shape)
+        print("Writing dicoperator to cache")
         write_cache(path, obs_operator)
 
     return obs_operator
@@ -377,6 +431,30 @@ def get_or_calc_true_observations(*, h):
         print("Computing truth")
         truth = obs_operator @ true_displacements
         print("Writing truth to cache")
+        write_cache(path, truth)
+
+    return truth
+
+
+def get_or_calc_true_dic_observations(*, h):
+    h_dic = params.geometry_params["h_dic"]
+    n_fiber = params.geometry_params["n_fiber"]
+
+    name = "dictruth"
+    dependencies = {"hdic": h_dic, "h": h, "nfib": n_fiber}
+    path = get_cache_fpath(name, dependencies)
+
+    if is_cached(path):
+        print("Reading dictruth from cache")
+        truth = read_cache(path)
+    else:
+        nodes, elems, egroups = get_or_calc_mesh(h=h)
+        dic_operator = get_or_calc_dic_operator(elems=elems, h=h)
+        true_displacements = get_or_calc_true_displacements(egroups=egroups, h=h)
+
+        print("Computing dictruth")
+        truth = dic_operator @ true_displacements
+        print("Writing dictruth to cache")
         write_cache(path, truth)
 
     return truth

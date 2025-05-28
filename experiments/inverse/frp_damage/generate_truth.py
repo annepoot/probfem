@@ -38,49 +38,48 @@ stiffnesses = caching.get_or_calc_true_stiffnesses(egroup=egroup, h=h)
 
 displacements = caching.get_or_calc_true_displacements(egroups=egroups, h=h)
 
-#########################
-# get speckle locations #
-#########################
+################
+# get dic grid #
+################
 
-speckles = caching.get_or_calc_speckles()
-
-#########################
-# get speckle neighbors #
-#########################
-
-connectivity = caching.get_or_calc_connectivity()
+grid = caching.get_or_calc_dic_grid()
 
 ############################
 # get observation operator #
 ############################
 
-obs_operator = caching.get_or_calc_obs_operator(elems=elems, h=h)
+dic_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
 
 ####################
 # get ground truth #
 ####################
 
-truth = caching.get_or_calc_true_observations(h=h)
+truth = caching.get_or_calc_true_dic_observations(h=h)
 
 import matplotlib.pyplot as plt
+from matplotlib.patches import Circle, Rectangle
 import matplotlib as mpl
 
+r_fiber = params.geometry_params["r_fiber"]
+r_speckle = params.geometry_params["r_speckle"]
+obs_size = params.geometry_params["obs_size"]
+
 comp = 0
-edgedisp = truth[comp::2]
-norm = mpl.colors.Normalize(vmin=np.min(edgedisp), vmax=np.max(edgedisp))
+eps_xx = truth[comp::3]
+norm = mpl.colors.Normalize(vmin=np.min(eps_xx), vmax=np.max(eps_xx))
 cmap = mpl.colormaps["viridis"]
 
 fig, ax = plt.subplots()
 
-for i, edge in enumerate(connectivity):
-    coord1, coord2 = speckles[edge]
-    dl = edgedisp[i]
+for fiber in fibers:
+    ax.add_patch(Circle(fiber, r_fiber, color="C0", alpha=0.5))
 
-    color = cmap(norm(dl))
-    ax.plot([coord1[0], coord2[0]], [coord1[1], coord2[1]], color=color)
+for i, square in enumerate(grid):
+    color = cmap(norm(eps_xx[i]))
+    ax.add_patch(Rectangle(square[:2], square[2], square[3], color=color, alpha=0.5))
 
 ax.set_aspect("equal")
-obs_size = params.geometry_params["obs_size"]
 ax.set_xlim((-obs_size, obs_size))
 ax.set_ylim((-obs_size, obs_size))
+ax.set_axis_off()
 plt.show()

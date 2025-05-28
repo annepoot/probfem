@@ -3,18 +3,12 @@ import os
 import numpy as np
 from scipy.sparse import eye_array, diags_array
 
-from myjive.solver import Constrainer
-
 from fem.jive import CJiveRunner
 from probability import Likelihood, TemperedPosterior
-from probability.multivariate import (
-    Gaussian,
-    SymbolicCovariance,
-    IndependentGaussianSum,
-)
+from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
 from probability.sampling import MCMCRunner
-from util.linalg import Matrix, MatMulChain
+from util.linalg import Matrix
 
 from experiments.inverse.frp_damage.props import get_fem_props
 from experiments.inverse.frp_damage import caching, misc, params
@@ -23,24 +17,20 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-h = 0.02
-l = 10
-
-ks = [1, 2, 5, 10, 20, 50, 100, 200, 500]
-ls = [1, 2, 5, 10, 20, 50, 100, 200, 500]
-sigma_e = 1e-5
+hs = [0.050, 0.020, 0.010]
+sigma_es = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
-    k = ks[run_idx % len(ks)]
-    l = ls[run_idx // len(ks)]
+    h = hs[run_idx % len(hs)]
+    sigma_e = sigma_es[run_idx // len(hs)]
 
     print("############")
     print("# SETTINGS #")
     print("############")
     print("run idx:\t", run_idx)
-    print("k:      \t", k)
-    print("l:      \t", l)
+    print("h:      \t", h)
+    print("sigma_e:\t", sigma_e)
     print("")
 
     nodes, elems, egroups = caching.get_or_calc_mesh(h=h)
@@ -69,8 +59,6 @@ if __name__ == "__main__":
 
     ipoints = caching.get_or_calc_ipoints(egroup=egroup, h=h)
     distances = caching.get_or_calc_distances(egroup=egroup, h=h)
-    basis = caching.get_or_calc_pod_basis(h=h)
-    lifting = caching.get_or_calc_pod_lifting(h=h)
 
     backdoor = {}
     backdoor["xcoord"] = ipoints[:, 0]
@@ -89,14 +77,10 @@ if __name__ == "__main__":
             self.observations = truth
             n_obs = len(self.observations)
             self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
-            self.e = Gaussian(np.zeros(n_obs), self.noise)
+            self.dist = Gaussian(self.observations, self.noise)
             self.eigenfuncs = eigenfuncs
 
             self._props = get_fem_props()
-            self._props["usermodules"]["solver"]["solver"] = {
-                "type": "GMRES",
-                "precision": 1e100,
-            }
             self._E_matrix = params.material_params["E_matrix"]
             self._damage_map = misc.calc_damage_map(ipoints, distances, domain)
 
@@ -107,43 +91,10 @@ if __name__ == "__main__":
             jive = CJiveRunner(self._props, elems=elems, egroups=egroups)
             globdat = jive(**backdoor)
 
-            K = globdat["matrix0"]
-            f = globdat["extForce"]
-            c = globdat["constraints"]
-            conman = Constrainer(c, K)
-            Kc = conman.get_output_matrix()
+            state0 = globdat["state0"]
+            pred = self.operator @ state0
 
-            Phi = basis[:, :k]
-            Psi = basis[:, : k + l]
-
-            K_phi = Phi.T @ Kc @ Phi
-            f_phi = Phi.T @ f - Phi.T @ K @ lifting
-            u_phi = np.linalg.solve(K_phi, f_phi)
-            u_lifted = Phi @ u_phi + lifting
-
-            K_psi = Psi.T @ Kc @ Psi
-
-            Ix = Matrix(eye_array(Psi.shape[1], Phi.shape[1]), name="Ix")
-            Phi = Matrix(Phi, name="Phi")
-            Psi = Matrix(Psi, name="Psi")
-            K_psi = Matrix(0.5 * (K_psi + K_psi.T), name="K_psi")
-            A = Matrix(self.operator, name="A")
-            alpha2 = u_phi @ K_phi @ u_phi / len(u_phi)
-
-            cov_prior = SymbolicCovariance(alpha2 * K_psi.inv)
-            prior = Gaussian(mean=None, cov=cov_prior)
-            operator = MatMulChain(Ix.T, K_psi)
-            observations = f_phi
-            posterior = prior.condition_on(operator, observations)
-            Sigma = posterior.calc_cov()
-            Sigma = Matrix(0.5 * (Sigma + Sigma.T), name="Sigma")
-
-            mean = A @ u_lifted
-            cov = SymbolicCovariance(A @ Psi @ Sigma @ Psi.T @ A.T)
-            post = Gaussian(mean=mean, cov=cov)
-
-            dist = IndependentGaussianSum(post, self.e)
-            loglikelihood = dist.calc_logpdf_via_woodbury(self.observations)
+            loglikelihood = self.dist.calc_logpdf(pred)
             return loglikelihood
 
     likelihood = CustomLikelihood()
@@ -169,10 +120,10 @@ if __name__ == "__main__":
 
     samples, info = mcmc()
 
-    fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.npy"
-    fname = os.path.join("output-grid", fname.format(h, sigma_e, k, l))
+    fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.npy"
+    fname = os.path.join("output-grid", fname.format(h, sigma_e))
     np.save(fname, samples)
 
-    fname = "posterior-logpdfs_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.npy"
-    fname = os.path.join("output-grid", fname.format(h, sigma_e, k, l))
+    fname = "posterior-logpdfs_fem_h-{:.3f}_noise-{:.0e}.npy"
+    fname = os.path.join("output-grid", fname.format(h, sigma_e))
     np.save(fname, info["loglikelihood"])

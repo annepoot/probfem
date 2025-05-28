@@ -9,6 +9,7 @@ geometry_params = {
     "r_speckle": 0.003,
     "tol_speckle": 0.001,
     "seed_speckle": 0,
+    "h_dic": 0.016,
 }
 
 material_params = {
