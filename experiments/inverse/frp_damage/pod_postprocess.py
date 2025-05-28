@@ -29,10 +29,10 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, np.inf]:
         fname = os.path.join("output", fname.format(h, noise))
     elif fem_type == "pod":
         fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.npy"
-        fname = os.path.join("output", fname.format(h, noise, k))
+        fname = os.path.join("output-grid", fname.format(h, noise, k))
     elif fem_type == "bpod":
-        fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_alpha-{}.npy"
-        fname = os.path.join("output", fname.format(h, noise, k, l, "opt"))
+        fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.npy"
+        fname = os.path.join("output-grid", fname.format(h, noise, k, l))
     else:
         raise ValueError
 
@@ -68,12 +68,18 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, np.inf]:
             else:
                 assert False
 
-            if i > 2000 and i % 10 == 0:
-                alpha = 0.2 + 0.8 * i / len(samples)
-                ax.plot(domain, damage_sample, color="C0", alpha=alpha, linewidth=0.1)
+            if i > 10000 and i % 100 == 0:
+                ax.plot(domain, damage_sample, color="C0", linewidth=0.1)
 
         ax.plot(domain, damage, color="k")
-        ax.set_title(r"Posterior samples, $k={}$".format(k))
+
+        if fem_type == "pod":
+            ax.set_title(r"Posterior samples POD, $k={}$".format(k))
+        if fem_type == "bpod":
+            ax.set_title(r"Posterior samples BPOD, $k={}$, $l={}$".format(k, l))
+        else:
+            assert False
+
         ax.set_xlim((0, 0.2))
         ax.set_ylim((-0.1, 1.1))
         ax.set_xlabel(r"Distance to fiber")

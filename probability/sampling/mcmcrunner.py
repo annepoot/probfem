@@ -205,6 +205,11 @@ class MCMCRunner:
         if isinstance(proposal, MVGaussian):
             cov = proposal.calc_cov()
             noise = 1e-8 * np.identity(cov.shape[0])
-            proposal.update_cov(factor @ cov @ factor.T + noise)
+
+            try:
+                proposal.update_cov(factor @ cov @ factor.T + noise)
+            except Exception as error:
+                print("Exception caught:", error)
+                print("Not reshaping covariance")
         else:
             raise ValueError

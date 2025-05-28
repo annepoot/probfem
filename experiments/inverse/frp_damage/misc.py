@@ -4,7 +4,13 @@ from scipy.spatial import Delaunay
 from scipy.sparse import csr_array
 import gmsh
 
-from fem.meshing import create_bboxes, find_coords_in_elementset
+from fem.meshing import (
+    create_bbox,
+    create_bboxes,
+    find_coords_in_elementset,
+    list_bbox_bbox_intersections,
+    clip_polygons,
+)
 
 
 def calc_integration_points(egroup, shape):
@@ -238,6 +244,115 @@ def calc_observer(speckles, connectivity, elems, dofs, shape):
 
     n_obs = dofs.shape[1] * len(connectivity)
     n_dof = dofs.shape[0] * dofs.shape[1]
+
+    return csr_array((values, (rowidx, colidx)), shape=(n_obs, n_dof))
+
+
+def calc_dic_grid(h_dic, fibers, r_fiber, obs_size, rve_size):
+    n = int(2 * obs_size / h_dic)
+
+    grid = np.zeros((n**2, 4))
+
+    for i in range(n):
+        for j in range(n):
+            x = i * h_dic - obs_size
+            y = j * h_dic - obs_size
+            w = h_dic
+            h = h_dic
+            grid[i * n + j] = [x, y, w, h]
+
+    mask = np.zeros(n**2, dtype=bool)
+    point = np.zeros(2)
+
+    for i, square in enumerate(grid):
+        dists = []
+        for dx in [0, 1]:
+            for dy in [0, 1]:
+                point[0] = square[0] + dx * square[2]
+                point[1] = square[1] + dy * square[3]
+                dists.append(calc_closest_fiber(point, fibers, rve_size)[1])
+
+        dist = np.max(dists)
+
+        if dist > r_fiber:
+            mask[i] = True
+
+    return grid[mask]
+
+
+def calc_dic_operator(fibers, grid, elems, dofs, shape):
+    nodes = elems.get_nodes()
+    elem_bboxes = create_bboxes(elems)
+
+    def polygon_area(coords):
+        area = 0.0
+        n = len(coords)
+
+        for i in range(n):
+            a = coords[i]
+            b = coords[(i + 1) % n]
+            area += 0.5 * (a[0] * b[1] - a[1] * b[0])
+
+        return area
+
+    n_obs = 3 * len(grid)
+    n_dof = dofs.shape[0] * dofs.shape[1]
+
+    rowidx = []
+    colidx = []
+    values = []
+
+    for i, square in enumerate(grid):
+        square_coords = np.zeros((4, 2))
+        square_coords[0] = [square[0] + 0.0 * square[2], square[1] + 0.0 * square[3]]
+        square_coords[1] = [square[0] + 1.0 * square[2], square[1] + 0.0 * square[3]]
+        square_coords[2] = [square[0] + 1.0 * square[2], square[1] + 1.0 * square[3]]
+        square_coords[3] = [square[0] + 0.0 * square[2], square[1] + 1.0 * square[3]]
+
+        square_bbox = create_bbox(square_coords)
+
+        ielems = list_bbox_bbox_intersections(square_bbox, elem_bboxes)
+
+        clips = []
+        rel_areas = []
+
+        for ielem in ielems:
+            inodes = elems[ielem]
+            elem_coords = nodes[inodes]
+            idofs = dofs[inodes]
+
+            clip = clip_polygons(elem_coords, square_coords)
+
+            if len(clip) == 0:
+                continue
+
+            area = polygon_area(clip)
+            rel_area = area / (square[2] * square[3])
+
+            clips.append(clip)
+            rel_areas.append(rel_area)
+
+            grads, wts = shape.get_shape_gradients(elem_coords)
+
+            # constant strain, so only use one integration point
+            assert np.allclose(grads[0], grads[1])
+            assert np.allclose(grads[0], grads[2])
+
+            rowidx.extend(np.full(3, 3 * i + 0))
+            colidx.extend(idofs[:, 0])
+            values.extend(rel_area * grads[0, 0])
+
+            rowidx.extend(np.full(3, 3 * i + 1))
+            colidx.extend(idofs[:, 1])
+            values.extend(rel_area * grads[0, 1])
+
+            rowidx.extend(np.full(3, 3 * i + 2))
+            colidx.extend(idofs[:, 0])
+            values.extend(rel_area * grads[0, 1])
+
+            rowidx.extend(np.full(3, 3 * i + 2))
+            colidx.extend(idofs[:, 1])
+            values.extend(rel_area * grads[0, 0])
 
     return csr_array((values, (rowidx, colidx)), shape=(n_obs, n_dof))
 

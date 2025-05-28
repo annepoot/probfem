@@ -3,20 +3,21 @@ import numpy as np
 from scipy.sparse import eye_array, diags_array
 
 from fem.jive import CJiveRunner
-from probability import Likelihood
+from probability import Likelihood, TemperedPosterior
 from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
+from probability.sampling import MCMCRunner
 from util.linalg import Matrix
 
 from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import caching, misc, params, sampler
+from experiments.inverse.frp_damage import caching, misc, params
 
-n_burn = 1000
-n_sample = 5000
+n_burn = 10000
+n_sample = 20000
 std_pd = 1e-6
 
 for h in [0.05, 0.02, 0.01]:
-    for sigma_e in [1e-4, 1e-5, 1e-6]:
+    for sigma_e in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]:
         nodes, elems, egroups = caching.get_or_calc_mesh(h=h)
         egroup = egroups["matrix"]
         distances = caching.get_or_calc_distances(egroup=egroup, h=h)
@@ -49,8 +50,8 @@ for h in [0.05, 0.02, 0.01]:
         backdoor["ycoord"] = ipoints[:, 1]
         backdoor["e"] = np.zeros(ipoints.shape[0])
 
-        obs_operator = caching.get_or_calc_obs_operator(elems=elems, h=h)
-        truth = caching.get_or_calc_true_observations(h=0.002)
+        obs_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
+        truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
         class CustomLikelihood(Likelihood):
 
@@ -89,9 +90,12 @@ for h in [0.05, 0.02, 0.01]:
             else:
                 return 1.0
 
-        ess = sampler.EllipticalSliceSampler(
-            prior=kl_prior,
-            likelihood=likelihood,
+        target = TemperedPosterior(kl_prior, likelihood)
+        proposal = Gaussian(None, kl_prior.calc_cov().toarray())
+
+        mcmc = MCMCRunner(
+            target=target,
+            proposal=proposal,
             n_sample=n_sample,
             n_burn=n_burn,
             seed=0,
@@ -99,8 +103,12 @@ for h in [0.05, 0.02, 0.01]:
             return_info=True,
         )
 
-        samples, info = ess()
+        samples, info = mcmc()
 
-        fname = "posterior-samples_h-{:.3f}_noise-{:.0e}.npy".format(h, sigma_e)
-        fname = os.path.join("output", fname)
+        fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.npy"
+        fname = os.path.join("output-grid", fname.format(h, sigma_e))
         np.save(fname, samples)
+
+        fname = "posterior-logpdfs_fem_h-{:.3f}_noise-{:.0e}.npy"
+        fname = os.path.join("output-grid", fname.format(h, sigma_e))
+        np.save(fname, info["loglikelihood"])
