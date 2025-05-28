@@ -5,11 +5,11 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=3900M
 #SBATCH --time=23:59:00
-#SBATCH --output=output-grid/%x_%3a.out
+#SBATCH --output=output/%x_%A_%a.out
 #SBATCH --partition=compute-p1,compute-p2
 #SBATCH --account=research-ceg-3md
 
-# run with sbatch --array=0-80 bpod.job
+# run with sbatch --array=0-## bpod.job
 APPSIF=/home/$USER/probfem-conda.sif
 RUNDIR=/home/$USER/git/probfem/experiments/inverse/frp_damage
 
@@ -17,5 +17,9 @@ echo LOADING MODULES ...
 module load 2024r1
 
 echo RUNNING JOB ...
-srun -s apptainer exec -e --bind $RUNDIR:$RUNDIR $APPSIF $RUNDIR/bpod.sh $SLURM_ARRAY_TASK_ID
+srun -s apptainer exec -e --bind $RUNDIR:$RUNDIR $APPSIF $RUNDIR/bpod.sh $SLURM_ARRAY_TASK_ID $SLURM_ARRAY_JOB_ID
 
+TASK_ID_PADDED=$(printf "%03d" $SLURM_ARRAY_TASK_ID)
+cp output/${SLURM_JOB_NAME}_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out \
+	output/${SLURM_ARRAY_JOB_ID}/${SLURM_JOB_NAME}_${TASK_ID_PADDED}.out && \
+	rm output/${SLURM_JOB_NAME}_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}.out

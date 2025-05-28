@@ -2,6 +2,7 @@ import sys
 import os
 import numpy as np
 from scipy.sparse import eye_array, diags_array
+import itertools
 
 from myjive.solver import Constrainer
 
@@ -24,18 +25,23 @@ l = 10
 
 ks = [1, 2, 5, 10, 20, 50, 100, 200, 500]
 sigma_es = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+seeds = range(10)
+
+combis = list(itertools.product(ks, sigma_es, seeds))
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
-    k = ks[run_idx % len(ks)]
-    sigma_e = sigma_es[run_idx // len(ks)]
+    job_id = int(sys.argv[2])
+    k, sigma_e, seed = combis[run_idx]
 
     print("############")
     print("# SETTINGS #")
     print("############")
     print("run idx:\t", run_idx)
+    print("job id: \t", job_id)
     print("k:      \t", k)
     print("sigma_e:\t", sigma_e)
+    print("seed:   \t", seed)
     print("")
 
     nodes, elems, egroups = caching.get_or_calc_mesh(h=h)
@@ -126,6 +132,8 @@ if __name__ == "__main__":
         else:
             return 1.0
 
+    rng = np.random.default_rng(seed)
+    start_value = kl_prior.calc_sample(rng)
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
@@ -134,17 +142,21 @@ if __name__ == "__main__":
         proposal=proposal,
         n_sample=n_sample,
         n_burn=n_burn,
-        seed=0,
+        start_value=start_value,
+        seed=rng,
         tempering=linear_tempering,
         return_info=True,
     )
 
     samples, info = mcmc()
 
-    fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.npy"
-    fname = os.path.join("output-grid", fname.format(h, sigma_e, k))
+    outdir = os.path.join("output", str(job_id))
+    os.makedirs(outdir, exist_ok=True)
+    
+    fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
+    fname = os.path.join(outdir, fname.format(h, sigma_e, k, seed))
     np.save(fname, samples)
 
-    fname = "posterior-logpdfs_pod_h-{:.3f}_noise-{:.0e}_k-{}.npy"
-    fname = os.path.join("output-grid", fname.format(h, sigma_e, k))
+    fname = "posterior-logpdfs_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
+    fname = os.path.join(outdir, fname.format(h, sigma_e, k, seed))
     np.save(fname, info["loglikelihood"])

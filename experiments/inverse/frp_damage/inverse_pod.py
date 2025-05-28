@@ -19,6 +19,7 @@ n_sample = 20000
 std_pd = 1e-6
 
 h = 0.02
+seed = 0
 
 for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]:
     for sigma_e in [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]:
@@ -110,6 +111,8 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]:
             else:
                 return 1.0
 
+        rng = np.random.default_rng(seed)
+        start_value = kl_prior.calc_sample(rng)
         target = TemperedPosterior(kl_prior, likelihood)
         proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
@@ -118,17 +121,18 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]:
             proposal=proposal,
             n_sample=n_sample,
             n_burn=n_burn,
-            seed=0,
+            start_value=start_value,
+            seed=rng,
             tempering=linear_tempering,
             return_info=True,
         )
 
         samples, info = mcmc()
 
-        fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.npy"
-        fname = os.path.join("output-grid", fname.format(h, sigma_e, k))
+        fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
+        fname = os.path.join("output-grid", fname.format(h, sigma_e, k, seed))
         np.save(fname, samples)
 
-        fname = "posterior-logpdfs_pod_h-{:.3f}_noise-{:.0e}_k-{}.npy"
-        fname = os.path.join("output-grid", fname.format(h, sigma_e, k))
+        fname = "posterior-logpdfs_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
+        fname = os.path.join("output-grid", fname.format(h, sigma_e, k, seed))
         np.save(fname, info["loglikelihood"])

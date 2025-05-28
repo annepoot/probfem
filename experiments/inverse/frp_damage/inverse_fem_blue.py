@@ -2,6 +2,7 @@ import sys
 import os
 import numpy as np
 from scipy.sparse import eye_array, diags_array
+import itertools
 
 from fem.jive import CJiveRunner
 from probability import Likelihood, TemperedPosterior
@@ -19,18 +20,23 @@ std_pd = 1e-6
 
 hs = [0.050, 0.020, 0.010]
 sigma_es = [1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6]
+seeds = range(10)
+
+combis = list(itertools.product(hs, sigma_es, seeds))
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
-    h = hs[run_idx % len(hs)]
-    sigma_e = sigma_es[run_idx // len(hs)]
+    job_id = int(sys.argv[2])
+    h, sigma_e, seed = combis[run_idx]
 
     print("############")
     print("# SETTINGS #")
     print("############")
     print("run idx:\t", run_idx)
+    print("job id: \t", job_id)
     print("h:      \t", h)
     print("sigma_e:\t", sigma_e)
+    print("seed:   \t", seed)
     print("")
 
     nodes, elems, egroups = caching.get_or_calc_mesh(h=h)
@@ -105,6 +111,8 @@ if __name__ == "__main__":
         else:
             return 1.0
 
+    rng = np.random.default_rng(seed)
+    start_value = kl_prior.calc_sample(rng)
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
@@ -113,17 +121,21 @@ if __name__ == "__main__":
         proposal=proposal,
         n_sample=n_sample,
         n_burn=n_burn,
-        seed=0,
+        start_value=start_value,
+        seed=rng,
         tempering=linear_tempering,
         return_info=True,
     )
 
     samples, info = mcmc()
 
-    fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.npy"
-    fname = os.path.join("output-grid", fname.format(h, sigma_e))
+    outdir = os.path.join("output", str(job_id))
+    os.makedirs(outdir, exist_ok=True)
+
+    fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = os.path.join(outdir, fname.format(h, sigma_e, seed))
     np.save(fname, samples)
 
-    fname = "posterior-logpdfs_fem_h-{:.3f}_noise-{:.0e}.npy"
-    fname = os.path.join("output-grid", fname.format(h, sigma_e))
+    fname = "posterior-logpdfs_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = os.path.join(outdir, fname.format(h, sigma_e, seed))
     np.save(fname, info["loglikelihood"])
