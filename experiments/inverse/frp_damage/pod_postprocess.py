@@ -13,11 +13,13 @@ tol = params.geometry_params["tol_fiber"]
 seed = params.geometry_params["seed_fiber"]
 
 h = 0.02
-noise = 1e-5
+noise = 1e-3
+k = 5
 l = 10
+seed = 2
 fem_type = "pod"
 
-for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, np.inf]:
+for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, np.inf]:
     E_matrix = params.material_params["E_matrix"]
     alpha = params.material_params["alpha"]
     beta = params.material_params["beta"]
@@ -25,14 +27,21 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, np.inf]:
     d = params.material_params["d"]
 
     if np.isinf(k):
-        fname = "posterior-samples_h-{:.3f}_noise-{:.0e}.npy"
-        fname = os.path.join("output", fname.format(h, noise))
+        fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+        fname = fname.format(h, noise, seed)
+        fname = os.path.join("output-2025-06-02", "fem", fname.format(h, noise))
     elif fem_type == "pod":
-        fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.npy"
-        fname = os.path.join("output-grid", fname.format(h, noise, k))
+        fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
+        fname = fname.format(h, noise, k, seed)
+        fname = os.path.join("output-2025-06-02", "pod", fname)
     elif fem_type == "bpod":
-        fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.npy"
-        fname = os.path.join("output-grid", fname.format(h, noise, k, l))
+        fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_seed-{}.npy"
+        fname = fname.format(h, noise, k, l, seed)
+        fname = os.path.join("output-2025-06-02", "bpod", fname)
+    elif fem_type == "fem":
+        fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+        fname = fname.format(h, noise, seed)
+        fname = os.path.join("output-2025-06-02", "fem", fname.format(h, noise))
     else:
         raise ValueError
 
@@ -75,8 +84,10 @@ for k in [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, np.inf]:
 
         if fem_type == "pod":
             ax.set_title(r"Posterior samples POD, $k={}$".format(k))
-        if fem_type == "bpod":
+        elif fem_type == "bpod":
             ax.set_title(r"Posterior samples BPOD, $k={}$, $l={}$".format(k, l))
+        elif fem_type == "fem":
+            ax.set_title(r"Posterior samples FEM, $h={:.3f}$".format(h))
         else:
             assert False
 
