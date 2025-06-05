@@ -1,12 +1,10 @@
+import os
 import numpy as np
 from scipy.sparse import issparse
+import pickle
 
 from probability import Distribution, IndependentJoint, RejectConditional
-from probability.multivariate import (
-    IsotropicGaussian,
-    DiagonalGaussian,
-    Gaussian as MVGaussian,
-)
+from probability.multivariate import Gaussian as MVGaussian
 from probability.univariate import (
     LogGaussian,
     Uniform,
@@ -30,7 +28,9 @@ class MCMCRunner:
         tune_interval=100,
         tempering=None,
         recompute_logpdf=False,
-        return_info=False
+        return_info=False,
+        checkpoint=None,
+        checkpoint_interval=1000,
     ):
         assert isinstance(target, Distribution)
         assert isinstance(proposal, Distribution)
@@ -50,33 +50,45 @@ class MCMCRunner:
         self.tempering = tempering
         self.recompute_logpdf = recompute_logpdf
         self.return_info = return_info
+        self.checkpoint = checkpoint
+        self.checkpoint_interval = checkpoint_interval
 
     def __call__(self):
-        xi = self.start_value
 
-        if self.tempering is not None:
-            temp = self.tempering(0)
-            assert temp == 0.0
-            self.target.set_temperature(temp)
+        if self.checkpoint is None:
+            start = 0
+        else:
+            start = self._load_checkpoint()
+
+        if start == 0:
+            xi = self.start_value
+        else:
+            xi = self.samples[start]
 
         if self.tempering is None:
             temp = 1.0
         else:
-            temp = self.tempering(0)
+            temp = self.tempering(start)
+            self.target.set_temperature(temp)
 
         logpdf = self.target.calc_logpdf(xi)
-        samples = np.zeros((self.n_sample + 1, len(self.target)))
-        samples[0] = xi
 
-        if self.return_info:
-            logpdfs = np.zeros((self.n_sample + 1))
-            logpdfs[0] = logpdf
-            temperatures = np.zeros((self.n_sample + 1))
-            temperatures[0] = temp
+        if start == 0:
+            self.samples = np.zeros((self.n_sample + 1, len(self.target)))
+            self.samples[0] = xi
+
+            if self.return_info:
+                self.logpdfs = np.zeros((self.n_sample + 1))
+                self.logpdfs[0] = logpdf
+                self.temperatures = np.zeros((self.n_sample + 1))
+                self.temperatures[0] = temp
+            else:
+                self.logpdfs = None
+                self.temperatures = None
 
         accept_rate = 0.0
 
-        for i in range(1, self.n_sample + 1):
+        for i in range(start + 1, self.n_sample + 1):
             self.proposal.update_mean(xi)
             xi_prop = self.proposal.calc_sample(self._rng)
 
@@ -107,11 +119,11 @@ class MCMCRunner:
                 logpdf = logpdf_prop
                 accept_rate += 1 / self.tune_interval
 
-            samples[i] = xi
+            self.samples[i] = xi
 
             if self.return_info:
-                logpdfs[i] = logpdf
-                temperatures[i] = temp
+                self.logpdfs[i] = logpdf
+                self.temperatures[i] = temp
 
             if i % self.tune_interval == 0:
                 print("MCMC sample {} of {}".format(i, self.n_sample))
@@ -123,7 +135,7 @@ class MCMCRunner:
                 if self.tune and i <= self.n_burn:
                     if isinstance(self.proposal, MVGaussian):
                         if accept_rate > 0.1:
-                            sample_batch = samples[i - self.tune_interval : i]
+                            sample_batch = self.samples[i - self.tune_interval : i]
                             shaping = self._recompute_shaping(sample_batch)
                             self._shape_proposal(self.proposal, shaping)
 
@@ -137,11 +149,16 @@ class MCMCRunner:
 
                 accept_rate = 0.0
 
+            if i % self.checkpoint_interval == 0:
+                self._save_checkpoint(i)
+
+        self._remove_checkpoint()
+
         if self.return_info:
-            info = {"loglikelihood": logpdfs, "temperature": temperatures}
-            return samples, info
+            info = {"loglikelihood": self.logpdfs, "temperature": self.temperatures}
+            return self.samples, info
         else:
-            return samples
+            return self.samples
 
     def _recompute_scaling(self, scaling, accept_rate):
         print("Old scaling:", scaling)
@@ -213,3 +230,56 @@ class MCMCRunner:
                 print("Not reshaping covariance")
         else:
             raise ValueError
+
+    def _save_checkpoint(self, i):
+        if self.checkpoint is None:
+            return
+
+        state = {
+            "i": i,
+            "samples": self.samples,
+            "logpdfs": self.logpdfs,
+            "temperatures": self.temperatures,
+            "proposal": self.proposal,
+            "scaling": self.scaling,
+            "rng": self._rng,
+        }
+
+        with open(self.checkpoint, "wb") as f:
+            pickle.dump(state, f)
+
+        rng_state = hex(self._rng.bit_generator.state["state"]["state"])
+        print("Saved checkpoint with", i, "samples and rng:", rng_state)
+        print("")
+
+    def _load_checkpoint(self):
+        if self.checkpoint is None:
+            return 0
+        elif not os.path.isfile(self.checkpoint):
+            return 0
+
+        with open(self.checkpoint, "rb") as f:
+            state = pickle.load(f)
+
+        i = state["i"]
+        self.samples = state["samples"]
+        self.logpdfs = state["logpdfs"]
+        self.temperatures = state["temperatures"]
+        self.proposal = state["proposal"]
+        self.scaling = state["scaling"]
+        self._rng = state["rng"]
+
+        rng_state = hex(self._rng.bit_generator.state["state"]["state"])
+        print("Loaded checkpoint with", i, "samples and rng:", rng_state)
+        print("")
+
+        return i
+
+    def _remove_checkpoint(self):
+        if self.checkpoint is None:
+            return
+
+        if os.path.isfile(self.checkpoint):
+            os.remove(self.checkpoint)
+            print("Removed checkpoint")
+            print("")
