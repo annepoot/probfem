@@ -1,24 +1,17 @@
 import sys
 import os
 import numpy as np
-from scipy.sparse import eye_array, diags_array
+from scipy.sparse import diags_array
 import itertools
 
-from myjive.solver import Constrainer
-
-from fem.jive import CJiveRunner
-from probability import Likelihood, TemperedPosterior
-from probability.multivariate import (
-    Gaussian,
-    SymbolicCovariance,
-    IndependentGaussianSum,
-)
+from probability import TemperedPosterior
+from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
 from probability.sampling import MCMCRunner
-from util.linalg import Matrix, MatMulChain
+from util.linalg import Matrix
 
-from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import caching, misc, params
+from experiments.inverse.frp_damage import caching
+from experiments.inverse.frp_damage.likelihoods import BPODLikelihoodHierarchical
 
 n_burn = 10000
 n_sample = 20000
@@ -86,73 +79,21 @@ if __name__ == "__main__":
     obs_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
-    class CustomLikelihood(Likelihood):
-
-        def __init__(self):
-            self.ipoints = ipoints
-            self.distances = distances
-            self.operator = obs_operator
-            self.observations = truth
-            n_obs = len(self.observations)
-            self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
-            self.e = Gaussian(np.zeros(n_obs), self.noise)
-            self.eigenfuncs = eigenfuncs
-
-            self._props = get_fem_props()
-            self._props["usermodules"]["solver"]["solver"] = {
-                "type": "GMRES",
-                "precision": 1e100,
-            }
-            self._E_matrix = params.material_params["E_matrix"]
-            self._damage_map = misc.calc_damage_map(ipoints, distances, domain)
-
-        def calc_logpdf(self, x):
-            damage = misc.sigmoid(self.eigenfuncs @ x, 1.0, 0.0)
-            backdoor["e"] = self._E_matrix * (1 - self._damage_map @ damage)
-
-            jive = CJiveRunner(self._props, elems=elems, egroups=egroups)
-            globdat = jive(**backdoor)
-
-            K = globdat["matrix0"]
-            f = globdat["extForce"]
-            c = globdat["constraints"]
-            conman = Constrainer(c, K)
-            Kc = conman.get_output_matrix()
-
-            Phi = basis[:, :k]
-            Psi = basis[:, : k + l]
-
-            K_phi = Phi.T @ Kc @ Phi
-            f_phi = Phi.T @ f - Phi.T @ K @ lifting
-            u_phi = np.linalg.solve(K_phi, f_phi)
-            u_lifted = Phi @ u_phi + lifting
-
-            K_psi = Psi.T @ Kc @ Psi
-
-            Ix = Matrix(eye_array(Psi.shape[1], Phi.shape[1]), name="Ix")
-            Phi = Matrix(Phi, name="Phi")
-            Psi = Matrix(Psi, name="Psi")
-            K_psi = Matrix(0.5 * (K_psi + K_psi.T), name="K_psi")
-            A = Matrix(self.operator, name="A")
-            alpha2 = u_phi @ K_phi @ u_phi / len(u_phi)
-
-            cov_prior = SymbolicCovariance(alpha2 * K_psi.inv)
-            prior = Gaussian(mean=None, cov=cov_prior)
-            operator = MatMulChain(Ix.T, K_psi)
-            observations = f_phi
-            posterior = prior.condition_on(operator, observations)
-            Sigma = posterior.calc_cov()
-            Sigma = Matrix(0.5 * (Sigma + Sigma.T), name="Sigma")
-
-            mean = A @ u_lifted
-            cov = SymbolicCovariance(A @ Psi @ Sigma @ Psi.T @ A.T)
-            post = Gaussian(mean=mean, cov=cov)
-
-            dist = IndependentGaussianSum(post, self.e)
-            loglikelihood = dist.calc_logpdf_via_woodbury(self.observations)
-            return loglikelihood
-
-    likelihood = CustomLikelihood()
+    likelihood = BPODLikelihoodHierarchical(
+        operator=obs_operator,
+        observations=truth,
+        sigma_e=sigma_e,
+        basis=basis,
+        k=k,
+        l=l,
+        lifting=lifting,
+        ipoints=ipoints,
+        distances=distances,
+        eigenfuncs=eigenfuncs,
+        domain=domain,
+        egroups=egroups,
+        backdoor=backdoor,
+    )
 
     def linear_tempering(i):
         if i < n_burn:

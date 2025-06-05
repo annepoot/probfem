@@ -1,18 +1,17 @@
 import sys
 import os
 import numpy as np
-from scipy.sparse import eye_array, diags_array
+from scipy.sparse import diags_array
 import itertools
 
-from fem.jive import CJiveRunner
-from probability import Likelihood, TemperedPosterior
+from probability import TemperedPosterior
 from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
 from probability.sampling import MCMCRunner
 from util.linalg import Matrix
 
-from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import caching, misc, params
+from experiments.inverse.frp_damage import caching
+from experiments.inverse.frp_damage.likelihoods import FEMLikelihood
 
 n_burn = 10000
 n_sample = 20000
@@ -74,36 +73,17 @@ if __name__ == "__main__":
     obs_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
-    class CustomLikelihood(Likelihood):
-
-        def __init__(self):
-            self.ipoints = ipoints
-            self.distances = distances
-            self.operator = obs_operator
-            self.observations = truth
-            n_obs = len(self.observations)
-            self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
-            self.dist = Gaussian(self.observations, self.noise)
-            self.eigenfuncs = eigenfuncs
-
-            self._props = get_fem_props()
-            self._E_matrix = params.material_params["E_matrix"]
-            self._damage_map = misc.calc_damage_map(ipoints, distances, domain)
-
-        def calc_logpdf(self, x):
-            damage = misc.sigmoid(self.eigenfuncs @ x, 1.0, 0.0)
-            backdoor["e"] = self._E_matrix * (1 - self._damage_map @ damage)
-
-            jive = CJiveRunner(self._props, elems=elems, egroups=egroups)
-            globdat = jive(**backdoor)
-
-            state0 = globdat["state0"]
-            pred = self.operator @ state0
-
-            loglikelihood = self.dist.calc_logpdf(pred)
-            return loglikelihood
-
-    likelihood = CustomLikelihood()
+    likelihood = FEMLikelihood(
+        operator=obs_operator,
+        observations=truth,
+        sigma_e=sigma_e,
+        ipoints=ipoints,
+        distances=distances,
+        eigenfuncs=eigenfuncs,
+        domain=domain,
+        egroups=egroups,
+        backdoor=backdoor,
+    )
 
     def linear_tempering(i):
         if i < n_burn:
