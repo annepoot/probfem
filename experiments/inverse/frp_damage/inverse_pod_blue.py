@@ -1,20 +1,17 @@
 import sys
 import os
 import numpy as np
-from scipy.sparse import eye_array, diags_array
+from scipy.sparse import diags_array
 import itertools
 
-from myjive.solver import Constrainer
-
-from fem.jive import CJiveRunner
-from probability import Likelihood, TemperedPosterior
+from probability import TemperedPosterior
 from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
 from probability.sampling import MCMCRunner
 from util.linalg import Matrix
 
-from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import caching, misc, params
+from experiments.inverse.frp_damage import caching
+from experiments.inverse.frp_damage.likelihoods import PODLikelihood
 
 n_burn = 10000
 n_sample = 20000
@@ -81,50 +78,20 @@ if __name__ == "__main__":
     obs_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
-    class CustomLikelihood(Likelihood):
-
-        def __init__(self):
-            self.ipoints = ipoints
-            self.distances = distances
-            self.operator = obs_operator
-            self.observations = truth
-            n_obs = len(self.observations)
-            self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
-            self.dist = Gaussian(self.observations, self.noise)
-            self.eigenfuncs = eigenfuncs
-
-            self._props = get_fem_props()
-            self._props["usermodules"]["solver"]["solver"] = {
-                "type": "GMRES",
-                "precision": 1e100,
-            }
-            self._E_matrix = params.material_params["E_matrix"]
-            self._damage_map = misc.calc_damage_map(ipoints, distances, domain)
-
-        def calc_logpdf(self, x):
-            damage = misc.sigmoid(self.eigenfuncs @ x, 1.0, 0.0)
-            backdoor["e"] = self._E_matrix * (1 - self._damage_map @ damage)
-
-            jive = CJiveRunner(self._props, elems=elems, egroups=egroups)
-            globdat = jive(**backdoor)
-
-            K = globdat["matrix0"]
-            f = globdat["extForce"]
-            c = globdat["constraints"]
-            conman = Constrainer(c, K)
-            Kc = conman.get_output_matrix()
-
-            Phi = basis[:, :k]
-            K_pod = Phi.T @ Kc @ Phi
-            f_pod = Phi.T @ f - Phi.T @ K @ lifting
-
-            u_pod = Phi @ np.linalg.solve(K_pod, f_pod) + lifting
-            pred = self.operator @ u_pod
-
-            loglikelihood = self.dist.calc_logpdf(pred)
-            return loglikelihood
-
-    likelihood = CustomLikelihood()
+    likelihood = PODLikelihood(
+        operator=obs_operator,
+        observations=truth,
+        sigma_e=sigma_e,
+        basis=basis,
+        k=k,
+        lifting=lifting,
+        ipoints=ipoints,
+        distances=distances,
+        eigenfuncs=eigenfuncs,
+        domain=domain,
+        egroups=egroups,
+        backdoor=backdoor,
+    )
 
     def linear_tempering(i):
         if i < n_burn:
@@ -152,7 +119,7 @@ if __name__ == "__main__":
 
     outdir = os.path.join("output", str(job_id))
     os.makedirs(outdir, exist_ok=True)
-    
+
     fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
     fname = os.path.join(outdir, fname.format(h, sigma_e, k, seed))
     np.save(fname, samples)
