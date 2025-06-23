@@ -69,10 +69,10 @@ eps_xx = truth[comp::3]
 norm = mpl.colors.Normalize(vmin=np.min(eps_xx), vmax=np.max(eps_xx))
 cmap = mpl.colormaps["viridis"]
 
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(figsize=(4, 4))
 
 for fiber in fibers:
-    ax.add_patch(Circle(fiber, r_fiber, color="C0", alpha=0.5))
+    ax.add_patch(Circle(fiber, r_fiber, edgecolor="k", facecolor="1.0"))
 
 for i, square in enumerate(grid):
     color = cmap(norm(eps_xx[i]))
@@ -82,4 +82,5 @@ ax.set_aspect("equal")
 ax.set_xlim((-obs_size, obs_size))
 ax.set_ylim((-obs_size, obs_size))
 ax.set_axis_off()
+# plt.savefig("img/dic-strain.png", bbox_inches="tight")
 plt.show()

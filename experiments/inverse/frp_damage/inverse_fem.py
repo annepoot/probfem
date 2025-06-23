@@ -19,7 +19,7 @@ h = 0.05
 sigma_e = 1e-3
 seed = 0
 
-for h in [0.05, 0.02, 0.01]:
+for seed in range(10):
     nodes, elems, egroups = caching.get_or_calc_mesh(h=h)
     egroup = egroups["matrix"]
     distances = caching.get_or_calc_distances(egroup=egroup, h=h)
@@ -78,6 +78,9 @@ for h in [0.05, 0.02, 0.01]:
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
+    fname = "checkpoint_fem_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    fname = os.path.join("checkpoints", fname.format(h, sigma_e, seed))
+
     mcmc = MCMCRunner(
         target=target,
         proposal=proposal,
@@ -87,6 +90,7 @@ for h in [0.05, 0.02, 0.01]:
         seed=rng,
         tempering=linear_tempering,
         return_info=True,
+        checkpoint=fname,
     )
 
     samples, info = mcmc()
