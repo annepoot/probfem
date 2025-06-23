@@ -1,7 +1,17 @@
 #!/bin/bash
 
+# Check if two arguments are provided
+if [ "$#" -ne 2 ]; then
+    echo "Usage: $0 <job_script> <array_range>"
+    exit 1
+fi
+
+JOB_SCRIPT="$1"
+ARRAY_RANGE="$2"
+
 # Submit initial job array
-INITIAL_JOB_ID=$(sbatch --array=0-69 --parsable pod.job)
+echo "Running: sbatch --array=$ARRAY_RANGE --parsable $JOB_SCRIPT"
+INITIAL_JOB_ID=$(sbatch --array="$ARRAY_RANGE" --parsable "$JOB_SCRIPT")
 CURRENT_JOB_ID=$INITIAL_JOB_ID
 
 echo "Submitted initial job array with Job ID: $INITIAL_JOB_ID"
@@ -50,7 +60,7 @@ while true; do
         fi
 
         echo "Resubmitting failed tasks..."
-        CURRENT_JOB_ID=$(sbatch --array=$FAILED_TASKS --parsable pod.job)
+        CURRENT_JOB_ID=$(sbatch --array=$FAILED_TASKS --parsable "$JOB_SCRIPT")
         echo "Resubmitted failed tasks with Job ID: $CURRENT_JOB_ID"
     else
         echo "All tasks completed successfully."

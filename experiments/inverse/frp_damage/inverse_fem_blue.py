@@ -17,10 +17,10 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-sigma_e = 1e-3
+sigma_e = 1e-4
 
 hs = [0.050, 0.020, 0.010]
-seeds = range(5, 10)
+seeds = range(10)
 
 combis = list(itertools.product(hs, seeds))
 
