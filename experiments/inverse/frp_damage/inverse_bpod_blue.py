@@ -17,20 +17,19 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-h = 0.02
+h = 0.01
 l = 10
-sigma_e = 1e-5
+sigma_e = 1e-4
 
-ks = [1, 2, 5, 10, 20, 50, 100, 200, 500]
-ls = [1, 2, 5, 10, 20, 50, 100, 200, 500]
+ks = [1, 2, 5, 10, 20, 50, 100]
 seeds = range(10)
 
-combis = list(itertools.product(ks, ls, seeds))
+combis = list(itertools.product(ks, seeds))
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
     job_id = int(sys.argv[2])
-    k, l, seed = combis[run_idx]
+    k, seed = combis[run_idx]
 
     print("############")
     print("# SETTINGS #")
@@ -106,6 +105,9 @@ if __name__ == "__main__":
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
+    fname = "checkpoint_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_seed-{}.pkl"
+    fname = os.path.join("checkpoints", fname.format(h, sigma_e, k, l, seed))
+
     mcmc = MCMCRunner(
         target=target,
         proposal=proposal,
@@ -115,6 +117,7 @@ if __name__ == "__main__":
         seed=rng,
         tempering=linear_tempering,
         return_info=True,
+        checkpoint=fname,
     )
 
     samples, info = mcmc()
