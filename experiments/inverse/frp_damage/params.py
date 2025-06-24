@@ -5,9 +5,9 @@ geometry_params = {
     "seed_fiber": 0,
     "rve_size": 1.0,
     "obs_size": 0.4,
-    "n_speckle": 4000,
-    "r_speckle": 0.003,
-    "tol_speckle": 0.001,
+    "n_speckle": 400,
+    "r_speckle": 0.01,
+    "tol_speckle": 0.005,
     "seed_speckle": 0,
     "h_dic": 0.016,
 }

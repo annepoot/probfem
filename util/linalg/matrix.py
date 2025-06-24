@@ -107,20 +107,20 @@ class Matrix:
                 if self.is_diagonal:
                     return self.evaluate() @ other
                 elif self.is_factor:
+                    if issparse(other):
+                        rhs = other.toarray()
+                    else:
+                        rhs = other
+
                     if self.is_transposed:
-                        mid = self.matrix.solve_Lt(other, use_LDLt_decomposition=False)
-                        sol = self.matrix.apply_Pt(mid)
-                        if issparse(sol):
-                            sol.data[np.abs(sol.data) < self.tol] = 0
-                            sol.eliminate_zeros()
+                        sol = self.matrix.solve_Lt(rhs, use_LDLt_decomposition=False)
+                        sol = self.matrix.apply_Pt(sol)
                         return sol
                     else:
-                        mid = self.matrix.apply_P(other)
-                        sol = self.matrix.solve_L(mid, use_LDLt_decomposition=False)
-                        if issparse(sol):
-                            sol.data[np.abs(sol.data) < self.tol] = 0
-                            sol.eliminate_zeros()
+                        rhs = self.matrix.apply_P(rhs)
+                        sol = self.matrix.solve_L(rhs, use_LDLt_decomposition=False)
                         return sol
+
                 elif len(other.shape) == 1 or other.shape[0] > other.shape[1]:
                     if self.is_sparse:
                         array = self.inv.evaluate()
@@ -469,7 +469,17 @@ class MatMulChain:
 
         lst = [mat for mat in self]
 
-        if len(lst) > 1:
+        n = len(lst)
+        mid = (n - 1) // 2
+        use_symmetry = n > 1 and self.is_symmetric and lst[mid].is_inverted
+
+        if n > 1:
+            if use_symmetry:
+                lst = lst[: mid + 1]
+
+                if n % 2 == 1:
+                    lst[mid] = lst[mid].factorize()
+
             for _ in range(100):
                 cost = np.zeros(len(lst) - 1)
                 for i in range(len(lst) - 1):
@@ -513,6 +523,9 @@ class MatMulChain:
         if issparse(result):
             if result.nnz > 0.5 * np.prod(result.shape):
                 result = result.toarray()
+
+        if use_symmetry:
+            result = result @ result.T
 
         result *= self.scale
 

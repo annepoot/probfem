@@ -111,18 +111,42 @@ def create_mesh(*, fibers, a, r, h, fname):
     gmsh.model.addPhysicalGroup(2, fiber_tags)
     gmsh.model.setPhysicalName(2, 2, "fiber")
 
+    if isinstance(h, str) and "r" in h:
+        h, n_refine = h.split("r")
+        h, n_refine = float(h), int(n_refine)
+    else:
+        n_refine = 0
+
     gmsh.option.setNumber("Mesh.MeshSizeMin", h)
     gmsh.option.setNumber("Mesh.MeshSizeMax", h)
 
     gmsh.model.mesh.generate(2)
 
-    gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
-
-    os.makedirs(os.path.dirname(fname), exist_ok=True)
-    gmsh.write(fname)
+    if n_refine > 0:
+        gmsh.write("tmp.msh")
+    else:
+        gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
+        gmsh.write(fname)
 
     gmsh.model.remove()
     gmsh.finalize()
+
+    # necessary trick to hierarchically refine the mesh, even on curved boundaries
+    if n_refine > 0:
+        gmsh.initialize()
+        gmsh.open("tmp.msh")
+
+        for _ in range(n_refine):
+            gmsh.model.mesh.refine()
+
+        gmsh.option.setNumber("Mesh.MshFileVersion", 2.2)
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
+        gmsh.write(fname)
+
+        gmsh.finalize()
+
+        os.remove("tmp.msh")
 
 
 def calc_closest_fiber(point, fibers, rve_size):
@@ -440,7 +464,7 @@ def calc_damage_map(ipoints, distances, domain):
     input_map = (len(domain) - 1) / np.max(domain)
 
     for ip, ipoint in enumerate(ipoints):
-        dist = distances[ip]
+        dist = max(distances[ip], 0.0)
         idx_l = int(dist * input_map)
         idx_r = idx_l + 1
 
