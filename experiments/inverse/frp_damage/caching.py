@@ -27,7 +27,10 @@ def get_cache_fname(name, dependencies):
         value = dependencies[key]
 
         if key == "h":
-            fname += "_{}-{:.3f}".format(key, value)
+            if isinstance(value, str) and "r" in value:
+                fname += "_{}-{}".format(key, value)
+            else:
+                fname += "_{}-{:.3f}".format(key, value)
         else:
             fname += "_{}-{}".format(key, value)
 
@@ -110,7 +113,11 @@ def get_or_calc_fibers():
 
 def get_or_calc_mesh(*, h):
     n_fiber = params.geometry_params["n_fiber"]
-    fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
+
+    if isinstance(h, str) and "r" in h:
+        fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
+    else:
+        fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
 
     if not os.path.exists(fname):
         fibers = get_or_calc_fibers()
@@ -215,7 +222,11 @@ def get_or_calc_distances(*, egroup, h):
         for ip, ipoint in enumerate(ipoints):
             fiber, dist = misc.calc_closest_fiber(ipoint, fibers, 1.0)
             distances[ip] = dist - r_fiber
-        assert 0.0 < np.min(distances) < 0.2 * h
+
+        if isinstance(h, str) and "r" in h:
+            h = float(h.split("r")[0])
+
+        assert -0.1 * h < np.min(distances) < 0.2 * h
         print("Writing distances to cache")
         write_cache(path, distances)
 

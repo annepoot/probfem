@@ -19,7 +19,7 @@ __all__ = [
 ]
 
 
-def compute_bfem_observations(coarse_prior, fine_prior):
+def compute_bfem_observations(coarse_prior, fine_prior, *, Phi=None):
     assert isinstance(coarse_prior, ProjectedPrior)
     inf_prior = coarse_prior.prior
     assert isinstance(inf_prior.mean, ZeroMeanFunction)
@@ -41,7 +41,9 @@ def compute_bfem_observations(coarse_prior, fine_prior):
     f = fine_globdat["extForce"]
     conman = Constrainer(c, K)
     Kc = conman.get_output_matrix()
-    Phi = create_phi_from_globdat(coarse_globdat, fine_globdat)
+
+    if Phi is None:
+        Phi = create_phi_from_globdat(coarse_globdat, fine_globdat)
 
     cdofs, cvals = coarse_globdat[gn.CONSTRAINTS].get_constraints()
     cdofs, cvals = np.array(cdofs), np.array(cvals)

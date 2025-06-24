@@ -413,53 +413,87 @@ class IndependentGaussianSum(GaussianLike):
         base = self.gaussians[0]
         noise = self.gaussians[1]
 
-        # Assuming the following form:
-        # Cov = A Phi^T S S^T Phi A + sigma_e^2 I
-        # Its (pseudo)inverse is given by:
-        # Cov^-1 = sigma_e^-2 I + sigma_e^-2 A Phi^T S (I + sigma_e^-2 S^T Phi A^T A Phi^T S)^-1 S^T Phi A^T
-        # Its (pseudo)determinant is given by:
-        # Det(Cov) = Det(I + sigma_e^-2 S^T Phi A^T A Phi^T S) * Det(sigma_e^2 I)
+        if isinstance(base, ScaledGaussian):
+            # Assuming the following form:
+            # Cov = A (I - P) Sigma (I - P)^T A + sigma_e^2 I
+            # Its (pseudo)inverse is given by:
+            # Cov^-1 = sigma_e^-2 I + sigma_e^-2 A (I - P) (Sigma^-1 + sigma_e^-2 (I - P)^T A^T A (I - P))^-1 (I - P)^T A^T
+            # Its (pseudo)determinant is given by:
+            # ???
 
-        assert isinstance(base, Gaussian)
-        assert noise.cov.expr.is_diagonal
+            assert isinstance(base.latent, ConditionedGaussian)
 
-        cov = base.get_cov().expr
+            A = base.scale
+            posterior = base.latent
+            prior = posterior.prior.get_cov().expr
 
-        assert isinstance(cov, MatMulChain)
-        assert len(cov) % 2 == 1
-        imid = (len(cov) - 1) // 2
+            PhiTK = posterior.linop
+            Phi = PhiTK[0].T
+            K_ref = PhiTK[1]
+            Sigma = posterior.prior_cov.expr
+            K_obs = (PhiTK @ Sigma @ PhiTK.T).evaluate()
+            K_obs = Matrix(K_obs, name="Kc")
+            P = Phi @ K_obs.inv @ PhiTK
 
-        APhiT = MatMulChain(*cov[:imid])
-        Sigma = cov[imid]
-        PhiAT = MatMulChain(*cov[imid + 1 :])
+            Sigma = (A @ prior @ A.T).evaluate()
+            Sigma -= (A @ prior @ PhiTK.T @ K_obs.inv @ PhiTK @ prior @ A.T).evaluate()
+            Sigma += noise.calc_cov()
 
-        eI = noise.cov.expr
-        eIinv = eI.inv.evaluate()
+            # Matrix determinant
+            logdet = np.linalg.slogdet(Sigma)[1]
 
-        U, s, VT = np.linalg.svd(Sigma.evaluate())
-        tol = 1e-8 * np.max(s)
-        rank = np.sum(abs(s) > tol)
-        assert np.all(s[:rank] >= tol)
-        assert np.allclose(U.T[:rank], VT[:rank])
-        U = U[:, :rank]
-        s = s[:rank]
-        VT = VT[:rank]
-        S = U @ np.diag(np.sqrt(s))
-        S = Matrix(S, name="sqrtSigma")
+            # Mahalanobis distance
+            d = self.calc_mean() - x
+            mahal = d @ np.linalg.solve(Sigma, d)
 
-        update = MatMulChain(S.T, PhiAT, eIinv, APhiT, S)
-        M = np.identity(rank) + update.evaluate()
+        else:
+            # Assuming the following form:
+            # Cov = A Phi^T S S^T Phi A + sigma_e^2 I
+            # Its (pseudo)inverse is given by:
+            # Cov^-1 = sigma_e^-2 I - sigma_e^-2 A Phi^T S (I + sigma_e^-2 S^T Phi A^T A Phi^T S)^-1 S^T Phi A^T
+            # Its (pseudo)determinant is given by:
+            # Det(Cov) = Det(I + sigma_e^-2 S^T Phi A^T A Phi^T S) * Det(sigma_e^2 I)
 
-        # Matrix determinant
-        logdetM = np.linalg.slogdet(M)[1]
-        logdetA = -np.sum(np.log(eIinv.diagonal()))
-        logdet = logdetM + logdetA
+            assert isinstance(base, Gaussian)
+            assert noise.cov.expr.is_diagonal
 
-        # Mahalanobis distance
-        M = Matrix(M, name="M")
-        downdate = MatMulChain(eIinv, APhiT, S, M.inv, S.T, PhiAT, eIinv)
-        d = self.calc_mean() - x
-        mahal = d @ eIinv @ d - d @ (downdate @ d)
+            cov = base.get_cov().expr
+
+            assert isinstance(cov, MatMulChain)
+            assert len(cov) % 2 == 1
+            imid = (len(cov) - 1) // 2
+
+            APhiT = MatMulChain(*cov[:imid])
+            Sigma = cov[imid]
+            PhiAT = MatMulChain(*cov[imid + 1 :])
+
+            eI = noise.cov.expr
+            eIinv = eI.inv.evaluate()
+
+            U, s, VT = np.linalg.svd(Sigma.evaluate())
+            tol = 1e-8 * np.max(s)
+            rank = np.sum(abs(s) > tol)
+            assert np.all(s[:rank] >= tol)
+            assert np.allclose(U.T[:rank], VT[:rank])
+            U = U[:, :rank]
+            s = s[:rank]
+            VT = VT[:rank]
+            S = U @ np.diag(np.sqrt(s))
+            S = Matrix(S, name="sqrtSigma")
+
+            update = MatMulChain(S.T, PhiAT, eIinv, APhiT, S)
+            M = np.identity(rank) + update.evaluate()
+
+            # Matrix determinant
+            logdetM = np.linalg.slogdet(M)[1]
+            logdetA = -np.sum(np.log(eIinv.diagonal()))
+            logdet = logdetM + logdetA
+
+            # Mahalanobis distance
+            M = Matrix(M, name="M")
+            downdate = MatMulChain(eIinv, APhiT, S, M.inv, S.T, PhiAT, eIinv)
+            d = self.calc_mean() - x
+            mahal = d @ eIinv @ d - d @ (downdate @ d)
 
         return -0.5 * len(self) * np.log(2 * np.pi) - 0.5 * logdet - 0.5 * mahal
 

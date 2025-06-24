@@ -64,7 +64,8 @@ class ProjectedPrior(Gaussian):
         solve_props=None,
         *,
         jive_runner=None,
-        sigma_pd=1e-8
+        sigma_pd=1e-8,
+        **backdoor,
     ):
         assert isinstance(prior, GaussianProcess)
         assert isinstance(prior.mean, ZeroMeanFunction)
@@ -99,10 +100,10 @@ class ProjectedPrior(Gaussian):
             self.jive_runner.props = self.props
 
         self.sigma_pd = sigma_pd
-        self.recompute_moments()
+        self.recompute_moments(**backdoor)
 
-    def recompute_moments(self):
-        self.globdat = self.jive_runner()
+    def recompute_moments(self, **backdoor):
+        self.globdat = self.jive_runner(**backdoor)
         K = self.globdat["matrix0"]
         self.globdat["matrix0"] = 0.5 * (K + K.T)
         mean = self._compute_mean(self.globdat)
