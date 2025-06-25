@@ -25,9 +25,11 @@ extern "C" {
     LONG_ARRAY_PTR sizes;
   };
 
-  void create_phi_matrix_t3
+  long create_phi_matrix_t3
   (
-    DOUBLE_ARRAY_PTR phi,
+    LONG_ARRAY_PTR phi_rowidx,
+    LONG_ARRAY_PTR phi_colidx,
+    DOUBLE_ARRAY_PTR phi_values,
     POINTSET_PTR coarse_nodes,
     GROUPSET_PTR coarse_elems,
     POINTSET_PTR fine_nodes,

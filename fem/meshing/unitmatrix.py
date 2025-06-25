@@ -13,6 +13,7 @@ from fem.jive.ctypesutils import (
     to_ctypes,
     to_numpy,
     DOUBLE_ARRAY_PTR,
+    LONG_ARRAY_PTR,
     POINTSET_PTR,
     GROUPSET_PTR,
 )
@@ -89,8 +90,14 @@ def create_phi_matrix_t3_cpp(
     coarse_nodes = coarse_elems.get_nodes()
     fine_nodes = fine_elems.get_nodes()
 
-    Phi_nodal = np.zeros((len(fine_nodes), len(coarse_nodes)))
-    ct_phi = to_ctypes(Phi_nodal)
+    buffer_size = 10 * len(fine_nodes)
+    Phi_rowidx = np.zeros(buffer_size, dtype=int)
+    Phi_colidx = np.zeros(buffer_size, dtype=int)
+    Phi_values = np.zeros(buffer_size, dtype=float)
+
+    ct_phi_rowidx = to_ctypes(Phi_rowidx)
+    ct_phi_colidx = to_ctypes(Phi_colidx)
+    ct_phi_values = to_ctypes(Phi_values)
 
     cnd = coarse_nodes._data[: len(coarse_nodes)].copy()
     ced = coarse_elems._data[: len(coarse_elems)].copy()
@@ -106,22 +113,41 @@ def create_phi_matrix_t3_cpp(
 
     cpp_func = libcppbackend.create_phi_matrix_t3
     cpp_func.arg_types = (
-        DOUBLE_ARRAY_PTR,  # Phi
+        LONG_ARRAY_PTR,  # Phi_rowidx
+        LONG_ARRAY_PTR,  # Phi_colidx
+        DOUBLE_ARRAY_PTR,  # Phi_values
         POINTSET_PTR,  # coarse_nodes
         GROUPSET_PTR,  # coarse_elems
         POINTSET_PTR,  # fine_nodes
         GROUPSET_PTR,  # fine_elems
     )
-    cpp_func.res_type = ct.c_void_p
-    cpp_func(
-        ct_phi,
+    cpp_func.res_type = ct.c_int
+    phi_size = cpp_func(
+        ct_phi_rowidx,
+        ct_phi_colidx,
+        ct_phi_values,
         ct_coarse_nodes,
         ct_coarse_elems,
         ct_fine_nodes,
         ct_fine_elems,
     )
-    Phi_nodal = to_numpy(ct_phi)
-    Phi_nodal = csr_array(Phi_nodal)
+
+    Phi_rowidx = to_numpy(ct_phi_rowidx)[:phi_size]
+    Phi_colidx = to_numpy(ct_phi_colidx)[:phi_size]
+    Phi_values = to_numpy(ct_phi_values)[:phi_size]
+
+    # Combine indices to unique keys
+    coords = np.stack((Phi_rowidx, Phi_colidx), axis=1)
+    _, unique_indices = np.unique(coords, axis=0, return_index=True)
+
+    Phi_rowidx = Phi_rowidx[unique_indices]
+    Phi_colidx = Phi_colidx[unique_indices]
+    Phi_values = Phi_values[unique_indices]
+
+    Phi_nodal = csr_array(
+        (Phi_values, (Phi_rowidx, Phi_colidx)),
+        shape=(len(fine_nodes), len(coarse_nodes)),
+    )
 
     dof_types = fine_dofs.get_types()
     assert dof_types == coarse_dofs.get_types()

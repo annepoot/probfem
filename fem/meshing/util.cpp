@@ -21,8 +21,10 @@ bool point_in_bbox( double* point, double* bbox, double tol ){
   }
 }
 
-void create_phi_matrix_t3(
-  DOUBLE_ARRAY_PTR phi,
+long create_phi_matrix_t3(
+  LONG_ARRAY_PTR phi_rowidx,
+  LONG_ARRAY_PTR phi_colidx,
+  DOUBLE_ARRAY_PTR phi_values,
   POINTSET_PTR coarse_nodes,
   GROUPSET_PTR coarse_elems,
   POINTSET_PTR fine_nodes,
@@ -88,6 +90,8 @@ void create_phi_matrix_t3(
     }
   }
 
+  long phi_idx = 0;
+
   for ( int inode_f = 0; inode_f < node_count_f; inode_f++ ){
     for ( int ielem_c = 0; ielem_c < elem_count_c; ielem_c++ ){
       double* pp = fine_nodes.data.ptr + rank * inode_f;
@@ -116,15 +120,24 @@ void create_phi_matrix_t3(
 
         if ( s > -tol && s < 1.0 + tol && t > -tol && t < 1.0 + tol && s + t < 1.0 + tol ){
           if ( std::abs( 1 - s - t ) > tol ){
-            phi.ptr[ node_count_c * inode_f + inodes_c[0] ] = 1 - s - t;
+            phi_rowidx.ptr[phi_idx] = inode_f;
+            phi_colidx.ptr[phi_idx] = inodes_c[0];
+            phi_values.ptr[phi_idx] = 1 - s - t;
+            phi_idx++;
           }
 
           if ( std::abs(s) > tol ){
-            phi.ptr[ node_count_c * inode_f + inodes_c[1] ] = s;
+            phi_rowidx.ptr[phi_idx] = inode_f;
+            phi_colidx.ptr[phi_idx] = inodes_c[1];
+            phi_values.ptr[phi_idx] = s;
+            phi_idx++;
           }
 
           if ( std::abs(t) > tol ){
-            phi.ptr[ node_count_c * inode_f + inodes_c[2] ] = t;
+            phi_rowidx.ptr[phi_idx] = inode_f;
+            phi_colidx.ptr[phi_idx] = inodes_c[2];
+            phi_values.ptr[phi_idx] = t;
+            phi_idx++;
           }
         }
       }
@@ -132,6 +145,8 @@ void create_phi_matrix_t3(
   }
 
   delete[] bboxes;
+
+  return phi_idx;
 }
 
 
