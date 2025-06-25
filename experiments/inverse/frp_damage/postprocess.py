@@ -16,15 +16,15 @@ r_fiber = params.geometry_params["r_fiber"]
 tol = params.geometry_params["tol_fiber"]
 seed = params.geometry_params["seed_fiber"]
 
-h = 0.01
-sigma_e = 1e-3
+h = 0.010
+sigma_e = 1e-4
 k = 1
 l = 10
 seed = 1
 n_burn = 10000
-fem_type = "pod"
+fem_type = "fem"
 
-for k in [0, 1, 2, 5, 10, 20, 50, 100]:
+for h in [0.100, 0.050, 0.020, 0.010]:
     E_matrix = params.material_params["E_matrix"]
     alpha = params.material_params["alpha"]
     beta = params.material_params["beta"]
@@ -53,6 +53,11 @@ for k in [0, 1, 2, 5, 10, 20, 50, 100]:
             fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
             fname = fname.format(h, sigma_e, seed)
             fname = os.path.join("output", "fem", fname)
+            n_filter = 1000
+        elif fem_type == "bfem":
+            fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+            fname = fname.format(h, sigma_e, seed)
+            fname = os.path.join("output", "bfem", fname)
             n_filter = 1000
         else:
             raise ValueError
@@ -118,6 +123,10 @@ for k in [0, 1, 2, 5, 10, 20, 50, 100]:
         elif fem_type == "fem":
             title = r"Posterior samples FEM, $h={:.3f}$".format(h)
             fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.png"
+            fname = os.path.join("img", fname.format(h, sigma_e))
+        elif fem_type == "bfem":
+            title = r"Posterior samples BFEM, $h={:.3f}$".format(h)
+            fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}.png"
             fname = os.path.join("img", fname.format(h, sigma_e))
         else:
             assert False
