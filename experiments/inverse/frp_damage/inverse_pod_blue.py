@@ -17,7 +17,7 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-h = 0.01
+h = 0.010
 sigma_e = 1e-4
 
 ks = [1, 2, 5, 10, 20, 50, 100]
@@ -105,7 +105,7 @@ if __name__ == "__main__":
 
     fname = "checkpoint_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.pkl"
     fname = os.path.join("checkpoints", fname.format(h, sigma_e, k, seed))
-    
+
     mcmc = MCMCRunner(
         target=target,
         proposal=proposal,
