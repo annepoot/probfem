@@ -19,7 +19,7 @@ std_pd = 1e-6
 
 sigma_e = 1e-3
 
-hs = [0.10, 0.05, 0.02]
+hs = [0.100, 0.050, 0.020]
 seeds = range(10)
 
 combis = list(itertools.product(hs, seeds))

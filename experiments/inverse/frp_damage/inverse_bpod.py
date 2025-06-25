@@ -15,7 +15,7 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-h = 0.01
+h = 0.010
 k = 10
 l = 10
 sigma_e = 1e-3
