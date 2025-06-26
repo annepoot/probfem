@@ -10,7 +10,7 @@
 #SBATCH --account=research-ceg-3md
 
 # run with sbatch --array=0-## pod.job
-APPSIF=/home/$USER/probfem-conda.sif
+APPSIF=/home/$USER/probfem.sif
 RUNDIR=/home/$USER/git/probfem/experiments/inverse/frp_damage
 
 echo LOADING MODULES ...

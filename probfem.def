@@ -1,0 +1,24 @@
+Bootstrap: localimage
+From: myjive.sif
+
+# workflow:
+# sudo docker build -t myjive .
+# sudo apptainer build myjive.sif docker-daemon://myjive
+# sudo apptainer build probfem.sif probfem.def
+
+%files
+    ENVIRONMENT.yml /probfem/
+
+%post
+    /bin/bash -c '
+    cd /probfem
+
+    echo "Sourcing conda"
+    source /opt/conda/etc/profile.d/conda.sh
+
+    echo "Creating conda environment"
+    conda env create -f ENVIRONMENT.yml
+
+    echo "Activating conda environment"
+    conda activate probfem
+    '
