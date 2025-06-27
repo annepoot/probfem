@@ -68,7 +68,14 @@ def calc_fibers(*, n, a, r, tol=0.001, seed=0):
     return np.array(fiber_coords)
 
 
-def create_mesh(*, fibers, a, r, h, fname):
+def create_mesh(*, fibers, a, r, h, fname, shift=False):
+
+    if isinstance(h, str) and "r" in h:
+        h, n_refine = h.split("r")
+        h, n_refine = float(h), int(n_refine)
+    else:
+        n_refine = 0
+
     gmsh.initialize()
     gmsh.option.setNumber("General.Terminal", 0)
     gmsh.option.setNumber("General.Verbosity", 0)  # only print errors and warnings
@@ -82,8 +89,45 @@ def create_mesh(*, fibers, a, r, h, fname):
 
     fiber_dimtags = []
 
+    assert isinstance(shift, bool)
+
+    max_n_elem_per_arc = int(0.5 * np.pi * r / h + 0.5)
+
+    n_poly = 4 * max_n_elem_per_arc
+    area_polygon = 0.5 * n_poly * r**2 * np.sin(2 * np.pi / n_poly)
+    area_circle = np.pi * r**2
+    r_scaled = r * np.sqrt(area_circle / area_polygon)
+
+    if shift:
+        offset = 0.5 * np.pi / (2 * max_n_elem_per_arc)
+    else:
+        offset = 0.0
+
+    # Create 4 points on the boundary, rotated if needed
+    def boundary_point(i, *, x, y, r, offset):
+        angle = i * np.pi / 2 + offset
+        return occ.addPoint(x + r * np.cos(angle), y + r * np.sin(angle), 0)
+
     for fiber in fibers:
-        fiber_tag = occ.addDisk(fiber[0], fiber[1], 0.0, r, r)
+        x, y = fiber
+        center = occ.addPoint(x, y, 0)
+        p0 = boundary_point(0, x=x, y=y, r=r_scaled, offset=offset)  # (1,0)
+        p1 = boundary_point(1, x=x, y=y, r=r_scaled, offset=offset)  # (0,1)
+        p2 = boundary_point(2, x=x, y=y, r=r_scaled, offset=offset)  # (-1,0)
+        p3 = boundary_point(3, x=x, y=y, r=r_scaled, offset=offset)  # (0,-1)
+
+        # Create 4 circular arcs
+        arc1 = occ.addCircleArc(p0, center, p1)
+        arc2 = occ.addCircleArc(p1, center, p2)
+        arc3 = occ.addCircleArc(p2, center, p3)
+        arc4 = occ.addCircleArc(p3, center, p0)
+
+        # Create loop and surface
+        loop = occ.addCurveLoop([arc1, arc2, arc3, arc4])
+        fiber_tag = occ.addPlaneSurface([loop])
+
+        occ.synchronize()
+
         fiber_dimtag = [(2, fiber_tag)]
         fiber_clipped = occ.intersect(fiber_dimtag, matrix_dimtag, removeTool=False)[0]
         fiber_dimtags.extend(fiber_clipped)
@@ -97,12 +141,50 @@ def create_mesh(*, fibers, a, r, h, fname):
     matrix_tags = []
 
     for dim, tag in fragments:
-        box = gmsh.model.occ.getBoundingBox(dim, tag)
+        box = occ.getBoundingBox(dim, tag)
         size = box[3] - box[0]
-        if size <= 2.2 * r:
+        if size <= 2.2 * r_scaled:
             fiber_tags.append(tag)
         else:
+
             matrix_tags.append(tag)
+
+    all_dimtags = [(2, tag) for tag in fiber_tags] + [(2, tag) for tag in matrix_tags]
+    boundary = gmsh.model.getBoundary(
+        all_dimtags, combined=False, oriented=False, recursive=False
+    )
+
+    for bdim, btag in boundary:
+        btype = gmsh.model.getType(bdim, btag)
+
+        if btype == "Line":
+            _, endpoints = gmsh.model.getAdjacencies(bdim, btag)
+            assert len(endpoints) == 2
+
+            A = gmsh.model.getValue(0, endpoints[0], [])
+            B = gmsh.model.getValue(0, endpoints[1], [])
+
+            length = np.sqrt(np.sum((A - B) ** 2))
+
+        elif btype == "Circle":
+            _, endpoints = gmsh.model.getAdjacencies(bdim, btag)
+            assert len(endpoints) == 2
+
+            A = gmsh.model.getValue(0, endpoints[0], [])
+            B = gmsh.model.getValue(0, endpoints[1], [])
+
+            chord = np.sqrt(np.sum((A - B) ** 2))
+            length = 2 * r * np.arcsin(0.5 * chord / r_scaled)
+            assert 0.0 <= length <= 0.5 * np.pi * r + 1e-8
+
+        else:
+            raise ValueError("Unknown boundary type")
+
+        n_elem = max(int(length / h + 0.5), 1)
+
+        gmsh.model.mesh.setTransfiniteCurve(btag, n_elem + 1)
+
+    occ.synchronize()
 
     assert len(matrix_tags) == 1
 
@@ -110,15 +192,6 @@ def create_mesh(*, fibers, a, r, h, fname):
     gmsh.model.setPhysicalName(2, 1, "matrix")
     gmsh.model.addPhysicalGroup(2, fiber_tags)
     gmsh.model.setPhysicalName(2, 2, "fiber")
-
-    if isinstance(h, str) and "r" in h:
-        h, n_refine = h.split("r")
-        h, n_refine = float(h), int(n_refine)
-    else:
-        n_refine = 0
-
-    gmsh.option.setNumber("Mesh.MeshSizeMin", h)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", h)
 
     gmsh.model.mesh.generate(2)
 
