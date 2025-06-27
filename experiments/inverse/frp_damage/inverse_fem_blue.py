@@ -17,17 +17,16 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-sigma_e = 1e-4
-
 hs = [0.100, 0.050, 0.020, 0.010]
+sigma_es = [1e-2, 1e-3, 1e-4]
 seeds = range(10)
 
-combis = list(itertools.product(hs, seeds))
+combis = list(itertools.product(hs, sigma_es, seeds))
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
     job_id = int(sys.argv[2])
-    h, seed = combis[run_idx]
+    h, sigma_e, seed = combis[run_idx]
 
     print("############")
     print("# SETTINGS #")
