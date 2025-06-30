@@ -2,18 +2,18 @@ import os
 import numpy as np
 from warnings import warn
 
-from myjive.fem import XNodeSet, XElementSet, ElementGroup
+from myjive.fem import NodeSet, XNodeSet, ElementSet, XElementSet, ElementGroup
 
 __all__ = ["write_mesh", "read_mesh", "get_gmsh_elem_info", "get_gmsh_elem_type"]
 
 
-def write_mesh(elems, fname):
+def write_mesh(mesh, fname):
     file, extension = os.path.splitext(fname)
 
     if extension == ".mesh":
-        _write_manual(elems, fname)
+        _write_manual(mesh, fname)
     elif extension == ".msh":
-        _write_gmsh(elems, fname)
+        _write_gmsh(mesh, fname)
     else:
         raise ValueError("Invalid file type passed to write_mesh")
 
@@ -58,10 +58,31 @@ def _write_manual(elems, fname):
             file.write(line)
 
 
-def _write_gmsh(elems, fname):
-    nodes = elems.get_nodes()
+def _write_gmsh(mesh, fname):
+    if isinstance(mesh, ElementSet):
+        elems = mesh
+        nodes = elems.get_nodes()
+        write_groups = False
+    elif isinstance(mesh, tuple):
+        nodes = mesh[0]
+        elems = mesh[1]
+        if len(mesh) > 2:
+            egroups = mesh[2]
+            write_groups = True
+        else:
+            write_groups = False
+
+    assert isinstance(nodes, NodeSet)
+    assert isinstance(elems, ElementSet)
+
+    # nodes = elems.get_nodes()
     rank = nodes.rank()
     rank3coords = np.zeros(3)
+
+    if write_groups:
+        group_name_map = {}
+        for i, key in enumerate(egroups.keys()):
+            group_name_map[key] = i + 1
 
     path, file = os.path.split(fname)
     if len(path) > 0 and not os.path.isdir(path):
@@ -71,6 +92,13 @@ def _write_gmsh(elems, fname):
         file.write("$MeshFormat\n")
         file.write("2.2 0 8\n")
         file.write("$EndMeshFormat\n")
+
+        if write_groups:
+            file.write("$PhysicalNames\n")
+            file.write(str(len(group_name_map)) + "\n")
+            for name, index in group_name_map.items():
+                file.write("2 " + str(index) + ' "' + name + '"\n')
+            file.write("$EndPhysicalNames\n")
 
         file.write("$Nodes\n")
         file.write("{}\n".format(len(nodes)))
@@ -91,7 +119,20 @@ def _write_gmsh(elems, fname):
             node_ids = nodes.get_node_ids(inodes)
             elem_id = elems.get_elem_id(ielem)
             elem_type = get_gmsh_elem_type(rank, len(inodes))
-            line = str(elem_id) + " " + str(elem_type) + " 2 1 1"
+            line = str(elem_id) + " " + str(elem_type)
+
+            if write_groups:
+                match = ""
+                for name, egroup in egroups.items():
+                    if ielem in egroup:
+                        assert match == ""
+                        match = name
+                assert match != ""
+                idx = str(group_name_map[match])
+                line += " 2 " + idx + " " + idx
+            else:
+                line += " 2 1 1"
+
             for node_id in node_ids:
                 line += " " + str(node_id)
             line += "\n"
