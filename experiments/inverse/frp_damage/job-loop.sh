@@ -32,7 +32,8 @@ while true; do
 
     PENDING=$(echo "$STATES" | grep -E 'PENDING')
     RUNNING=$(echo "$STATES" | grep -E 'RUNNING')
-    FAILED=$(echo "$STATES" | grep -E 'FAILED|CANCELLED|NODE_FAIL|TIMEOUT')
+    CANCELLED=$(echo "$STATES" | grep -E 'CANCELLED')
+    FAILED=$(echo "$STATES" | grep -E 'FAILED|NODE_FAIL|TIMEOUT')
     SUCCEEDED=$(echo "$STATES" | grep -E 'COMPLETED')
 
     echo "Pending:"
@@ -41,6 +42,8 @@ while true; do
     echo "$RUNNING"
     echo "Failed:"
     echo "$FAILED"
+    echo "Cancelled:"
+    echo "$CANCELLED"
     echo "Succeeded:"
     echo "$SUCCEEDED"
 
