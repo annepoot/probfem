@@ -5,7 +5,7 @@ from scipy.sparse import save_npz, load_npz, issparse
 from myjive.fem import Tri3Shape, DofSpace
 
 from fem.jive import CJiveRunner
-from fem.meshing import read_mesh, write_mesh
+from fem.meshing import read_mesh, write_mesh, create_hypermesh
 
 from experiments.inverse.frp_damage import params, misc, pod
 from experiments.inverse.frp_damage.props import get_fem_props
@@ -123,14 +123,52 @@ def get_or_calc_mesh(*, h):
         fibers = get_or_calc_fibers()
 
         print("Computing mesh")
-        rve_size = params.geometry_params["rve_size"]
-        r_fiber = params.geometry_params["r_fiber"]
-        misc.create_mesh(fibers=fibers, a=rve_size, r=r_fiber, h=h, fname=fname)
+        a = params.geometry_params["rve_size"]
+        r = params.geometry_params["r_fiber"]
+        misc.create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname, shift=False)
 
     print("Reading mesh from file")
     mesh = read_mesh(fname, read_groups=True)
 
     return mesh
+
+
+def get_or_calc_dual_mesh(*, h):
+    n_fiber = params.geometry_params["n_fiber"]
+    fname = "meshes/rve_h-{:.3f}d1_nfib-{}.msh".format(h, n_fiber)
+
+    if not os.path.exists(fname):
+        fibers = get_or_calc_fibers()
+
+        print("Computing dual mesh")
+        a = params.geometry_params["rve_size"]
+        r = params.geometry_params["r_fiber"]
+        misc.create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname, shift=True)
+
+    print("Reading dual mesh from file")
+    mesh = read_mesh(fname, read_groups=True)
+
+    return mesh
+
+
+def get_or_calc_hyper_mesh(*, h, do_groups=True):
+    n_fiber = params.geometry_params["n_fiber"]
+    fname = "meshes/rve_h-{:.3f}h1_nfib-{}.msh".format(h, n_fiber)
+
+    if os.path.exists(fname):
+        print("Reading mesh from file")
+        hyper_mesh = read_mesh(fname, read_groups=True)
+    else:
+        orig_mesh = get_or_calc_mesh(h=h)
+        dual_mesh = get_or_calc_dual_mesh(h=h)
+
+        print("Computing hypermesh")
+        hyper_mesh, _ = create_hypermesh(orig_mesh, dual_mesh, do_groups=do_groups)
+
+        print("Writing hypermesh to cache")
+        write_mesh(hyper_mesh, fname)
+
+    return hyper_mesh
 
 
 def get_or_calc_dofspace(*, h):

@@ -1,12 +1,34 @@
 import numpy as np
-from myjive.fem import XNodeSet, XElementSet
+from myjive.fem import XNodeSet, XElementSet, NodeSet, ElementSet, ElementGroup
 from .boundingbox import create_bboxes, list_bbox_bbox_intersections
 
 
 __all__ = ["create_hypermesh", "clip_polygons"]
 
 
-def create_hypermesh(elems1, elems2):
+def create_hypermesh(mesh1, mesh2, do_groups=False):
+    if isinstance(mesh1, tuple):
+        nodes1 = mesh1[0]
+        elems1 = mesh1[1]
+        if do_groups:
+            egroups1 = mesh1[2]
+    else:
+        elems1 = mesh1
+        nodes1 = elems1.get_nodes()
+        assert not do_groups
+
+    if isinstance(mesh2, tuple):
+        nodes2 = mesh2[0]
+        elems2 = mesh2[1]
+    else:
+        elems2 = mesh2
+        nodes2 = elems2.get_nodes()
+
+    assert isinstance(elems1, ElementSet)
+    assert isinstance(nodes1, NodeSet)
+    assert isinstance(elems2, ElementSet)
+    assert isinstance(nodes2, NodeSet)
+
     nodes1 = elems1.get_nodes()
     nodes2 = elems2.get_nodes()
 
@@ -90,14 +112,14 @@ def create_hypermesh(elems1, elems2):
                         inodesh = np.zeros(3, dtype=int)
 
                         for i, coord in enumerate(intersection[indices]):
-                            mask = np.all(np.isclose(coordsh, coord), axis=1)
-                            if np.sum(mask) == 0:
-                                inodeh = nodesh.add_node(coord)
+                            distances = np.linalg.norm(coordsh - coord, axis=1)
+                            inode_closest = np.argmin(distances)
+
+                            if np.isclose(distances[inode_closest], 0.0):
+                                inodeh = inode_closest
                             else:
-                                inodeh = np.where(mask)[0]
-                                if len(inodeh) != 1:
-                                    raise RuntimeError("no unique matching node found")
-                                inodeh = inodeh[0]
+                                inodeh = nodesh.add_node(coord)
+
                             inodesh[i] = inodeh
 
                         elemsh.add_element(inodesh)
@@ -112,7 +134,21 @@ def create_hypermesh(elems1, elems2):
     if len(elemsh) != len(elemmap):
         raise RuntimeError("elemmap size mismatch")
 
-    return elemsh, elemmap
+    if do_groups:
+        egroupsh = {}
+
+        for key, egroup in egroups1.items():
+            egroupsh[key] = ElementGroup(elemsh)
+
+            for ielemh, (ielem1, ielem2) in enumerate(elemmap):
+                if ielem1 in egroup:
+                    egroupsh[key].add_element(ielemh)
+
+        meshh = (nodesh, elemsh, egroupsh)
+    else:
+        meshh = (nodesh, elemsh)
+
+    return meshh, elemmap
 
 
 def clip_polygons(coords1, coords2, tol=1e-8):

@@ -61,7 +61,7 @@ class XSolidModel(Model):
         elems1 = egroup1.get_elements()
         elems2 = egroup2.get_elements()
 
-        elemsh, elemmap = create_hypermesh(elems1, elems2)
+        (nodesh, elemsh), elemmap = create_hypermesh(elems1, elems2)
 
         nodes1 = elems1.get_nodes()
         nodes2 = elems2.get_nodes()
