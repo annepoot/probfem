@@ -84,14 +84,12 @@ if __name__ == "__main__":
     ref_backdoor["ycoord"] = ref_ipoints[:, 1]
     ref_backdoor["e"] = np.zeros(ref_ipoints.shape[0])
 
-    obs_operator = caching.get_or_calc_dic_operator(elems=obs_elems, h=h_obs)
-    ref_operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
+    operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
 
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
     likelihood = BFEMLikelihoodHierarchical(
-        obs_operator=obs_operator,
-        ref_operator=ref_operator,
+        operator=operator,
         observations=truth,
         sigma_e=sigma_e,
         obs_ipoints=obs_ipoints,

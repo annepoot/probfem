@@ -27,7 +27,8 @@ def get_cache_fname(name, dependencies):
         value = dependencies[key]
 
         if key == "h":
-            if isinstance(value, str) and "r" in value:
+            if isinstance(value, str):
+                assert "r" in value or "d" in value or "h" in value
                 fname += "_{}-{}".format(key, value)
             else:
                 fname += "_{}-{:.3f}".format(key, value)
@@ -114,7 +115,8 @@ def get_or_calc_fibers():
 def get_or_calc_mesh(*, h):
     n_fiber = params.geometry_params["n_fiber"]
 
-    if isinstance(h, str) and "r" in h:
+    if isinstance(h, str):
+        assert "r" in h
         fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
     else:
         fname = "meshes/rve_h-{:.3f}_nfib-{}.msh".format(h, n_fiber)
@@ -135,7 +137,8 @@ def get_or_calc_mesh(*, h):
 
 def get_or_calc_dual_mesh(*, h):
     n_fiber = params.geometry_params["n_fiber"]
-    fname = "meshes/rve_h-{:.3f}d1_nfib-{}.msh".format(h, n_fiber)
+    assert "d" in h
+    fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
 
     if not os.path.exists(fname):
         fibers = get_or_calc_fibers()
@@ -153,14 +156,17 @@ def get_or_calc_dual_mesh(*, h):
 
 def get_or_calc_hyper_mesh(*, h, do_groups=True):
     n_fiber = params.geometry_params["n_fiber"]
-    fname = "meshes/rve_h-{:.3f}h1_nfib-{}.msh".format(h, n_fiber)
+    assert "h" in h
+    fname = "meshes/rve_h-{}_nfib-{}.msh".format(h, n_fiber)
 
     if os.path.exists(fname):
         print("Reading mesh from file")
         hyper_mesh = read_mesh(fname, read_groups=True)
     else:
-        orig_mesh = get_or_calc_mesh(h=h)
-        dual_mesh = get_or_calc_dual_mesh(h=h)
+        h_orig = float(h.split("h")[0])
+        h_dual = h.replace("h", "d")
+        orig_mesh = get_or_calc_mesh(h=h_orig)
+        dual_mesh = get_or_calc_dual_mesh(h=h_dual)
 
         print("Computing hypermesh")
         hyper_mesh, _ = create_hypermesh(orig_mesh, dual_mesh, do_groups=do_groups)
@@ -182,7 +188,19 @@ def get_or_calc_dofspace(*, h):
         print("Reading dofspace from cache")
         dofspace = read_cache(path)
     else:
-        nodes, elems, egroups = get_or_calc_mesh(h=h)
+        if isinstance(h, str):
+            if "r" in h:
+                mesh = get_or_calc_mesh(h=h)
+            elif "d" in h:
+                mesh = get_or_calc_dual_mesh(h=h)
+            elif "h" in h:
+                mesh = get_or_calc_hyper_mesh(h=h)
+            else:
+                assert False
+        else:
+            mesh = get_or_calc_mesh(h=h)
+
+        nodes, elems, egroups = mesh
 
         print("Computing dofspace")
         props = get_fem_props()
@@ -261,8 +279,15 @@ def get_or_calc_distances(*, egroup, h):
             fiber, dist = misc.calc_closest_fiber(ipoint, fibers, 1.0)
             distances[ip] = dist - r_fiber
 
-        if isinstance(h, str) and "r" in h:
-            h = float(h.split("r")[0])
+        if isinstance(h, str):
+            if "r" in h:
+                h = float(h.split("r")[0])
+            elif "d" in h:
+                h = float(h.split("d")[0])
+            elif "h" in h:
+                h = float(h.split("h")[0])
+            else:
+                assert False
 
         assert -0.1 * h < np.min(distances) < 0.2 * h
         print("Writing distances to cache")
