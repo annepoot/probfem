@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.linalg import solve_triangular
 from scipy.sparse import issparse, diags_array, csc_matrix
 from scipy.sparse.linalg import inv
 import sksparse.cholmod as cm
@@ -276,7 +277,12 @@ class SymbolicCovariance:
         return (chol @ std_sample).T
 
     def calc_mahal_squared(self, x):
-        return x @ (self.expr.inv @ x)
+        chol = self._calc_cholesky()
+        if chol.is_factor or chol.is_sparse:
+            m = chol.inv @ x  # let cholmod take care of it
+        else:
+            m = solve_triangular(chol.matrix, x, lower=True, check_finite=False)
+        return m @ m
 
     def calc_logdet(self):
         chol = self._calc_cholesky()
