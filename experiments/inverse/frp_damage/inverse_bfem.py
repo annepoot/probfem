@@ -8,7 +8,10 @@ from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExpone
 from probability.sampling import MCMCRunner
 from util.linalg import Matrix
 
-from experiments.inverse.frp_damage.likelihoods import BFEMLikelihoodHierarchical
+from experiments.inverse.frp_damage.likelihoods import (
+    BFEMLikelihoodHierarchical,
+    BFEMLikelihoodHeterarchical,
+)
 from experiments.inverse.frp_damage import caching
 
 n_burn = 10000
@@ -19,16 +22,32 @@ h_obs = 0.050
 sigma_e = 1e-3
 seed = 0
 
+hierarchical = False
+
 for seed in range(1):
-    h_ref = "{:.3f}r1".format(h_obs)
+    if hierarchical:
+        h_ref = "{:.3f}r1".format(h_obs)
+    else:
+        h_ref = "{:.3f}d1".format(h_obs)
+        h_hyp = "{:.3f}h1".format(h_obs)
 
     obs_nodes, obs_elems, obs_egroups = caching.get_or_calc_mesh(h=h_obs)
     egroup_obs = obs_egroups["matrix"]
     obs_distances = caching.get_or_calc_distances(egroup=egroup_obs, h=h_obs)
 
-    ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
-    egroup_ref = ref_egroups["matrix"]
-    ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
+    if hierarchical:
+        ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
+        egroup_ref = ref_egroups["matrix"]
+        ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
+    else:
+        ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_ref)
+        egroup_ref = ref_egroups["matrix"]
+        ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
+
+        hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_hyp, do_groups=True)
+        hyp_nodes, hyp_elems, hyp_egroups = hyp_mesh
+        egroup_hyp = hyp_egroups["matrix"]
+        hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
 
     domain = np.linspace(0.0, 0.2, 101)
 
@@ -56,6 +75,10 @@ for seed in range(1):
     ref_ipoints = caching.get_or_calc_ipoints(egroup=egroup_ref, h=h_ref)
     ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
 
+    if not hierarchical:
+        hyp_ipoints = caching.get_or_calc_ipoints(egroup=egroup_hyp, h=h_hyp)
+        hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
+
     obs_backdoor = {}
     obs_backdoor["xcoord"] = obs_ipoints[:, 0]
     obs_backdoor["ycoord"] = obs_ipoints[:, 1]
@@ -66,27 +89,55 @@ for seed in range(1):
     ref_backdoor["ycoord"] = ref_ipoints[:, 1]
     ref_backdoor["e"] = np.zeros(ref_ipoints.shape[0])
 
-    obs_operator = caching.get_or_calc_dic_operator(elems=obs_elems, h=h_obs)
-    ref_operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
+    if not hierarchical:
+        hyp_backdoor = {}
+        hyp_backdoor["xcoord"] = hyp_ipoints[:, 0]
+        hyp_backdoor["ycoord"] = hyp_ipoints[:, 1]
+        hyp_backdoor["e"] = np.zeros(hyp_ipoints.shape[0])
+
+    if hierarchical:
+        operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
+    else:
+        operator = caching.get_or_calc_dic_operator(elems=hyp_elems, h=h_hyp)
 
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
-    likelihood = BFEMLikelihoodHierarchical(
-        obs_operator=obs_operator,
-        ref_operator=ref_operator,
-        observations=truth,
-        sigma_e=sigma_e,
-        obs_ipoints=obs_ipoints,
-        ref_ipoints=ref_ipoints,
-        obs_distances=obs_distances,
-        ref_distances=ref_distances,
-        eigenfuncs=eigenfuncs,
-        domain=domain,
-        obs_egroups=obs_egroups,
-        ref_egroups=ref_egroups,
-        obs_backdoor=obs_backdoor,
-        ref_backdoor=ref_backdoor,
-    )
+    if hierarchical:
+        likelihood = BFEMLikelihoodHierarchical(
+            operator=operator,
+            observations=truth,
+            sigma_e=sigma_e,
+            obs_ipoints=obs_ipoints,
+            ref_ipoints=ref_ipoints,
+            obs_distances=obs_distances,
+            ref_distances=ref_distances,
+            eigenfuncs=eigenfuncs,
+            domain=domain,
+            obs_egroups=obs_egroups,
+            ref_egroups=ref_egroups,
+            obs_backdoor=obs_backdoor,
+            ref_backdoor=ref_backdoor,
+        )
+    else:
+        likelihood = BFEMLikelihoodHeterarchical(
+            operator=operator,
+            observations=truth,
+            sigma_e=sigma_e,
+            obs_ipoints=obs_ipoints,
+            ref_ipoints=ref_ipoints,
+            hyp_ipoints=hyp_ipoints,
+            obs_distances=obs_distances,
+            ref_distances=ref_distances,
+            hyp_distances=hyp_distances,
+            eigenfuncs=eigenfuncs,
+            domain=domain,
+            obs_egroups=obs_egroups,
+            ref_egroups=ref_egroups,
+            hyp_egroups=hyp_egroups,
+            obs_backdoor=obs_backdoor,
+            ref_backdoor=ref_backdoor,
+            hyp_backdoor=hyp_backdoor,
+        )
 
     def linear_tempering(i):
         if i < n_burn:

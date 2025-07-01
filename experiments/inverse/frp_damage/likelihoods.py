@@ -138,8 +138,7 @@ class BFEMLikelihoodHierarchical(Likelihood):
     def __init__(
         self,
         *,
-        obs_operator,
-        ref_operator,
+        operator,
         observations,
         sigma_e,
         obs_ipoints,
@@ -153,13 +152,12 @@ class BFEMLikelihoodHierarchical(Likelihood):
         obs_backdoor,
         ref_backdoor,
     ):
+        self.operator = operator
+
         self.obs_ipoints = obs_ipoints
         self.obs_distances = obs_distances
-        self.obs_operator = obs_operator
-
         self.ref_ipoints = ref_ipoints
         self.ref_distances = ref_distances
-        self.ref_operator = ref_operator
 
         self.observations = observations
         n_obs = len(self.observations)
@@ -217,27 +215,180 @@ class BFEMLikelihoodHierarchical(Likelihood):
         obsdat = obs_prior.globdat
         refdat = ref_prior.globdat
 
-        u_obs = obsdat["state0"]
-        K_obs = obsdat["matrix0"]
-        n_obs = len(u_obs)
-        alpha2_mle = u_obs @ K_obs @ u_obs / n_obs
-
-        assert ref_prior.prior.cov.scale == 1.0
-        ref_prior.prior.cov.scale = alpha2_mle
-        assert obs_prior.prior.cov.scale == alpha2_mle
-
-        obs_prior.recompute_moments(**self.obs_backdoor)
-        ref_prior.recompute_moments(**self.ref_backdoor)
-
         if self._Phi is None:
             self._Phi = create_phi_from_globdat(obsdat, refdat)
 
         H_obs, f_obs = compute_bfem_observations(obs_prior, ref_prior, Phi=self._Phi)
-        posterior = ref_prior.condition_on(H_obs, f_obs)
-        prediction = posterior @ self.ref_operator.T
 
-        dist = IndependentGaussianSum(prediction, self.e)
-        loglikelihood = dist.calc_logpdf_via_woodbury(self.observations)
+        Phi_obs = H_obs[0].T
+        K_ref = H_obs[1]
+        K_obs = (Phi_obs.T @ K_ref @ Phi_obs).evaluate()
+        K_obs = Matrix(0.5 * (K_obs + K_obs.T), name="K_obs")
+
+        u_obs = K_obs.inv @ f_obs
+        n_obs = len(u_obs)
+        alpha2_mle = f_obs @ u_obs / n_obs
+
+        A_ref = Matrix(self.operator, name="A_ref")
+        A_obs = Matrix(self.operator @ Phi_obs, name="A_obs")
+
+        mean = A_obs @ u_obs
+
+        prior = A_ref @ K_ref.inv @ A_ref.T
+        downdate = A_obs @ K_obs.inv @ A_obs.T
+        cov = prior.evaluate() - downdate.evaluate()
+        cov *= alpha2_mle
+        cov += self.e.cov.expr.evaluate()
+
+        dist = Gaussian(mean=mean, cov=cov, use_scipy_latent=False)
+        loglikelihood = dist.calc_logpdf(self.observations)
+        return loglikelihood
+
+
+class BFEMLikelihoodHeterarchical(Likelihood):
+
+    def __init__(
+        self,
+        *,
+        operator,
+        observations,
+        sigma_e,
+        obs_ipoints,
+        ref_ipoints,
+        hyp_ipoints,
+        obs_distances,
+        ref_distances,
+        hyp_distances,
+        eigenfuncs,
+        domain,
+        obs_egroups,
+        ref_egroups,
+        hyp_egroups,
+        obs_backdoor,
+        ref_backdoor,
+        hyp_backdoor,
+    ):
+        self.operator = operator
+
+        self.obs_ipoints = obs_ipoints
+        self.obs_distances = obs_distances
+        self.ref_ipoints = ref_ipoints
+        self.ref_distances = ref_distances
+        self.hyp_ipoints = hyp_ipoints
+        self.hyp_distances = hyp_distances
+
+        self.observations = observations
+        n_obs = len(self.observations)
+        self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
+        self.e = Gaussian(np.zeros(n_obs), self.noise)
+        self.eigenfuncs = eigenfuncs
+        self.obs_egroups = obs_egroups
+        self.ref_egroups = ref_egroups
+        self.hyp_egroups = hyp_egroups
+        self.obs_elems = next(iter(obs_egroups.values())).get_elements()
+        self.ref_elems = next(iter(ref_egroups.values())).get_elements()
+        self.hyp_elems = next(iter(hyp_egroups.values())).get_elements()
+        self.obs_backdoor = obs_backdoor
+        self.ref_backdoor = ref_backdoor
+        self.hyp_backdoor = hyp_backdoor
+
+        self._input_map = (len(domain) - 1) / np.max(domain)
+        self._module_props = get_fem_props()
+        self._module_props["usermodules"]["solver"]["solver"] = {
+            "type": "GMRES",
+            "precision": 1e100,
+        }
+        self._model_props = self._module_props.pop("model")
+        self._E_matrix = params.material_params["E_matrix"]
+        self._damage_map_obs = misc.calc_damage_map(
+            self.obs_ipoints, self.obs_distances, domain
+        )
+        self._damage_map_ref = misc.calc_damage_map(
+            self.ref_ipoints, self.ref_distances, domain
+        )
+        self._damage_map_hyp = misc.calc_damage_map(
+            self.hyp_ipoints, self.hyp_distances, domain
+        )
+
+        self._Phi_obs = None
+        self._Phi_ref = None
+
+    def calc_logpdf(self, x):
+        damage = misc.sigmoid(self.eigenfuncs @ x, 1.0, 0.0)
+        damage_obs = self._damage_map_obs @ damage
+        damage_ref = self._damage_map_ref @ damage
+        damage_hyp = self._damage_map_hyp @ damage
+        self.obs_backdoor["e"] = self._E_matrix * (1 - damage_obs)
+        self.ref_backdoor["e"] = self._E_matrix * (1 - damage_ref)
+        self.hyp_backdoor["e"] = self._E_matrix * (1 - damage_hyp)
+
+        obs_jive_runner = CJiveRunner(
+            self._module_props, elems=self.obs_elems, egroups=self.obs_egroups
+        )
+        ref_jive_runner = CJiveRunner(
+            self._module_props, elems=self.ref_elems, egroups=self.ref_egroups
+        )
+        hyp_jive_runner = CJiveRunner(
+            self._module_props, elems=self.hyp_elems, egroups=self.hyp_egroups
+        )
+
+        inf_cov = InverseCovarianceOperator(model_props=self._model_props, scale=1.0)
+        inf_prior = GaussianProcess(None, inf_cov)
+
+        obs_prior = ProjectedPrior(
+            prior=inf_prior, jive_runner=obs_jive_runner, **self.obs_backdoor
+        )
+        ref_prior = ProjectedPrior(
+            prior=inf_prior, jive_runner=ref_jive_runner, **self.ref_backdoor
+        )
+        hyp_prior = ProjectedPrior(
+            prior=inf_prior, jive_runner=hyp_jive_runner, **self.hyp_backdoor
+        )
+
+        obsdat = obs_prior.globdat
+        refdat = ref_prior.globdat
+        hypdat = hyp_prior.globdat
+
+        if self._Phi_obs is None:
+            self._Phi_obs = create_phi_from_globdat(obsdat, hypdat)
+
+        if self._Phi_ref is None:
+            self._Phi_ref = create_phi_from_globdat(refdat, hypdat)
+
+        H_obs, f_obs = compute_bfem_observations(
+            obs_prior, hyp_prior, Phi=self._Phi_obs
+        )
+        H_ref, _ = compute_bfem_observations(ref_prior, hyp_prior, Phi=self._Phi_ref)
+
+        Phi_obs = H_obs[0].T
+        Phi_ref = H_ref[0].T
+        K_hyp = H_obs[1]
+
+        K_obs = (Phi_obs.T @ K_hyp @ Phi_obs).evaluate()
+        K_ref = (Phi_ref.T @ K_hyp @ Phi_ref).evaluate()
+        K_x = (Phi_ref.T @ K_hyp @ Phi_obs).evaluate()
+
+        K_obs = Matrix(0.5 * (K_obs + K_obs.T), name="K_obs")
+        K_ref = Matrix(0.5 * (K_ref + K_ref.T), name="K_ref")
+        K_x = Matrix(K_x, name="K_x")
+
+        u_obs = K_obs.inv @ f_obs
+        n_obs = len(u_obs)
+        alpha2_mle = f_obs @ u_obs / n_obs
+
+        A_obs = Matrix(self.operator @ Phi_obs, name="A_obs")
+        A_ref = Matrix(self.operator @ Phi_ref, name="A_ref")
+
+        mean = A_obs @ u_obs
+
+        prior = A_ref @ K_ref.inv @ A_ref.T
+        downdate = A_ref @ K_ref.inv @ K_x @ K_obs.inv @ K_x.T @ K_ref.inv @ A_ref.T
+        cov = prior.evaluate() - downdate.evaluate()
+        cov *= alpha2_mle
+        cov += self.e.cov.expr.evaluate()
+
+        dist = Gaussian(mean=mean, cov=cov, use_scipy_latent=False)
+        loglikelihood = dist.calc_logpdf(self.observations)
         return loglikelihood
 
 
