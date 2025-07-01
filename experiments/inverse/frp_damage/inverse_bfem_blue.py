@@ -175,7 +175,10 @@ if __name__ == "__main__":
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
-    fname = "checkpoint_bfem_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    if hierarchical:
+        fname = "checkpoint_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    else:
+        fname = "checkpoint_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
     fname = os.path.join("checkpoints", fname.format(h_obs, sigma_e, seed))
 
     mcmc = MCMCRunner(
@@ -195,10 +198,16 @@ if __name__ == "__main__":
     outdir = os.path.join("output", str(job_id))
     os.makedirs(outdir, exist_ok=True)
 
-    fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    if hierarchical:
+        fname = "posterior-samples_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    else:
+        fname = "posterior-samples_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
     fname = os.path.join(outdir, fname.format(h_obs, sigma_e, seed))
     np.save(fname, samples)
 
-    fname = "posterior-logpdfs_bfem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    if hierarchical:
+        fname = "posterior-logpdfs_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    else:
+        fname = "posterior-logpdfs_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
     fname = os.path.join(outdir, fname.format(h_obs, sigma_e, seed))
     np.save(fname, info["loglikelihood"])
