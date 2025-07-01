@@ -225,7 +225,12 @@ class BFEMLikelihoodHierarchical(Likelihood):
         K_obs = (Phi_obs.T @ K_ref @ Phi_obs).evaluate()
         K_obs = Matrix(0.5 * (K_obs + K_obs.T), name="K_obs")
 
-        u_obs = K_obs.inv @ f_obs
+        sqrtK_ref = K_ref.factorize()
+        K_ref_inv = sqrtK_ref.T.inv @ sqrtK_ref.inv
+        sqrtK_obs = K_obs.factorize()
+        K_obs_inv = sqrtK_obs.T.inv @ sqrtK_obs.inv
+
+        u_obs = K_obs_inv @ f_obs
         n_obs = len(u_obs)
         alpha2_mle = f_obs @ u_obs / n_obs
 
@@ -234,8 +239,8 @@ class BFEMLikelihoodHierarchical(Likelihood):
 
         mean = A_obs @ u_obs
 
-        prior = A_ref @ K_ref.inv @ A_ref.T
-        downdate = A_obs @ K_obs.inv @ A_obs.T
+        prior = A_ref @ K_ref_inv @ A_ref.T
+        downdate = A_obs @ K_obs_inv @ A_obs.T
         cov = prior.evaluate() - downdate.evaluate()
         cov *= alpha2_mle
         cov += self.e.cov.expr.evaluate()
@@ -372,7 +377,12 @@ class BFEMLikelihoodHeterarchical(Likelihood):
         K_ref = Matrix(0.5 * (K_ref + K_ref.T), name="K_ref")
         K_x = Matrix(K_x, name="K_x")
 
-        u_obs = K_obs.inv @ f_obs
+        sqrtK_ref = K_ref.factorize()
+        K_ref_inv = sqrtK_ref.T.inv @ sqrtK_ref.inv
+        sqrtK_obs = K_obs.factorize()
+        K_obs_inv = sqrtK_obs.T.inv @ sqrtK_obs.inv
+
+        u_obs = K_obs_inv @ f_obs
         n_obs = len(u_obs)
         alpha2_mle = f_obs @ u_obs / n_obs
 
@@ -381,8 +391,8 @@ class BFEMLikelihoodHeterarchical(Likelihood):
 
         mean = A_obs @ u_obs
 
-        prior = A_ref @ K_ref.inv @ A_ref.T
-        downdate = A_ref @ K_ref.inv @ K_x @ K_obs.inv @ K_x.T @ K_ref.inv @ A_ref.T
+        prior = A_ref @ K_ref_inv @ A_ref.T
+        downdate = A_ref @ K_ref_inv @ K_x @ K_obs_inv @ K_x.T @ K_ref_inv @ A_ref.T
         cov = prior.evaluate() - downdate.evaluate()
         cov *= alpha2_mle
         cov += self.e.cov.expr.evaluate()
