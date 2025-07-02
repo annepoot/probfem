@@ -51,14 +51,12 @@ def create_hypermesh(mesh1, mesh2, do_groups=False):
         nodemap1[inode1] = inodeh
 
     for inode2, coords in enumerate(nodes2):
-        mask = np.all(np.isclose(coords, coords1), axis=1)
-        if np.sum(mask) == 0:
+        distances = np.linalg.norm(coords1 - coords, axis=1)
+        inode_closest = np.argmin(distances)
+        if not np.isclose(distances[inode_closest], 0.0):
             inodeh = nodesh.add_node(coords)
         else:
-            inode1 = np.where(mask)[0]
-            if len(inode1) != 1:
-                raise RuntimeError("no unique matching node found")
-            inodeh = nodemap1[inode1[0]]
+            inodeh = nodemap1[inode_closest]
         nodemap2[inode2] = inodeh
 
     elemsh = XElementSet(nodesh)
@@ -133,6 +131,26 @@ def create_hypermesh(mesh1, mesh2, do_groups=False):
 
     if len(elemsh) != len(elemmap):
         raise RuntimeError("elemmap size mismatch")
+
+    inodes_unique = elemsh.get_unique_nodes_of(np.arange(len(elemsh)))
+    inodes_absent = np.delete(np.arange(len(nodesh)), inodes_unique)
+
+    if len(inodes_absent) > 0:
+        mapping = {}
+        starts = [0] + [i + 1 for i in inodes_absent]
+        ends = [i for i in inodes_absent] + [len(nodesh)]
+
+        for shift, (start, end) in enumerate(zip(starts, ends)):
+            for inode in range(start, end):
+                mapping[inode] = inode - shift
+
+        for inode_absent in inodes_absent:
+            nodesh.erase_node(inode_absent)
+
+        for ielem, inodes in enumerate(elemsh):
+            for i, inode in enumerate(inodes):
+                inodes[i] = mapping[inode]
+            elemsh.set_elem_nodes(ielem, inodes)
 
     if do_groups:
         egroupsh = {}
