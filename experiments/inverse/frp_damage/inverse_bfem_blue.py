@@ -191,6 +191,7 @@ if __name__ == "__main__":
         tempering=stepwise_tempering,
         return_info=True,
         checkpoint=fname,
+        checkpoint_interval=100,
     )
 
     samples, info = mcmc()
