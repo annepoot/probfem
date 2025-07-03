@@ -17,10 +17,10 @@ tol = params.geometry_params["tol_fiber"]
 seed = params.geometry_params["seed_fiber"]
 
 h = 0.010
-sigma_e = 1e-4
+sigma_e = 1e-3
 k = 1
 l = 10
-seed = 1
+seed = 0
 n_burn = 10000
 fem_type = "fem"
 
@@ -56,6 +56,16 @@ for h in [0.100, 0.050, 0.020, 0.010]:
             n_filter = 1000
         elif fem_type == "bfem":
             fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+            fname = fname.format(h, sigma_e, seed)
+            fname = os.path.join("output", "bfem", fname)
+            n_filter = 1000
+        elif fem_type == "bfem-hier":
+            fname = "posterior-samples_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+            fname = fname.format(h, sigma_e, seed)
+            fname = os.path.join("output", "bfem", fname)
+            n_filter = 1000
+        elif fem_type == "bfem-heter":
+            fname = "posterior-samples_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
             fname = fname.format(h, sigma_e, seed)
             fname = os.path.join("output", "bfem", fname)
             n_filter = 1000
@@ -114,19 +124,27 @@ for h in [0.100, 0.050, 0.020, 0.010]:
 
         if fem_type == "pod":
             title = r"Posterior samples POD, $k={}$".format(k)
-            fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.png"
+            fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.pdf"
             fname = os.path.join("img", fname.format(h, sigma_e, k))
         elif "bpod" in fem_type:
             title = r"Posterior samples BPOD, $k={}$, $l={}$".format(k, l)
-            fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.png"
+            fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.pdf"
             fname = os.path.join("img", fname.format(h, sigma_e, k, l))
         elif fem_type == "fem":
             title = r"Posterior samples FEM, $h={:.3f}$".format(h)
-            fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.png"
+            fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.pdf"
             fname = os.path.join("img", fname.format(h, sigma_e))
         elif fem_type == "bfem":
             title = r"Posterior samples BFEM, $h={:.3f}$".format(h)
-            fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}.png"
+            fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}.pdf"
+            fname = os.path.join("img", fname.format(h, sigma_e))
+        elif fem_type == "bfem-hier":
+            title = r"Posterior samples BFEM (hierarchical), $h={:.3f}$".format(h)
+            fname = "posterior-samples_bfem-hier_h-{:.3f}_noise-{:.0e}.pdf"
+            fname = os.path.join("img", fname.format(h, sigma_e))
+        elif fem_type == "bfem-heter":
+            title = r"Posterior samples BFEM (nonhierarchical), $h={:.3f}$".format(h)
+            fname = "posterior-samples_bfem-heter_h-{:.3f}_noise-{:.0e}.pdf"
             fname = os.path.join("img", fname.format(h, sigma_e))
         else:
             assert False
