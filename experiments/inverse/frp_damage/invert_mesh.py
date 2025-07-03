@@ -11,7 +11,7 @@ rve_size = params.geometry_params["rve_size"]
 r_fiber = params.geometry_params["r_fiber"]
 
 nodes1, elems1, egroups1 = caching.get_or_calc_mesh(h=h)
-nodes2, elems2, egroups2 = caching.get_or_calc_dual_mesh(h=h)
+nodes2, elems2, egroups2 = caching.get_or_calc_dual_mesh(h="{:.3f}d1".format(h))
 
 
 def get_edges(elems, egroups):
@@ -67,7 +67,7 @@ ax.set_aspect("equal")
 
 plt.show()
 
-nodesh, elemsh, egroupsh = caching.get_or_calc_hyper_mesh(h=h)
+nodesh, elemsh, egroupsh = caching.get_or_calc_hyper_mesh(h="{:.3f}h1".format(h))
 
 fiber_edges_hyp, matrix_edges_hyp = get_edges(elemsh, egroupsh)
 
