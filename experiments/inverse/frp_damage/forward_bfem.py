@@ -40,7 +40,7 @@ if hierarchical:
     ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
 else:
     h_ref = "{:.3f}d1".format(h_obs)
-    ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_obs)
+    ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_ref)
 
 ref_egroup = ref_egroups["matrix"]
 ref_ipoints = caching.get_or_calc_ipoints(egroup=ref_egroup, h=h_ref)
@@ -81,7 +81,7 @@ if hierarchical:
     hyp_mesh = ref_nodes, ref_elems, ref_egroups
 else:
     h_hyp = "{:.3f}h1".format(h_obs)
-    hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_obs, do_groups=True)
+    hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_hyp, do_groups=True)
 
 hyp_nodes, hyp_elems, hyp_egroups = hyp_mesh
 hyp_egroup = hyp_egroups["matrix"]
@@ -95,6 +95,10 @@ hyp_backdoor["ycoord"] = hyp_ipoints[:, 1]
 hyp_backdoor["e"] = hyp_ip_stiffnesses
 
 props = get_fem_props()
+props["usermodules"]["solver"]["solver"] = {
+    "type": "GMRES",
+    "precision": 1e100,
+}
 hyp_jive = CJiveRunner(props, elems=hyp_elems, egroups=hyp_egroups)
 hyp_globdat = hyp_jive(**hyp_backdoor)
 
@@ -103,6 +107,10 @@ hyp_elem_stiffnesses = misc.calc_elem_stiffnesses(hyp_ip_stiffnesses, hyp_egroup
 obs_module_props = get_fem_props()
 ref_module_props = get_fem_props()
 hyp_module_props = get_fem_props()
+hyp_module_props["usermodules"]["solver"]["solver"] = {
+    "type": "GMRES",
+    "precision": 1e100,
+}
 
 obs_model_props = obs_module_props.pop("model")
 ref_model_props = ref_module_props.pop("model")
@@ -152,6 +160,7 @@ if hierarchical:
             samples[i] - mean,
             ref_globdat,
             comp=0,
+            fname="img/bfem-hier-posterior_sample-{}_h-{:.3f}.pdf".format(i, h_obs),
         )
 
     QuickViewer(
@@ -165,6 +174,7 @@ if hierarchical:
         ref_globdat,
         comp=0,
         maxcolor=2e-4,
+        fname="img/bfem-hier-posterior_std_h-{:.3f}.pdf".format(h_obs),
     )
 else:
     H_obs, f_obs = compute_bfem_observations(obs_prior, hyp_prior)
@@ -196,6 +206,7 @@ else:
             samples[i],
             hyp_globdat,
             comp=0,
+            fname="img/bfem-heter-posterior_sample-{}_h-{:.3f}.pdf".format(i, h_obs),
         )
 
     QuickViewer(
@@ -203,4 +214,5 @@ else:
         hyp_globdat,
         maxcolor=2e-4,
         comp=0,
+        fname="img/bfem-heter-posterior_std_h-{:.3f}.pdf".format(h_obs),
     )
