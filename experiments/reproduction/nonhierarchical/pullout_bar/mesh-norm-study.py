@@ -1,9 +1,7 @@
-import os
 import numpy as np
 from scipy.sparse import csr_array
-from scipy.linalg import eigh
 import matplotlib.pyplot as plt
-import seaborn as sns
+from matplotlib.ticker import LogLocator, LogFormatter, NullFormatter
 
 from myjive.fem import NodeSet, XNodeSet, ElementSet, XElementSet
 
@@ -14,7 +12,6 @@ from fem.meshing import (
     create_phi_from_globdat,
     create_hypermesh,
 )
-from probability.multivariate import Gaussian
 from probability.process import (
     GaussianProcess,
     InverseCovarianceOperator,
@@ -185,8 +182,13 @@ def calc_norm(obs_elems, ref_elems):
     prior_norm_ref = np.trace((K_ref.inv @ M_ref).evaluate())
     prior_norm_obs = np.trace((K_obs.inv @ M_obs).evaluate())
 
-    posterior_norm = prior_norm_ref + prior_norm_obs
-    posterior_norm -= 2 * np.trace((K_ref.inv @ K_x @ K_obs.inv @ M_x.T).evaluate())
+    # posterior_norm = prior_norm_ref + prior_norm_obs
+    # posterior_norm -= 2 * np.trace((K_ref.inv @ K_x @ K_obs.inv @ M_x.T).evaluate())
+
+    posterior_norm = prior_norm_ref
+    posterior_norm -= np.trace(
+        (K_ref.inv @ K_x @ K_obs.inv @ K_x.T @ K_ref.inv @ M_ref).evaluate()
+    )
 
     return posterior_norm
 
@@ -211,15 +213,16 @@ else:
 
 # options: exact, hierarchical, inverted, random
 n_obs = 4
-n_refs = np.array([4, 8, 16, 32, 64, 128, 192, 256])
+n_refs = np.array([4, 8, 16, 32, 64, 128, 256])
+n_refs_random = np.concatenate([n + n // 4 * np.array([0, 1, 2, 3]) for n in n_refs])
 n_seed = 10
 
 obs_nodes, obs_elems = mesh_interval_with_line2(n=n_elem)
 
 hierarchical_norms = np.zeros_like(n_refs, dtype=float)
 inverted_norms = np.zeros_like(n_refs, dtype=float)
-random_norms = np.zeros((len(n_refs), n_seed), dtype=float)
-dropout_norms = np.zeros((len(n_refs), n_seed), dtype=float)
+random_norms = np.zeros((len(n_refs_random), n_seed), dtype=float)
+dropout_norms = np.zeros((len(n_refs_random), n_seed), dtype=float)
 
 for ref_type in ["exact", "hierarchical", "inverted", "dropout", "random"]:
     if ref_type == "exact":
@@ -230,15 +233,17 @@ for ref_type in ["exact", "hierarchical", "inverted", "dropout", "random"]:
             ref_nodes, ref_elems = mesh_interval_with_line2(n=n_ref)
             hierarchical_norms[i] = calc_norm(obs_elems, ref_elems)
     elif ref_type == "inverted":
-        ref_nodes, ref_elems = invert_mesh(obs_elems)
-        inverted_norm = calc_norm(obs_elems, ref_elems)
+        for i, n_ref in enumerate(n_refs):
+            ref_nodes, ref_elems = mesh_interval_with_line2(n=n_ref)
+            ref_nodes, ref_elems = invert_mesh(ref_elems)
+            inverted_norms[i] = calc_norm(obs_elems, ref_elems)
     elif ref_type == "dropout":
         for i, n_ref in enumerate(n_refs):
             for j in range(n_seed):
                 ref_nodes, ref_elems = dropout_mesh(n=n_ref, seed=j)
                 dropout_norms[i, j] = calc_norm(obs_elems, ref_elems)
     elif ref_type == "random":
-        for i, n_ref in enumerate(n_refs):
+        for i, n_ref in enumerate(n_refs_random):
             for j in range(n_seed):
                 ref_nodes, ref_elems = random_mesh(n=n_ref, seed=j)
                 random_norms[i, j] = calc_norm(obs_elems, ref_elems)
@@ -247,31 +252,42 @@ for ref_type in ["exact", "hierarchical", "inverted", "dropout", "random"]:
 
 
 fig, ax = plt.subplots()
+
+for j in range(n_seed):
+    label = "random" if j == 0 else None
+    ax.plot(
+        n_refs_random,
+        exact_norm - random_norms[:, j],
+        color="0.5",
+        marker=".",
+        label=label,
+        zorder=1,
+    )
+
 ax.scatter(
     n_refs,
     exact_norm - hierarchical_norms,
     color="C0",
-    marker=".",
+    marker="o",
     label="hierarchical",
 )
 ax.scatter(
-    n_obs + 1, exact_norm - inverted_norm, color="C1", marker=".", label="inverted"
+    n_refs + 1,
+    exact_norm - inverted_norms,
+    color="C1",
+    marker="o",
+    label="inverted",
 )
-
-for j in range(n_seed):
-    label = "random" if j == 0 else None
-    ax.scatter(
-        n_refs, exact_norm - random_norms[:, j], color="C2", marker=".", label=label
-    )
-
-# for j in range(n_seed):
-#     label = "dropout" if j == 0 else None
-#     ax.scatter(
-#         n_refs, exact_norm - dropout_norms[:, j], color="C3", marker=".", label=label
-#     )
 
 ax.set_xscale("log")
 ax.set_yscale("log")
+ax.set_xlabel(r"$n$")
+ax.set_ylabel(r"$d - \tilde{d}$")
+ax.set_xticks(n_refs)
+ax.xaxis.set_major_locator(LogLocator(base=2))
+ax.xaxis.set_major_formatter(LogFormatter(base=2))
+ax.xaxis.set_minor_locator(LogLocator(base=2, subs=(1.25, 1.5, 1.75)))
+ax.xaxis.set_minor_formatter(NullFormatter())
 ax.set_aspect("equal")
 ax.legend()
 plt.show()
