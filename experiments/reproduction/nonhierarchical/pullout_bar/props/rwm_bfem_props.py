@@ -14,7 +14,9 @@ from experiments.reproduction.nonhierarchical.pullout_bar.props import (
 __all__ = ["get_rwm_bfem_target"]
 
 
-def get_rwm_bfem_target(*, obs_elems, ref_elems, std_corruption, scale, sigma_e):
+def get_rwm_bfem_target(
+    *, obs_elems, ref_elems, hyp_elems, std_corruption, scale, sigma_e
+):
     target = get_rwm_fem_target(
         elems=obs_elems,
         std_corruption=std_corruption,
@@ -44,6 +46,14 @@ def get_rwm_bfem_target(*, obs_elems, ref_elems, std_corruption, scale, sigma_e)
     obs_prior = ProjectedPrior(prior=inf_prior, jive_runner=obs_jive_runner)
     ref_prior = ProjectedPrior(prior=inf_prior, jive_runner=ref_jive_runner)
 
+    if hyp_elems is None:
+        hyp_prior = None
+    else:
+        hyp_module_props = get_fem_props()
+        hyp_model_props = hyp_module_props.pop("model")
+        hyp_jive_runner = CJiveRunner(hyp_module_props, elems=hyp_elems)
+        hyp_prior = ProjectedPrior(prior=inf_prior, jive_runner=hyp_jive_runner)
+
     old_likelihood = target.likelihood
     new_likelihood = BFEMLikelihood(
         operator=old_likelihood.operator,
@@ -65,6 +75,7 @@ def get_rwm_bfem_target(*, obs_elems, ref_elems, std_corruption, scale, sigma_e)
     new_operator = BFEMObservationOperator(
         obs_prior=obs_prior,
         ref_prior=ref_prior,
+        hyp_prior=hyp_prior,
         input_variables=old_operator.input_variables,
         input_transforms=old_operator.input_transforms,
         output_locations=output_locations,

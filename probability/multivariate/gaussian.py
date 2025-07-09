@@ -514,25 +514,32 @@ class IndependentGaussianSum(GaussianLike):
             noise = self.gaussians[1]
 
             assert isinstance(base, ScaledGaussian)
-            assert isinstance(base.latent, ConditionedGaussian)
-
             scale = base.scale
             posterior = base.latent
-            Sigma = posterior.prior.cov.expr
-            linop = posterior.linop
 
             assert noise.cov.expr.is_diagonal
             eI = noise.cov.expr
 
-            assert isinstance(Sigma, MatMulChain)
-            assert len(Sigma) == 1
-            downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
-            downdate.simplify()
+            if isinstance(posterior, ConditionedGaussian):
+                Sigma = posterior.prior.cov.expr
+                linop = posterior.linop
 
-            A_prior_At = scale @ Sigma @ scale.T
-            A_downdate_At = scale @ downdate @ scale.T
+                assert isinstance(Sigma, MatMulChain)
+                assert len(Sigma) == 1
+                downdate = Sigma @ linop.T @ posterior.gram.inv @ linop @ Sigma
+                downdate.simplify()
 
-            full_cov = A_prior_At.evaluate() - A_downdate_At.evaluate() + eI.evaluate()
+                A_prior_At = scale @ Sigma @ scale.T
+                A_downdate_At = scale @ downdate @ scale.T
+
+                base_cov = A_prior_At.evaluate() - A_downdate_At.evaluate()
+
+            else:
+                assert isinstance(posterior, Gaussian)
+                Sigma = Matrix(posterior.get_cov(), name="Sigma")
+                base_cov = (scale @ Sigma @ scale.T).evaluate()
+
+            full_cov = base_cov + eI.evaluate()
 
             self._eigh = np.linalg.eigh(full_cov)
 

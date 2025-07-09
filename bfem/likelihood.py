@@ -11,7 +11,7 @@ from probability.multivariate import GaussianLike, IndependentGaussianSum, Gauss
 from probability.process import ProjectedPrior
 from bfem.observation import compute_bfem_observations
 from fem.meshing import find_coords_in_nodeset
-
+from util.linalg import Matrix
 
 __all__ = ["BFEMLikelihood"]
 
@@ -40,6 +40,7 @@ class BFEMObservationOperator(FEMObservationOperator):
         *,
         obs_prior,
         ref_prior,
+        hyp_prior=None,
         input_variables,
         input_transforms,
         output_locations,
@@ -50,6 +51,12 @@ class BFEMObservationOperator(FEMObservationOperator):
         assert isinstance(ref_prior, ProjectedPrior)
         self.obs_prior = obs_prior
         self.ref_prior = ref_prior
+
+        if hyp_prior is None:
+            self.hierarchical = True
+        else:
+            self.hierarchical = False
+            self.hyp_prior = hyp_prior
 
         self.input_variables = input_variables
         self.input_transforms = input_transforms
@@ -79,6 +86,10 @@ class BFEMObservationOperator(FEMObservationOperator):
             assert get_recursive(self.ref_prior.jive_runner.props, keys) is not None
             set_recursive(self.ref_prior.jive_runner.props, keys, x_i)
 
+            if not self.hierarchical:
+                assert get_recursive(self.hyp_prior.jive_runner.props, keys) is not None
+                set_recursive(self.hyp_prior.jive_runner.props, keys, x_i)
+
         if self.rescale == "mle":
             self.obs_prior.recompute_moments()
             obsdat = self.obs_prior.globdat
@@ -92,19 +103,47 @@ class BFEMObservationOperator(FEMObservationOperator):
             assert self.obs_prior.prior.cov.scale == alpha2_mle
             self._old_alpha2_mle = alpha2_mle
 
-        self.ref_prior.recompute_moments()
-        self.obs_prior.recompute_moments()
+            if not self.hierarchical:
+                assert self.hyp_prior.prior.cov.scale == alpha2_mle
 
-        refdat = self.ref_prior.globdat
+        if self.hierarchical:
+            self.ref_prior.recompute_moments()
+            self.obs_prior.recompute_moments()
 
-        H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.ref_prior)
-        posterior = self.ref_prior.condition_on(H_obs, f_obs)
+            H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.ref_prior)
+            posterior = self.ref_prior.condition_on(H_obs, f_obs)
+            hypdat = self.ref_prior.globdat
+
+        else:
+            self.ref_prior.recompute_moments()
+            self.obs_prior.recompute_moments()
+            self.hyp_prior.recompute_moments()
+
+            H_obs, f_obs = compute_bfem_observations(self.obs_prior, self.hyp_prior)
+            H_ref, _ = compute_bfem_observations(self.ref_prior, self.hyp_prior)
+
+            Phi_obs = H_obs[0].T
+            Phi_ref = H_ref[0].T
+            K_hyp = H_obs[1]
+
+            K_obs = Matrix((Phi_obs.T @ K_hyp @ Phi_obs).evaluate(), name="K_obs")
+            K_ref = Matrix((Phi_ref.T @ K_hyp @ Phi_ref).evaluate(), name="K_ref")
+            K_x = Matrix((Phi_ref.T @ K_hyp @ Phi_obs).evaluate(), name="K_x")
+
+            mean = Phi_obs @ self.obs_prior.globdat["state0"]
+            cov = K_ref.inv.evaluate()
+            cov -= (K_ref.inv @ K_x @ K_obs.inv @ K_x.T @ K_ref.inv).evaluate()
+            cov *= alpha2_mle
+            cov = Phi_ref @ (Phi_ref @ cov).T
+
+            posterior = Gaussian(mean, cov, allow_singular=True)
+            hypdat = self.hyp_prior.globdat
 
         if self.rescale == "eig":
             oldmean = posterior.calc_mean()
             oldcov = posterior.calc_cov()
             l, Q = np.linalg.eigh(oldcov)
-            newl = l * abs(Q.T @ refdat["extForce"])
+            newl = l * abs(Q.T @ hypdat["extForce"])
             newcov = Q @ np.diag(newl) @ Q.T
             self.posterior = Gaussian(oldmean, newcov, allow_singular=True)
         else:
@@ -113,11 +152,11 @@ class BFEMObservationOperator(FEMObservationOperator):
         n_out = len(self.output_locations)
         assert len(self.output_dofs) == n_out
 
-        inodes = find_coords_in_nodeset(self.output_locations, refdat[gn.NSET])
+        inodes = find_coords_in_nodeset(self.output_locations, hypdat[gn.NSET])
 
-        mapper = np.zeros((n_out, refdat[gn.DOFSPACE].dof_count()))
+        mapper = np.zeros((n_out, hypdat[gn.DOFSPACE].dof_count()))
         for i, (inode, dof) in enumerate(zip(inodes, self.output_dofs)):
-            idof = refdat[gn.DOFSPACE].get_dof(inode, dof)
+            idof = hypdat[gn.DOFSPACE].get_dof(inode, dof)
             mapper[i, idof] = 1.0
 
         mapper = csr_array(mapper)
