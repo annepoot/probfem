@@ -4,6 +4,8 @@ import pandas as pd
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
+
+from fem.meshing import create_hypermesh
 from probability.sampling import MCMCRunner
 from probability.multivariate import Gaussian
 from experiments.reproduction.nonhierarchical.pullout_bar.props import (
@@ -12,6 +14,7 @@ from experiments.reproduction.nonhierarchical.pullout_bar.props import (
     get_rwm_rmfem_target,
     get_rwm_statfem_target,
 )
+from experiments.reproduction.nonhierarchical.pullout_bar import misc
 
 
 def generate_mesh(n_elem):
@@ -46,7 +49,7 @@ n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
 
 write_output = True
 
-for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
+for fem_type in ["fem", "bfem-exact", "bfem-hierarchical", "bfem-inverted"]:
 
     if write_output:
         fname = os.path.join("output", "samples-{}.csv".format(fem_type))
@@ -68,29 +71,13 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         if write_output:
             file.write(f"sigma_e = fixed at {sigma_e}\n")
 
-    elif fem_type == "bfem":
+    elif fem_type.startswith("bfem-"):
         scale = "mle"  # f_c.T @ u_c / n_c
         sigma_e = std_corruption
         recompute_logpdf = False
 
         if write_output:
             file.write(f"scale = {scale}\n")
-            file.write(f"sigma_e = fixed at {sigma_e}\n")
-
-    elif fem_type == "rmfem":
-        sigma_e = std_corruption
-        n_pseudomarginal = 100
-        recompute_logpdf = True
-
-        if write_output:
-            file.write(f"sigma_e = fixed at {sigma_e}\n")
-            file.write(f"n_pseudomarginal = {n_pseudomarginal}\n")
-
-    elif fem_type == "statfem":
-        sigma_e = std_corruption
-        recompute_logpdf = False
-
-        if write_output:
             file.write(f"sigma_e = fixed at {sigma_e}\n")
 
     if write_output:
@@ -105,27 +92,35 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
                 std_corruption=std_corruption,
                 sigma_e=sigma_e,
             )
-        elif fem_type == "bfem":
-            ref_nodes, ref_elems = generate_mesh(2 * n_elem)
+        elif fem_type == "bfem-exact":
+            ref_nodes, ref_elems = generate_mesh(256)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
+                hyp_elems=None,
                 std_corruption=std_corruption,
                 scale=scale,  # f_c.T @ u_c / n_c
                 sigma_e=sigma_e,
             )
-        elif fem_type == "rmfem":
-            target = get_rwm_rmfem_target(
-                elems=elems,
+        elif fem_type == "bfem-hierarchical":
+            ref_nodes, ref_elems = generate_mesh(2 * n_elem)
+            target = get_rwm_bfem_target(
+                obs_elems=elems,
+                ref_elems=ref_elems,
+                hyp_elems=None,
                 std_corruption=std_corruption,
+                scale=scale,  # f_c.T @ u_c / n_c
                 sigma_e=sigma_e,
-                n_pseudomarginal=n_pseudomarginal,
-                omit_nodes=False,
             )
-        elif fem_type == "statfem":
-            target = get_rwm_statfem_target(
-                elems=elems,
+        elif fem_type == "bfem-inverted":
+            ref_nodes, ref_elems = misc.invert_mesh(elems)
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
+            target = get_rwm_bfem_target(
+                obs_elems=elems,
+                ref_elems=ref_elems,
+                hyp_elems=hyp_elems,
                 std_corruption=std_corruption,
+                scale=scale,  # f_c.T @ u_c / n_c
                 sigma_e=sigma_e,
             )
         else:
@@ -147,20 +142,11 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         samples, info = mcmc()
 
         if write_output:
-            if fem_type == "statfem":
-                columns = ["log_E", "log_k", "log_rho", "log_l_d", "log_sigma_d"]
-            else:
-                columns = ["log_E", "log_k"]
-
+            columns = ["log_E", "log_k"]
             df = pd.DataFrame(samples, columns=columns)
 
             df["E"] = np.exp(df["log_E"])
             df["k"] = np.exp(df["log_k"])
-
-            if fem_type == "statfem":
-                df["rho"] = np.exp(df["log_rho"])
-                df["l_d"] = np.exp(df["log_l_d"])
-                df["sigma_d"] = np.exp(df["log_sigma_d"])
 
             for header, data in info.items():
                 df[header] = data
@@ -169,9 +155,6 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             df["n_elem"] = n_elem
             df["std_corruption"] = std_corruption
             df["sigma_e"] = sigma_e
-
-            if fem_type == "rmfem":
-                df["n_pseudomarginal"] = n_pseudomarginal
 
             write_header = n_elem == n_elem_range[0]
             df.to_csv(fname, mode="a", header=write_header, index=False)
