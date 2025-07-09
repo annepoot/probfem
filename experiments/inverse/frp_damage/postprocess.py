@@ -118,7 +118,7 @@ for h in [0.100, 0.050, 0.020, 0.010]:
                 assert False
 
             if i % n_filter == 0:
-                ax.plot(domain, damage_sample, color=color, linewidth=0.1)
+                ax.plot(domain, damage_sample, color=color, linewidth=0.3)
 
         ax.plot(domain, true_damage, color="k", linestyle="--")
 
@@ -152,8 +152,8 @@ for h in [0.100, 0.050, 0.020, 0.010]:
         ax.set_xlim((0, 0.2))
         ax.set_ylim((0, 100))
         ax.set_xlabel(r"distance to fiber (mm)")
-        ax.set_ylabel(r"stiffness reduction (%)")
+        ax.set_ylabel(r"stiffness reduction (\%)")
         ax.set_xticks([0.00, 0.05, 0.10, 0.15, 0.20])
         ax.set_yticks([0, 25, 50, 75, 100])
-        # plt.savefig(fname, bbox_inches="tight")
+        plt.savefig(fname, bbox_inches="tight")
         plt.show()

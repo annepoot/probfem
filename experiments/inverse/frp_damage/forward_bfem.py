@@ -18,7 +18,7 @@ props = get_fem_props()
 
 n_fiber = params.geometry_params["n_fiber"]
 r_fiber = params.geometry_params["r_fiber"]
-h_obs = 0.05
+h_obs = 0.050
 
 obs_nodes, obs_elems, obs_egroups = caching.get_or_calc_mesh(h=h_obs)
 obs_egroup = obs_egroups["matrix"]
@@ -160,7 +160,7 @@ if hierarchical:
             samples[i] - mean,
             ref_globdat,
             comp=0,
-            fname="img/bfem-hier-posterior_sample-{}_h-{:.3f}.pdf".format(i, h_obs),
+            fname="img/bfem-hier-posterior_sample-{}_h-{:.3f}.png".format(i, h_obs),
         )
 
     QuickViewer(
@@ -174,7 +174,7 @@ if hierarchical:
         ref_globdat,
         comp=0,
         maxcolor=2e-4,
-        fname="img/bfem-hier-posterior_std_h-{:.3f}.pdf".format(h_obs),
+        fname="img/bfem-hier-posterior_std_h-{:.3f}.png".format(h_obs),
     )
 else:
     H_obs, f_obs = compute_bfem_observations(obs_prior, hyp_prior)
@@ -206,7 +206,7 @@ else:
             samples[i],
             hyp_globdat,
             comp=0,
-            fname="img/bfem-heter-posterior_sample-{}_h-{:.3f}.pdf".format(i, h_obs),
+            fname="img/bfem-heter-posterior_sample-{}_h-{:.3f}.png".format(i, h_obs),
         )
 
     QuickViewer(
@@ -214,5 +214,5 @@ else:
         hyp_globdat,
         maxcolor=2e-4,
         comp=0,
-        fname="img/bfem-heter-posterior_std_h-{:.3f}.pdf".format(h_obs),
+        fname="img/bfem-heter-posterior_std_h-{:.3f}.png".format(h_obs),
     )
