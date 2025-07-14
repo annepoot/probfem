@@ -5,7 +5,7 @@ from scipy.sparse import save_npz, load_npz, issparse
 from myjive.fem import Tri3Shape, DofSpace
 
 from fem.jive import CJiveRunner
-from fem.meshing import read_mesh, write_mesh, create_hypermesh
+from fem.meshing import read_mesh, write_mesh, create_hypermesh, invert_mesh
 
 from experiments.inverse.frp_damage import params, misc, pod
 from experiments.inverse.frp_damage.props import get_fem_props
@@ -143,10 +143,23 @@ def get_or_calc_dual_mesh(*, h):
     if not os.path.exists(fname):
         fibers = get_or_calc_fibers()
 
-        print("Computing dual mesh")
-        a = params.geometry_params["rve_size"]
-        r = params.geometry_params["r_fiber"]
-        misc.create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname, shift=True)
+        h_orig = float(h.split("d")[0])
+        dual_type = int(h.split("d")[1])
+
+        if dual_type == 1:
+            print("Computing shifted mesh")
+            a = params.geometry_params["rve_size"]
+            r = params.geometry_params["r_fiber"]
+            misc.create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname, shift=True)
+        elif dual_type == 2:
+            print("Computing flipped mesh")
+            _, orig_elems, _ = get_or_calc_mesh(h=h_orig)
+            _, dual_elems = invert_mesh(orig_elems)
+
+            print("Writing flipped mesh to cache")
+            write_mesh(dual_elems, fname)
+        else:
+            assert False
 
     print("Reading dual mesh from file")
     mesh = read_mesh(fname, read_groups=True)
