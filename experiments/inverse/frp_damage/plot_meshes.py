@@ -108,7 +108,7 @@ def plot_mesh(mesh1, mesh2=None, *, fname=None):
     else:
         for edge in edges1:
             coords = nodes1[list(edge)]
-            ax.plot(coords[:, 0], coords[:, 1], color="0.3", linewidth=0.5)
+            ax.plot(coords[:, 0], coords[:, 1], color="0.4", linewidth=0.5)
 
         for edge in edges2:
             coords = nodes2[list(edge)]

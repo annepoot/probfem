@@ -153,11 +153,11 @@ def get_or_calc_dual_mesh(*, h):
             misc.create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname, shift=True)
         elif dual_type == 2:
             print("Computing flipped mesh")
-            _, orig_elems, _ = get_or_calc_mesh(h=h_orig)
-            _, dual_elems = invert_mesh(orig_elems)
+            orig_mesh = get_or_calc_mesh(h=h_orig)
+            dual_mesh = invert_mesh(orig_mesh)
 
             print("Writing flipped mesh to cache")
-            write_mesh(dual_elems, fname)
+            write_mesh(dual_mesh, fname)
         else:
             assert False
 
