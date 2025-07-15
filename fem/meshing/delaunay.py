@@ -3,7 +3,14 @@ import numpy as np
 from scipy.spatial import Delaunay, ConvexHull
 import ctypes as ct
 
-from myjive.fem import XNodeSet, XElementSet, to_xelementset
+from myjive.fem import (
+    NodeSet,
+    XNodeSet,
+    ElementSet,
+    XElementSet,
+    to_xelementset,
+    ElementGroup,
+)
 from fem.meshing import create_bboxes, list_point_bbox_intersections
 from fem.jive import libcppbackend
 
@@ -88,7 +95,7 @@ def calc_convex_boundary_nodes(nodes, include_corners=True, sort=False):
 
 
 def calc_boundary_nodes(
-    elems, include_corners=True, include_sides=True, tol=1e-8, patches=None
+    elems, include_corners=True, include_sides=True, tol=1e-8, patches=None, egroup=None
 ):
     nodes = elems.get_nodes()
     rank = nodes.rank()
@@ -97,7 +104,7 @@ def calc_boundary_nodes(
     max_node_count = elems.max_elem_node_count()
 
     if patches is None:
-        patches = get_patches_around_nodes(elems)
+        patches = get_patches_around_nodes(elems, egroup=egroup)
 
     for inode in range(len(nodes)):
         ipatch = patches[inode]
@@ -205,51 +212,83 @@ def invert_convex_mesh(elems):
     return invnodes, invelems
 
 
-def invert_mesh(elems):
-    nodes = elems.get_nodes()
-    bboxes = create_bboxes(elems)
-
-    inodesb = calc_boundary_nodes(elems)
-
-    invnodes = XNodeSet()
-    for inodeb in inodesb:
-        coords = nodes.get_node_coords(inodeb)
-        invnodes.add_node(coords)
-
-    for inodes in elems:
-        coords = nodes.get_some_coords(inodes)
-        midpoint = np.mean(coords, axis=0)
-        invnodes.add_node(midpoint)
-
-    invnodes.to_nodeset()
-    invelems = create_convex_triangulation(invnodes)
-
-    idelelems = []
-    for iinvelem, iinvnodes in enumerate(invelems):
-        invcoords = invnodes.get_some_coords(iinvnodes)
-        midpoint = np.mean(invcoords, axis=0)
-
-        ielems = list_point_bbox_intersections(midpoint, bboxes)
-
-        if len(ielems) == 0:
-            idelelems.append(iinvelem)
+def invert_mesh(mesh):
+    if isinstance(mesh, ElementSet):
+        elems = mesh
+        nodes = elems.get_nodes()
+        egroups = {"all": np.arange(len(elems))}
+    else:
+        assert isinstance(mesh, tuple)
+        if len(mesh) == 2:
+            nodes, elems = mesh
+            egroups = {"all": np.arange(len(elems))}
+        elif len(mesh) == 3:
+            nodes, elems, egroups = mesh
         else:
-            for ielem in ielems:
-                inodes = elems.get_elem_nodes(ielem)
-                coords = nodes.get_some_coords(inodes)
-                if check_point_in_polygon(midpoint, coords):
-                    break
-            else:
+            assert False
+
+    assert isinstance(nodes, NodeSet)
+    assert isinstance(elems, ElementSet)
+
+    egroups = split_discontiguous_elementgroups((nodes, elems, egroups))
+    bboxes = create_bboxes(elems)
+    mesh_list = []
+
+    for name, egroup in egroups.items():
+        inodesb = calc_boundary_nodes(elems, egroup=egroup)
+        mask = np.array([ielem in egroup for ielem in np.arange(len(elems))])
+
+        invnodes = XNodeSet()
+        for inodeb in inodesb:
+            coords = nodes.get_node_coords(inodeb)
+            invnodes.add_node(coords)
+
+        for ielem in egroup:
+            inodes = elems[ielem]
+            coords = nodes.get_some_coords(inodes)
+            midpoint = np.mean(coords, axis=0)
+            invnodes.add_node(midpoint)
+
+        invnodes.to_nodeset()
+        invelems = create_convex_triangulation(invnodes)
+
+        idelelems = []
+        for iinvelem, iinvnodes in enumerate(invelems):
+            invcoords = invnodes.get_some_coords(iinvnodes)
+            midpoint = np.mean(invcoords, axis=0)
+
+            ielems = list_point_bbox_intersections(midpoint, bboxes)
+            ielems = ielems[np.where(mask[ielems])]
+
+            if len(ielems) == 0:
                 idelelems.append(iinvelem)
-    idelelems = np.array(idelelems)
+            else:
+                for ielem in ielems:
+                    inodes = elems.get_elem_nodes(ielem)
+                    coords = nodes.get_some_coords(inodes)
+                    if check_point_in_polygon(midpoint, coords):
+                        break
+                else:
+                    idelelems.append(iinvelem)
+        idelelems = np.array(idelelems)
 
-    to_xelementset(invelems)
-    idelelems = -np.sort(-idelelems)
-    for idelelem in idelelems:
-        invelems.erase_element(idelelem)
-    invelems.to_elementset()
+        to_xelementset(invelems)
+        idelelems = -np.sort(-idelelems)
+        for idelelem in idelelems:
+            invelems.erase_element(idelelem)
+        invelems.to_elementset()
 
-    return invnodes, invelems
+        invegroup = ElementGroup(invelems)
+        invegroup.add_elements(np.arange(len(invelems)))
+        invegroups = {name.split("_")[0]: invegroup}
+
+        mesh_list.append((invnodes, invelems, invegroups))
+
+    if len(mesh_list) == 1:
+        return mesh_list[1]
+    else:
+        mesh = merge_meshes(mesh_list)
+        return mesh
 
 
 PTR = ct.POINTER
@@ -302,12 +341,117 @@ def get_patch_around_node(inode, elems):
     return idx0[np.where(elems._groupsizes[idx0] > idx1)]
 
 
-def get_patches_around_nodes(elems):
+def get_patches_around_nodes(elems, egroup=None):
     nodes = elems.get_nodes()
     patches = [[] for _ in nodes]
 
-    for ielem, inodes in enumerate(elems):
+    if egroup is None:
+        ielems = np.arange(len(elems))
+    else:
+        ielems = egroup.get_indices()
+
+    for ielem in ielems:
+        inodes = elems[ielem]
         for inode in inodes:
             patches[inode].append(ielem)
 
     return patches
+
+
+def split_discontiguous_elementgroups(mesh):
+    assert isinstance(mesh, tuple)
+    nodes, elems, egroups = mesh
+
+    split_egroups = {}
+
+    for name, egroup in egroups.items():
+        nodesubgroups = []
+        elemsubgroups = []
+
+        for ielem in egroup.get_indices():
+            inodes = elems[ielem]
+            matches = set()
+
+            for inode in inodes:
+                for igroup, nodesubgroup in enumerate(nodesubgroups):
+                    if inode in nodesubgroup:
+                        matches.add(igroup)
+
+            matches = sorted(list(matches))
+            if len(matches) == 0:
+                nodesubgroups.append(set(inodes))
+                elemsubgroups.append(set([ielem]))
+            elif len(matches) == 1:
+                igroup = matches.pop()
+                nodesubgroups[igroup].update(inodes)
+                elemsubgroups[igroup].add(ielem)
+            else:
+                imaingroup = matches.pop(0)
+                nodesubgroups[imaingroup].update(inodes)
+                elemsubgroups[imaingroup].add(ielem)
+
+                # merge subgroups
+                for igroup in matches[::-1]:
+                    nodesubgroups[imaingroup].update(nodesubgroups.pop(igroup))
+                    elemsubgroups[imaingroup].update(elemsubgroups.pop(igroup))
+
+        for i, elemsubgroup in enumerate(elemsubgroups):
+            group_name = "{}_{}".format(name, i)
+            split_egroups[group_name] = ElementGroup(elems)
+            split_egroups[group_name].add_elements(elemsubgroup)
+
+    return split_egroups
+
+
+def merge_meshes(meshes):
+    from fem.meshing.findnode import find_coords_in_nodeset
+
+    joint_nodes = XNodeSet()
+    joint_elems = XElementSet(joint_nodes)
+    joint_egroups = {}
+
+    for mesh in meshes:
+        if len(mesh) == 2:
+            nodes, elems = mesh
+            do_groups = False
+        else:
+            assert len(mesh) == 3
+            nodes, elems, egroups = mesh
+            do_groups = True
+
+        nodemap = {}
+        elemmap = {}
+
+        for inode, coords in enumerate(nodes):
+            ijointnode = find_coords_in_nodeset(coords, joint_nodes)
+
+            if ijointnode is None:
+                ijointnode = joint_nodes.add_node(coords)
+
+            nodemap[inode] = ijointnode
+
+        for ielem, inodes in enumerate(elems):
+            ijointnodes = [nodemap[inode] for inode in inodes]
+            ijointelem = joint_elems.add_element(ijointnodes)
+
+            elemmap[ielem] = ijointelem
+
+        if do_groups:
+            for name, egroup in egroups.items():
+                if name in joint_egroups:
+                    joint_egroup = joint_egroups[name]
+                else:
+                    joint_egroup = ElementGroup(joint_elems)
+                    joint_egroups[name] = joint_egroup
+
+                for ielem in egroup:
+                    ijointelem = elemmap[ielem]
+                    joint_egroup.add_element(ijointelem)
+
+    joint_nodes.to_nodeset()
+    joint_elems.to_elementset()
+
+    if do_groups:
+        return joint_nodes, joint_elems, joint_egroups
+    else:
+        return joint_nodes, joint_elems

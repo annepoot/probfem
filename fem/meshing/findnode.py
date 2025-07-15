@@ -17,6 +17,9 @@ def find_coords_in_nodeset(coords, nodes, *, tol=1e-8):
         all_coords = nodes
 
     if len(coords.shape) == 1:
+        if len(nodes) == 0:
+            return None
+
         inodes = np.where(np.all(abs(all_coords - coords) < tol, axis=1))[0]
         if len(inodes) == 0:
             return None
