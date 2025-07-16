@@ -391,8 +391,16 @@ class BFEMLikelihoodHeterarchical(Likelihood):
 
         mean = A_obs @ u_obs
 
-        prior = A_ref @ K_ref_inv @ A_ref.T
-        downdate = A_ref @ K_ref_inv @ K_x @ K_obs_inv @ K_x.T @ K_ref_inv @ A_ref.T
+        # prior = A_ref @ K_ref_inv @ A_ref.T
+        # downdate = A_ref @ K_ref_inv @ K_x @ K_obs_inv @ K_x.T @ K_ref_inv @ A_ref.T
+
+        # A (I - P_obs) P_ref (D - Phi_obs K_obs_inv Phi_obs.T) P_ref.T (I - P_obs.T) A.T
+        A_null = A_ref.evaluate() - (A_obs @ K_obs_inv @ K_x.T).evaluate()
+        A_null = Matrix(A_null, name="A_null")
+
+        prior = A_null @ K_ref_inv @ A_null.T
+        downdate = A_null @ K_ref_inv @ K_x @ K_obs_inv @ K_x.T @ K_ref_inv @ A_null.T
+
         cov = prior.evaluate() - downdate.evaluate()
         cov *= alpha2_mle
         cov += self.e.cov.expr.evaluate()
