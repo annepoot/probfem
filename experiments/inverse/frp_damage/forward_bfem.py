@@ -12,7 +12,8 @@ from experiments.inverse.frp_damage.props import get_fem_props
 from experiments.inverse.frp_damage import caching, misc, params
 from util.linalg import Matrix
 
-hierarchical = False
+# options: refined, shifted, flipped
+ref_type = "flipped"
 
 props = get_fem_props()
 
@@ -35,12 +36,17 @@ props = get_fem_props()
 obs_jive = CJiveRunner(props, elems=obs_elems, egroups=obs_egroups)
 obs_globdat = obs_jive(**obs_backdoor)
 
-if hierarchical:
+if ref_type == "refined":
     h_ref = "{:.3f}r1".format(h_obs)
     ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
-else:
+elif ref_type == "shifted":
     h_ref = "{:.3f}d1".format(h_obs)
     ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_ref)
+elif ref_type == "flipped":
+    h_ref = "{:.3f}d2".format(h_obs)
+    ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_ref)
+else:
+    assert False
 
 ref_egroup = ref_egroups["matrix"]
 ref_ipoints = caching.get_or_calc_ipoints(egroup=ref_egroup, h=h_ref)
@@ -76,12 +82,17 @@ ElemViewer(
     title=r"stiffness, $N_e = {}$".format(len(ref_elems)),
 )
 
-if hierarchical:
+if ref_type == "refined":
     h_hyp = "{:.3f}r1".format(h_obs)
     hyp_mesh = ref_nodes, ref_elems, ref_egroups
-else:
+elif ref_type == "shifted":
     h_hyp = "{:.3f}h1".format(h_obs)
     hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_hyp, do_groups=True)
+elif ref_type == "flipped":
+    h_hyp = "{:.3f}h2".format(h_obs)
+    hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_hyp, do_groups=True)
+else:
+    assert False
 
 hyp_nodes, hyp_elems, hyp_egroups = hyp_mesh
 hyp_egroup = hyp_egroups["matrix"]
@@ -146,7 +157,7 @@ obs_prior.recompute_moments(**obs_backdoor)
 ref_prior.recompute_moments(**ref_backdoor)
 hyp_prior.recompute_moments(**hyp_backdoor)
 
-if hierarchical:
+if ref_type == "refined":
     H_obs, f_obs = compute_bfem_observations(obs_prior, ref_prior)
     posterior = ref_prior.condition_on(H_obs, f_obs)
 

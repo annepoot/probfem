@@ -22,20 +22,26 @@ h_obs = 0.050
 sigma_e = 1e-3
 seed = 0
 
-hierarchical = False
+# options: refined, shifted, flipped
+ref_type = "refined"
 
 for seed in range(1):
-    if hierarchical:
+    if ref_type == "refined":
         h_ref = "{:.3f}r1".format(h_obs)
-    else:
+    elif ref_type == "shifted":
         h_ref = "{:.3f}d1".format(h_obs)
         h_hyp = "{:.3f}h1".format(h_obs)
+    elif ref_type == "flipped":
+        h_ref = "{:.3f}d2".format(h_obs)
+        h_hyp = "{:.3f}h2".format(h_obs)
+    else:
+        assert False
 
     obs_nodes, obs_elems, obs_egroups = caching.get_or_calc_mesh(h=h_obs)
     egroup_obs = obs_egroups["matrix"]
     obs_distances = caching.get_or_calc_distances(egroup=egroup_obs, h=h_obs)
 
-    if hierarchical:
+    if ref_type == "refined":
         ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
         egroup_ref = ref_egroups["matrix"]
         ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
@@ -75,7 +81,7 @@ for seed in range(1):
     ref_ipoints = caching.get_or_calc_ipoints(egroup=egroup_ref, h=h_ref)
     ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
 
-    if not hierarchical:
+    if ref_type != "refined":
         hyp_ipoints = caching.get_or_calc_ipoints(egroup=egroup_hyp, h=h_hyp)
         hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
 
@@ -89,20 +95,20 @@ for seed in range(1):
     ref_backdoor["ycoord"] = ref_ipoints[:, 1]
     ref_backdoor["e"] = np.zeros(ref_ipoints.shape[0])
 
-    if not hierarchical:
+    if ref_type != "refined":
         hyp_backdoor = {}
         hyp_backdoor["xcoord"] = hyp_ipoints[:, 0]
         hyp_backdoor["ycoord"] = hyp_ipoints[:, 1]
         hyp_backdoor["e"] = np.zeros(hyp_ipoints.shape[0])
 
-    if hierarchical:
+    if ref_type == "refined":
         operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
     else:
         operator = caching.get_or_calc_dic_operator(elems=hyp_elems, h=h_hyp)
 
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
-    if hierarchical:
+    if ref_type == "refined":
         likelihood = BFEMLikelihoodHierarchical(
             operator=operator,
             observations=truth,
@@ -157,11 +163,8 @@ for seed in range(1):
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
-    if hierarchical:
-        fname = "checkpoint_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
-    else:
-        fname = "checkpoint_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
-    fname = os.path.join("checkpoints", fname.format(h_obs, sigma_e, seed))
+    fname = "checkpoint_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    fname = os.path.join("checkpoints", fname.format(ref_type, h_obs, sigma_e, seed))
 
     mcmc = MCMCRunner(
         target=target,
@@ -177,16 +180,10 @@ for seed in range(1):
 
     samples, info = mcmc()
 
-    if hierarchical:
-        fname = "posterior-samples_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    else:
-        fname = "posterior-samples_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = os.path.join("output", fname.format(h_obs, sigma_e, seed))
+    fname = "posterior-samples_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = os.path.join("output", fname.format(ref_type, h_obs, sigma_e, seed))
     np.save(fname, samples)
 
-    if hierarchical:
-        fname = "posterior-logpdfs_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    else:
-        fname = "posterior-logpdfs_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = os.path.join("output", fname.format(h_obs, sigma_e, seed))
+    fname = "posterior-logpdfs_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = os.path.join("output", fname.format(ref_type, h_obs, sigma_e, seed))
     np.save(fname, info["loglikelihood"])
