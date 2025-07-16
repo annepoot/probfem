@@ -9,7 +9,6 @@ from experiments.inverse.frp_damage import caching, params
 n_fiber = params.geometry_params["n_fiber"]
 h = 0.100
 fibers = caching.get_or_calc_fibers()
-print("Computing mesh")
 rve_size = params.geometry_params["rve_size"]
 r_fiber = params.geometry_params["r_fiber"]
 

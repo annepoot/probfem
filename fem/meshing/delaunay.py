@@ -35,7 +35,13 @@ def create_convex_triangulation(nodes):
 
     elems = XElementSet(nodes)
     for inodes in tri.simplices:
-        elems.add_element(inodes)
+        coords = nodes[inodes]
+        sides = np.linalg.norm(np.roll(coords, shift=1, axis=0) - coords, axis=1)
+        ratio = np.max(sides) / np.sum(sides)
+
+        if 0.5 - ratio > 1e-12:
+            elems.add_element(inodes)
+
     elems.to_elementset()
 
     return elems
@@ -184,6 +190,63 @@ def calc_boundary_nodes(
     return bnodes
 
 
+def calc_boundary_chains(elems, patches=None, egroup=None):
+    nodes = elems.get_nodes()
+    rank = nodes.rank()
+    assert rank == 2
+
+    inodesb = calc_boundary_nodes(elems, patches=patches, egroup=egroup)
+    inodesb = list(inodesb.keys())
+
+    if patches is None:
+        patches = get_patches_around_nodes(elems, egroup=egroup)
+
+    bchains = []
+
+    while len(inodesb) > 0:
+        start_node = inodesb[0]
+        current_node = start_node
+
+        bchain = [start_node]
+
+        while current_node != start_node or len(bchain) <= 1:
+            patch_elems = patches[current_node]
+            patch_nodes = elems.get_nodes_of(patch_elems)
+            _, idx, cnt = np.unique(patch_nodes, return_index=True, return_counts=True)
+            unique_nodes = patch_nodes[idx[cnt == 1]]
+
+            prev_bnode = next_bnode = -1
+
+            for ielem in patch_elems:
+                inodes = elems[ielem]
+                elem_node_count = len(inodes)
+
+                loc = np.where(current_node == inodes)[0]
+                assert len(loc) == 1
+
+                prev_inode = inodes[(loc[0] - 1) % elem_node_count]
+                next_inode = inodes[(loc[0] + 1) % elem_node_count]
+
+                if prev_inode in unique_nodes:
+                    assert prev_bnode == -1
+                    prev_bnode = prev_inode
+
+                if next_inode in unique_nodes:
+                    assert next_bnode == -1
+                    next_bnode = next_inode
+
+            assert prev_bnode > -1 and next_bnode > -1
+
+            next_node = next_bnode
+            current_node = next_node
+            bchain.append(current_node)
+            inodesb.remove(current_node)
+
+        bchains.append(bchain)
+
+    return bchains
+
+
 def invert_convex_mesh(elems):
     nodes = elems.get_nodes()
 
@@ -252,6 +315,7 @@ def invert_mesh(mesh):
         invnodes.to_nodeset()
         invelems = create_convex_triangulation(invnodes)
 
+        # remove fill-ins
         idelelems = []
         for iinvelem, iinvnodes in enumerate(invelems):
             invcoords = invnodes.get_some_coords(iinvnodes)
@@ -276,6 +340,22 @@ def invert_mesh(mesh):
         idelelems = -np.sort(-idelelems)
         for idelelem in idelelems:
             invelems.erase_element(idelelem)
+
+        # restore slivers in concave corners
+        bnormals = calc_boundary_nodes(invelems)
+        bchains = calc_boundary_chains(invelems)
+
+        for bchain in bchains:
+            for ib, bnode in enumerate(bchain):
+                normals = bnormals[bnode]
+                if np.cross(normals[0], normals[1]) < -1e-8:
+                    from fem.meshing import find_coords_in_nodeset
+
+                    if find_coords_in_nodeset(invnodes[bnode], nodes) is None:
+                        prev_bnode = bchain[(ib - 1) % len(bchain)]
+                        next_bnode = bchain[(ib + 1) % len(bchain)]
+                        invelems.add_element([next_bnode, bnode, prev_bnode])
+
         invelems.to_elementset()
 
         invegroup = ElementGroup(invelems)
