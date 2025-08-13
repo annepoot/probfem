@@ -171,7 +171,7 @@ if ref_type == "refined":
             samples[i] - mean,
             ref_globdat,
             comp=0,
-            fname="img/bfem-hier-posterior_sample-{}_h-{:.3f}.png".format(i, h_obs),
+            fname="img/posterior-sample_{}_{}_h-{:.3f}.png".format(ref_type, i, h_obs),
         )
 
     QuickViewer(
@@ -185,7 +185,7 @@ if ref_type == "refined":
         ref_globdat,
         comp=0,
         maxcolor=2e-4,
-        fname="img/bfem-hier-posterior_std_h-{:.3f}.png".format(h_obs),
+        fname="img/posterior-std_{}_h-{:.3f}.png".format(ref_type, h_obs),
     )
 else:
     H_obs, f_obs = compute_bfem_observations(obs_prior, hyp_prior)
@@ -217,7 +217,7 @@ else:
             samples[i],
             hyp_globdat,
             comp=0,
-            fname="img/bfem-heter-posterior_sample-{}_h-{:.3f}.png".format(i, h_obs),
+            fname="img/posterior-sample_{}_{}_h-{:.3f}.png".format(ref_type, i, h_obs),
         )
 
     QuickViewer(
@@ -225,5 +225,5 @@ else:
         hyp_globdat,
         maxcolor=2e-4,
         comp=0,
-        fname="img/bfem-heter-posterior_std_h-{:.3f}.png".format(h_obs),
+        fname="img/posterior-std_{}_h-{:.3f}.png".format(ref_type, h_obs),
     )

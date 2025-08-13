@@ -22,7 +22,7 @@ k = 1
 l = 10
 seed = 0
 n_burn = 10000
-fem_type = "fem"
+fem_type = "bfem-shifted"
 
 for h in [0.100, 0.050, 0.020, 0.010]:
     E_matrix = params.material_params["E_matrix"]
@@ -35,40 +35,32 @@ for h in [0.100, 0.050, 0.020, 0.010]:
     logpdf_list = []
 
     for seed in range(10):
-        if np.isinf(k):
-            fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, seed)
-            fname = os.path.join("output", "fem", fname)
-        elif fem_type == "pod":
-            fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, k, seed)
-            fname = os.path.join("output", "pod", fname)
-            n_filter = 1000
-        elif fem_type == "bpod":
-            fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, k, l, seed)
-            fname = os.path.join("output", "bpod", fname)
-            n_filter = 1000
-        elif fem_type == "fem":
-            fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, seed)
-            fname = os.path.join("output", "fem", fname)
-            n_filter = 1000
-        elif fem_type == "bfem":
-            fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, seed)
-            fname = os.path.join("output", "bfem", fname)
-            n_filter = 1000
-        elif fem_type == "bfem-hier":
-            fname = "posterior-samples_bfem-hier_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, seed)
-            fname = os.path.join("output", "bfem", fname)
-            n_filter = 1000
-        elif fem_type == "bfem-heter":
-            fname = "posterior-samples_bfem-heter_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-            fname = fname.format(h, sigma_e, seed)
-            fname = os.path.join("output", "bfem", fname)
-            n_filter = 1000
+        n_filter = 1000
+
+        if "pod" in fem_type:
+            if np.isinf(k):
+                fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+                fname = fname.format(h, sigma_e, seed)
+                fname = os.path.join("output", "fem", fname)
+            elif "bpod" in fem_type:
+                fname = (
+                    "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}_seed-{}.npy"
+                )
+                fname = fname.format(h, sigma_e, k, l, seed)
+                fname = os.path.join("output", "bpod", fname)
+            else:
+                fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}_seed-{}.npy"
+                fname = fname.format(h, sigma_e, k, seed)
+                fname = os.path.join("output", "pod", fname)
+        elif "fem" in fem_type:
+            if "bfem" in fem_type:
+                fname = "posterior-samples_{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+                fname = fname.format(fem_type, h, sigma_e, seed)
+                fname = os.path.join("output", "bfem", fname)
+            else:
+                fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+                fname = fname.format(h, sigma_e, seed)
+                fname = os.path.join("output", "fem", fname)
         else:
             raise ValueError
 
@@ -122,30 +114,25 @@ for h in [0.100, 0.050, 0.020, 0.010]:
 
         ax.plot(domain, true_damage, color="k", linestyle="--")
 
-        if fem_type == "pod":
-            title = r"Posterior samples POD, $k={}$".format(k)
-            fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.pdf"
-            fname = os.path.join("img", fname.format(h, sigma_e, k))
-        elif "bpod" in fem_type:
-            title = r"Posterior samples BPOD, $k={}$, $l={}$".format(k, l)
-            fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.pdf"
-            fname = os.path.join("img", fname.format(h, sigma_e, k, l))
-        elif fem_type == "fem":
-            title = r"Posterior samples FEM, $h={:.3f}$".format(h)
-            fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.pdf"
-            fname = os.path.join("img", fname.format(h, sigma_e))
-        elif fem_type == "bfem":
-            title = r"Posterior samples BFEM, $h={:.3f}$".format(h)
-            fname = "posterior-samples_bfem_h-{:.3f}_noise-{:.0e}.pdf"
-            fname = os.path.join("img", fname.format(h, sigma_e))
-        elif fem_type == "bfem-hier":
-            title = r"Posterior samples BFEM (hierarchical), $h={:.3f}$".format(h)
-            fname = "posterior-samples_bfem-hier_h-{:.3f}_noise-{:.0e}.pdf"
-            fname = os.path.join("img", fname.format(h, sigma_e))
-        elif fem_type == "bfem-heter":
-            title = r"Posterior samples BFEM (nonhierarchical), $h={:.3f}$".format(h)
-            fname = "posterior-samples_bfem-heter_h-{:.3f}_noise-{:.0e}.pdf"
-            fname = os.path.join("img", fname.format(h, sigma_e))
+        if "pod" in fem_type:
+            if "bpod" in fem_type:
+                title = r"Posterior samples BPOD, $k={}$, $l={}$".format(k, l)
+                fname = "posterior-samples_bpod_h-{:.3f}_noise-{:.0e}_k-{}_l-{}.pdf"
+                fname = os.path.join("img", fname.format(h, sigma_e, k, l))
+            else:
+                title = r"Posterior samples POD, $k={}$".format(k)
+                fname = "posterior-samples_pod_h-{:.3f}_noise-{:.0e}_k-{}.pdf"
+                fname = os.path.join("img", fname.format(h, sigma_e, k))
+        elif "fem" in fem_type:
+            if "bfem" in fem_type:
+                title = r"Posterior samples BFEM ({}), $h={:.3f}$"
+                title = title.format(fem_type.split("-")[1], h)
+                fname = "posterior-samples_{}_h-{:.3f}_noise-{:.0e}.pdf"
+                fname = os.path.join("img", fname.format(fem_type, h, sigma_e))
+            else:
+                title = r"Posterior samples FEM, $h={:.3f}$".format(h)
+                fname = "posterior-samples_fem_h-{:.3f}_noise-{:.0e}.pdf"
+                fname = os.path.join("img", fname.format(h, sigma_e))
         else:
             assert False
 
