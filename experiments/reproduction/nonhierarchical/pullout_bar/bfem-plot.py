@@ -28,7 +28,7 @@ f = props["model"]["model"]["neum"]["initLoad"]
 
 n_elem = 4
 
-# options: exact, hierarchical, inverted, random
+# options: exact, hierarchical, dual, random, left, right
 ref_type = "exact"
 
 obs_nodes, obs_elems = mesh_interval_with_line2(n=n_elem)
@@ -37,10 +37,16 @@ if ref_type == "exact":
     ref_nodes, ref_elems = mesh_interval_with_line2(n=720)
 elif ref_type == "hierarchical":
     ref_nodes, ref_elems = mesh_interval_with_line2(n=2 * n_elem)
-elif ref_type == "inverted":
-    ref_nodes, ref_elems = misc.invert_mesh(obs_elems)
+elif ref_type == "dual":
+    ref_nodes, ref_elems = misc.dual_mesh(obs_elems)
 elif ref_type == "random":
     ref_nodes, ref_elems = misc.random_mesh(n=n_elem, seed=0)
+elif ref_type == "left":
+    ref_nodes, ref_elems = mesh_interval_with_line2(n=n_elem + 1)
+    ref_nodes._data[: n_elem + 1, 0] = np.linspace(0, 0.5, n_elem + 1)
+elif ref_type == "right":
+    ref_nodes, ref_elems = mesh_interval_with_line2(n=n_elem + 1)
+    ref_nodes._data[1 : n_elem + 2, 0] = np.linspace(0.5, 1.0, n_elem + 1)
 else:
     assert False
 
@@ -97,15 +103,38 @@ cov = Phi_ref @ (Phi_ref @ cov).T
 
 Phi_plot = create_phi_from_globdat(hyp_globdat, plot_globdat)
 
+prior = Gaussian(None, alpha2_mle * K_ref.inv.evaluate()) @ Phi_ref.T @ Phi_plot.T
 posterior = Gaussian(mean, cov, allow_singular=True) @ Phi_plot.T
 
+samples_u_prior = prior.calc_samples(20, 0)
 samples_u_post = posterior.calc_samples(20, 0)
+u_prior = prior.calc_mean()
 u_post = posterior.calc_mean()
+std_u_prior = prior.calc_std()
 std_u_post = posterior.calc_std()
 
-c = sns.color_palette("rocket_r", n_colors=8)[2]
+c = sns.color_palette("rocket_r", n_colors=8)[int(np.log2(n_obs))]
 x_plot = np.linspace(0, 1, len(u_post))
 u_exact = misc.u_exact(x_plot, k=k, E=E, f=f)
+
+xmarkers = np.linspace(0.0, 1.0, 6)
+ymarkers = np.linspace(-1.5, 1.5, 7)
+
+plt.figure()
+plt.plot(x_plot, u_prior, color=c)
+plt.plot(x_plot, samples_u_prior.T, color=c, linewidth=0.5)
+plt.fill_between(
+    x_plot, u_prior - 2 * std_u_prior, u_prior + 2 * std_u_prior, color=c, alpha=0.3
+)
+plt.xlabel(r"$x$", fontsize=12)
+plt.ylabel(r"$u$", fontsize=12)
+plt.xticks(xmarkers)
+plt.yticks(ymarkers)
+plt.ylim(ymarkers[[0, -1]])
+fname = "bfem-prior_{}.pdf".format(ref_type)
+fname = os.path.join("img", fname)
+plt.savefig(fname=fname, bbox_inches="tight")
+plt.show()
 
 xmarkers = np.linspace(0.0, 1.0, 6)
 ymarkers = np.linspace(-1.0, 2.0, 7)
