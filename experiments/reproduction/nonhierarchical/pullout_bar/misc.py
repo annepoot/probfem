@@ -31,7 +31,7 @@ def u_exact(x, *, k, E, f):
     return A * (np.exp(nu * x) + np.exp(-nu * x))
 
 
-def invert_mesh(mesh):
+def dual_mesh(mesh):
     if isinstance(mesh, ElementSet):
         elems = mesh
         nodes = elems.get_nodes()

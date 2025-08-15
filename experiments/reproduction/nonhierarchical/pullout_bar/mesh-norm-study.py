@@ -10,8 +10,8 @@ from experiments.reproduction.nonhierarchical.pullout_bar import misc
 
 n_elem = 4
 
-# options: exact, hierarchical, inverted, random
-ref_type = "inverted"
+# options: exact, hierarchical, dual, random
+ref_type = "dual"
 
 obs_nodes, obs_elems = mesh_interval_with_line2(n=n_elem)
 
@@ -19,14 +19,14 @@ if ref_type == "exact":
     ref_nodes, ref_elems = mesh_interval_with_line2(n=2048)
 elif ref_type == "hierarchical":
     ref_nodes, ref_elems = mesh_interval_with_line2(n=4 * n_elem)
-elif ref_type == "inverted":
-    ref_nodes, ref_elems = misc.invert_mesh(obs_elems)
+elif ref_type == "dual":
+    ref_nodes, ref_elems = misc.dual_mesh(obs_elems)
 elif ref_type == "random":
     ref_nodes, ref_elems = misc.random_mesh(n=n_elem, seed=0)
 else:
     assert False
 
-# options: exact, hierarchical, inverted, random
+# options: exact, hierarchical, dual, random
 n_obs = 4
 n_refs = np.array([4, 8, 16, 32, 64, 128, 256])
 n_refs_hierarchical = n_refs[1:]
@@ -38,12 +38,12 @@ n_seed = 10
 obs_nodes, obs_elems = mesh_interval_with_line2(n=n_elem)
 
 hierarchical_norms = np.zeros_like(n_refs_hierarchical, dtype=float)
-inverted_norms = np.zeros_like(n_refs, dtype=float)
+dual_norms = np.zeros_like(n_refs, dtype=float)
 random_norms = np.zeros((len(n_refs_random), n_seed), dtype=float)
 dropout_norms = np.zeros((len(n_refs_random), n_seed), dtype=float)
 optimal_norms = np.zeros_like(n_refs_optimal, dtype=float)
 
-for ref_type in ["exact", "hierarchical", "inverted", "optimal", "random"]:
+for ref_type in ["exact", "hierarchical", "dual", "optimal", "random"]:
     if ref_type == "exact":
         ref_nodes, ref_elems = mesh_interval_with_line2(n=2048)
         exact_norm = misc.calc_norm(obs_elems, ref_elems)
@@ -51,11 +51,11 @@ for ref_type in ["exact", "hierarchical", "inverted", "optimal", "random"]:
         for i, n_ref in enumerate(n_refs_hierarchical):
             ref_nodes, ref_elems = mesh_interval_with_line2(n=n_ref)
             hierarchical_norms[i] = misc.calc_norm(obs_elems, ref_elems)
-    elif ref_type == "inverted":
+    elif ref_type == "dual":
         for i, n_ref in enumerate(n_refs):
             ref_nodes, ref_elems = mesh_interval_with_line2(n=n_ref)
-            ref_nodes, ref_elems = misc.invert_mesh(ref_elems)
-            inverted_norms[i] = misc.calc_norm(obs_elems, ref_elems)
+            ref_nodes, ref_elems = misc.dual_mesh(ref_elems)
+            dual_norms[i] = misc.calc_norm(obs_elems, ref_elems)
     elif ref_type == "dropout":
         for i, n_ref in enumerate(n_refs):
             for j in range(n_seed):
@@ -99,10 +99,10 @@ ax.scatter(
 )
 ax.scatter(
     n_refs + 1,
-    exact_norm - inverted_norms,
+    exact_norm - dual_norms,
     color="C1",
     marker="o",
-    label="inverted",
+    label="dual",
 )
 ax.plot(
     n_refs_optimal,

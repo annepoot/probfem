@@ -34,8 +34,15 @@ plt.rc("text", usetex=True)  # use latex for text
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 colors = dict(zip([1, 2, 4, 8, 16, 32, 64], sns.color_palette("rocket_r", n_colors=8)))
 
-for fem_type in ["fem", "bfem-exact", "bfem-hierarchical", "bfem-inverted"]:
-    if fem_type == "fem":
+for fem_type in [
+    "fem",
+    "bfem-exact",
+    "bfem-hierarchical",
+    "bfem-dual",
+    "bfem-left",
+    "bfem-right",
+]:
+    if fem_type in ["fem", "bfem-left"]:
         n_elem_range = [1, 2, 4, 8, 16, 32, 64]
     else:
         n_elem_range = [1, 4, 16, 64]

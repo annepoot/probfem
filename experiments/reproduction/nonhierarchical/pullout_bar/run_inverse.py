@@ -45,12 +45,18 @@ n_sample = 20000
 tempering = linear_tempering
 
 std_corruption = 1e-3
-n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
+n_elem_range = [1, 2, 4, 8, 16, 32, 64]
 
 write_output = True
 
-for fem_type in ["fem", "bfem-exact", "bfem-hierarchical", "bfem-inverted"]:
-
+for fem_type in [
+    "fem",
+    "bfem-exact",
+    "bfem-hierarchical",
+    "bfem-dual",
+    "bfem-left",
+    "bfem-right",
+]:
     if write_output:
         fname = os.path.join("output", "samples-{}.csv".format(fem_type))
         file = open(fname, "w")
@@ -112,8 +118,32 @@ for fem_type in ["fem", "bfem-exact", "bfem-hierarchical", "bfem-inverted"]:
                 scale=scale,  # f_c.T @ u_c / n_c
                 sigma_e=sigma_e,
             )
-        elif fem_type == "bfem-inverted":
-            ref_nodes, ref_elems = misc.invert_mesh(elems)
+        elif fem_type == "bfem-dual":
+            ref_nodes, ref_elems = misc.dual_mesh(elems)
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
+            target = get_rwm_bfem_target(
+                obs_elems=elems,
+                ref_elems=ref_elems,
+                hyp_elems=hyp_elems,
+                std_corruption=std_corruption,
+                scale=scale,  # f_c.T @ u_c / n_c
+                sigma_e=sigma_e,
+            )
+        elif fem_type == "bfem-left":
+            ref_nodes, ref_elems = generate_mesh(n_elem + 1)
+            ref_nodes._data[: n_elem + 1, 0] = np.linspace(0, 0.5, n_elem + 1)
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
+            target = get_rwm_bfem_target(
+                obs_elems=elems,
+                ref_elems=ref_elems,
+                hyp_elems=hyp_elems,
+                std_corruption=std_corruption,
+                scale=scale,  # f_c.T @ u_c / n_c
+                sigma_e=sigma_e,
+            )
+        elif fem_type == "bfem-right":
+            ref_nodes, ref_elems = generate_mesh(n_elem + 1)
+            ref_nodes._data[1 : n_elem + 2, 0] = np.linspace(0.5, 1.0, n_elem + 1)
             (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
