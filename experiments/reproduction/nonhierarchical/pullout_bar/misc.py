@@ -396,4 +396,4 @@ def calc_norm(obs_elems, ref_elems):
         (K_ref.inv @ K_x @ K_obs.inv @ K_x.T @ K_ref.inv @ M_ref).evaluate()
     )
 
-    return posterior_norm
+    return np.sqrt(posterior_norm)
