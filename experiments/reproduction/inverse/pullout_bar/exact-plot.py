@@ -57,13 +57,16 @@ ymarkers = np.linspace(-0.25, 1.5, 8)
 colors = sns.color_palette("rocket_r", n_colors=8)
 
 plt.rc("text", usetex=True)  # use latex for text
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.serif"] = ["Computer Modern Roman"]
+plt.rcParams["legend.fontsize"] = 10
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 
 plt.figure()
 for i, (n_elem, u) in enumerate(zip(n_elems, us)):
     x = np.linspace(0, 1, n_elem + 1)
     plt.plot(x, u, label=r"$\sfrac{1}{" + str(n_elem) + "}$", color=colors[i])
-plt.plot(x, u_exact(x), color="k")
+plt.plot(x, u_exact(x), color="k", label="truth")
 plt.xlabel(r"$x$", fontsize=12)
 plt.ylabel(r"$u$", fontsize=12)
 plt.xticks(xmarkers)

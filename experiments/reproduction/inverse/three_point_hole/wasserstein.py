@@ -49,9 +49,8 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for h in [0.20, 0.10, 0.05]:
         Ws = []
 
-        for seed in range(1):
-            # fname = "output/samples-{}_seed-{}.csv".format(fem_type, seed)
-            fname = "output/samples-{}.csv".format(fem_type)
+        for seed in range(20):
+            fname = "output/samples-{}_seed-{}.csv".format(fem_type, seed)
             df = read_csv_from(fname, "x,y,a,theta,r_rel")
             df = df[df["sample"] >= N_start]
             df = df[df["sample"] <= N_end]

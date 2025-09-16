@@ -45,8 +45,9 @@ width = 0.10
 N_burn = 10000
 N_filter = 50
 h_range = [0.2, 0.1, 0.05]
+seed = 0
 
-fname = os.path.join("output", "samples-statfem.csv")
+fname = os.path.join("output", "samples-statfem_seed-{}.csv".format(seed))
 df = read_csv_from(fname, "x,y,a,theta,r_rel")
 df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
 df = df[df["h"].isin(h_range)]
@@ -57,6 +58,9 @@ df = df.melt(id_vars=["h"], value_vars=variables)
 df["fem_type"] = "statfem"
 
 plt.rc("text", usetex=True)  # use latex for text
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.serif"] = ["Computer Modern Roman"]
+plt.rcParams["legend.fontsize"] = 10
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 
 g = sns.FacetGrid(
@@ -74,7 +78,6 @@ g = sns.FacetGrid(
 g.map_dataframe(sns.kdeplot, x="value", fill=False)
 
 g.set_titles("")
-g.add_legend(title=r"$h$")
 
 for i, var in enumerate(variables):
     lims = lims_by_var(width)[var]
@@ -111,8 +114,11 @@ for i, var in enumerate(variables):
     elif var == "log_sigma_d":
         logx = np.linspace(lims[0], lims[1], 100)
         pdf = Gaussian(np.log(1e-4), np.log(1e1)).calc_pdf(logx)
-        ax.plot(logx, pdf, color="0.7", zorder=0.5)
+        ax.plot(logx, pdf, color="0.7", zorder=0.5, label="prior")
 
-fname = os.path.join("img", "statfem-marginals.pdf")
+ax = g.axes[0, 2]
+ax.legend(title=r"$h$", bbox_to_anchor=(1.0, 0.5), loc="center left", frameon=False)
+
+fname = os.path.join("img", "statfem-marginals_seed-{}.pdf".format(seed))
 plt.savefig(fname=fname, bbox_inches="tight")
 plt.show()
