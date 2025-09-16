@@ -30,8 +30,12 @@ labels_by_var = {
 width = 1.0
 N_burn = 10000
 N_filter = 50
+seed = 0
 
 plt.rc("text", usetex=True)  # use latex for text
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.serif"] = ["Computer Modern Roman"]
+plt.rcParams["legend.fontsize"] = 10
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 colors = dict(zip([1, 2, 4, 8, 16, 32, 64], sns.color_palette("rocket_r", n_colors=8)))
 
@@ -41,7 +45,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     else:
         n_elem_range = [1, 4, 16, 64]
 
-    fname = os.path.join("output", "samples-{}.csv".format(fem_type))
+    fname = os.path.join("output", "samples-{}_seed-{}.csv".format(fem_type, seed))
     df = read_csv_from(fname, "log_E,log_k")
     df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
     df = df[df["n_elem"].isin(n_elem_range)]
@@ -83,12 +87,13 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     ax.yaxis.set_label_text(labels_by_var["k"])
 
     ax.scatter(
-        E_prior, k_prior, color="0.7", marker=".", alpha=0.4, zorder=0, linewidth=0
+        E_prior, k_prior, c="0.7", marker=".", alpha=0.4, zorder=0, lw=0, label="prior"
     )
-    ax.scatter([ref_E], [ref_k], color="k", zorder=2)
-    E = np.linspace(lims_E[0] + 1e-8, lims_E[1], 1000)
+    E_left = np.linspace(lims_E[0] + 1e-8, ref_E, 500)[:-1]
+    E_right = np.linspace(ref_E, lims_E[1], 500)
+    E = np.concatenate((E_left, E_right))
     k = ref_E * ref_k / E
-    ax.plot(E, k, color="k", linestyle=":")
+    ax.plot(E, k, ":ko", markevery=[500], markersize=5, label="truth")
 
     legend = ax.legend(title=r"$h$", loc="upper left")
     fontsize = "12"
@@ -97,6 +102,6 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
     for handle in legend.legend_handles:
         handle.set_alpha(1.0)
 
-    fname = os.path.join("img", "scatterplot_{}.pdf".format(fem_type))
+    fname = os.path.join("img", "scatterplot_{}_seed-{}.pdf".format(fem_type, seed))
     plt.savefig(fname=fname, bbox_inches="tight")
     plt.show()

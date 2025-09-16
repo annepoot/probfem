@@ -67,10 +67,11 @@ N_end = 20000
 fem_types = ["fem", "bfem", "rmfem", "statfem"]
 h_range = [0.2, 0.1, 0.05]
 std_corruption = 1e-4
+seed = 0
 
 for fem_type in fem_types:
 
-    fname = "output/samples-{}.csv".format(fem_type)
+    fname = "output/samples-{}_seed-{}.csv".format(fem_type, seed)
 
     df = read_csv_from(fname, "x,y,a,theta,r_rel")
     df = df[df["sample"] >= N_start]
@@ -140,6 +141,7 @@ for fem_type in fem_types:
 
         plt.axis("off")
 
-        fname = os.path.join("img", "sample-plot_{}_h-{:.2f}.pdf".format(fem_type, h))
+        fname = "sample-plot_{}_h-{:.2f}_seed-{}.pdf".format(fem_type, h, seed)
+        fname = os.path.join("img", fname)
         plt.savefig(fname, bbox_inches="tight")
         plt.show()

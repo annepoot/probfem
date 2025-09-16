@@ -61,10 +61,11 @@ N_filter = 50
 fem_types = ["fem", "bfem", "rmfem", "statfem"]
 h_range = [0.2, 0.1, 0.05]
 std_corruption = 1e-4
+seed = 0
 
 dfs = []
 for fem_type in fem_types:
-    fname = os.path.join("output", "samples-{}.csv".format(fem_type))
+    fname = os.path.join("output", "samples-{}_seed-{}.csv".format(fem_type, seed))
     df = read_csv_from(fname, "x,y,a,theta,r_rel")
     df = df[(df["sample"] >= N_burn) & (df["sample"] % N_filter == 0)]
     df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
@@ -78,6 +79,9 @@ for fem_type in fem_types:
 df_all = pd.concat(dfs, ignore_index=True)
 
 plt.rc("text", usetex=True)  # use latex for text
+plt.rcParams["font.family"] = "serif"
+plt.rcParams["font.serif"] = ["Computer Modern Roman"]
+plt.rcParams["legend.fontsize"] = 10
 plt.rcParams["text.latex.preamble"] = r"\usepackage{xfrac}"
 
 g = sns.FacetGrid(
@@ -95,7 +99,6 @@ g = sns.FacetGrid(
 g.map_dataframe(sns.kdeplot, x="value", fill=False)
 
 g.set_titles("")
-g.add_legend(title=r"$h$")
 
 for i, var in enumerate(variables):
     lims = lims_by_var(width)[var]
@@ -116,7 +119,7 @@ for i, var in enumerate(variables):
         ax.set_yticks(np.linspace(plims[0], plims[1], 3))
 
         if xref is not None:
-            ax.axvline(x=xref, color="k", label="ref", zorder=2)
+            ax.axvline(x=xref, color="k", label="truth", zorder=2)
 
         if j == len(fem_types) - 1:
             ax.set_xlabel(labels_by_var[var])
@@ -128,6 +131,9 @@ for i, var in enumerate(variables):
         else:
             ax.set_ylabel(None)
 
-fname = os.path.join("img", "posterior-marginals.pdf")
+ax = g.axes[2, 4]
+ax.legend(title=r"$h$", bbox_to_anchor=(1.0, 1.0), loc="center left", frameon=False)
+
+fname = os.path.join("img", "posterior-marginals_seed-{}.pdf".format(seed))
 plt.savefig(fname=fname, bbox_inches="tight")
 plt.show()

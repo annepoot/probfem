@@ -44,12 +44,14 @@ tempering = linear_tempering
 std_corruption = 1e-3
 n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
 
+seed = 0
 write_output = True
 
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
     if write_output:
-        fname = os.path.join("output", "samples-{}.csv".format(fem_type))
+        fname = "samples-{}_seed-{}.csv".format(fem_type, seed)
+        fname = os.path.join("output", fname)
         file = open(fname, "w")
 
         current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
@@ -139,7 +141,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             n_sample=n_sample,
             n_burn=n_burn,
             start_value=start_value,
-            seed=0,
+            seed=np.random.default_rng(seed),
             tempering=tempering,
             recompute_logpdf=recompute_logpdf,
             return_info=True,
