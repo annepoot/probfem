@@ -42,10 +42,10 @@ labels_by_var = {
 }
 
 width = 0.10
-N_burn = 10000
+N_burn = 0
 N_filter = 50
 h_range = [0.2, 0.1, 0.05]
-seed = 0
+seed = "0-20"
 
 fname = os.path.join("output", "samples-statfem_seed-{}.csv".format(seed))
 df = read_csv_from(fname, "x,y,a,theta,r_rel")

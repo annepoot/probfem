@@ -3,13 +3,17 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
-from probability.sampling import MCMCRunner
-from probability.multivariate import Gaussian
+from probability.sampling import MCMCRunner, IndependenceSampler
+from probability.multivariate import Gaussian, Mixture, EmpiricalMixture
+from probability.reject import RejectConditional
+from util.io import read_csv_from
+
 from experiments.reproduction.inverse.three_point_hole.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
     get_rwm_rmfem_target,
     get_rwm_statfem_target,
+    rejection_func,
 )
 
 
@@ -25,10 +29,10 @@ n_sample = 20000
 tempering = linear_tempering
 
 std_corruption = 1e-4
-h_range = [0.2, 0.1, 0.05]
+h_range = [0.20, 0.10, 0.05]
 h_meas = 0.5
 
-seed = 0
+seed = "0-20"
 write_output = True
 
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
@@ -115,20 +119,80 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         else:
             raise ValueError
 
-        start_value = target.prior.latent.calc_mean()
-        proposal = Gaussian(start_value, target.prior.latent.calc_cov())
+        if isinstance(seed, int):
+            rng = np.random.default_rng(seed)
+            start_value = target.prior.latent.calc_mean()
+            proposal = Gaussian(start_value, target.prior.latent.calc_cov())
 
-        mcmc = MCMCRunner(
-            target=target,
-            proposal=proposal,
-            n_sample=n_sample,
-            n_burn=n_burn,
-            start_value=start_value,
-            seed=np.random.default_rng(seed),
-            tempering=tempering,
-            recompute_logpdf=recompute_logpdf,
-            return_info=True,
-        )
+            mcmc = MCMCRunner(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample,
+                n_burn=n_burn,
+                start_value=start_value,
+                seed=rng,
+                tempering=tempering,
+                recompute_logpdf=recompute_logpdf,
+                return_info=True,
+            )
+
+        elif isinstance(seed, str):
+            start, end = [int(i) for i in seed.split("-")]
+            ensemble = []
+
+            for i in range(start, end):
+                fname_df = "samples-{}_seed-{}.csv".format(fem_type, i)
+                fname_df = os.path.join("output", fname_df)
+
+                df = read_csv_from(fname_df, "x,y,a,theta,r_rel")
+                df = df[df["sample"] >= n_burn]
+                df = df[abs(df["h"] - h) < 1e-8]
+                df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
+                df["theta"] = np.fmod(df["theta"], 0.5 * np.pi)
+
+                if fem_type == "statfem":
+                    columns = [
+                        "x",
+                        "y",
+                        "a",
+                        "theta",
+                        "r_rel",
+                        "log_rho",
+                        "log_l_d",
+                        "log_sigma_d",
+                    ]
+                else:
+                    columns = ["x", "y", "a", "theta", "r_rel"]
+
+                df = df[columns]
+
+                widths = np.max(df, axis=0) - np.min(df, axis=0)
+                stds = 0.05 * widths
+                covariance = np.diag(stds**2)
+                ensemble.append(EmpiricalMixture(df, covariance))
+
+            mixture = Mixture(ensemble)
+            proposal = RejectConditional(latent=mixture, reject_if=rejection_func)
+
+            # skip burn-in phase
+            rng = np.random.default_rng(end)
+            start_value = proposal.calc_sample(rng)
+            n_sample = n_sample - n_burn
+            n_burn = 0
+            tempering = None
+
+            mcmc = IndependenceSampler(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample - n_burn,
+                n_burn=0,
+                start_value=start_value,
+                seed=rng,
+                recompute_logpdf=recompute_logpdf,
+                return_info=True,
+            )
+        else:
+            assert False
 
         samples, info = mcmc()
 

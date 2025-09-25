@@ -125,7 +125,7 @@ N_end = 20000
 
 std_corruption = 1e-4
 h_range = [0.2, 0.1, 0.05]
-seed = 0
+seed = "0-20"
 
 for fem_type in ["fem"]:
     for i, h in enumerate(h_range):

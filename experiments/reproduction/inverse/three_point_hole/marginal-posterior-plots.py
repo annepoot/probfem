@@ -25,9 +25,9 @@ hard_lims_by_var = {
 p_lims_by_var = {
     "x": 20,
     "y": 20,
-    "a": 50,
-    "theta": 8,
-    "r_rel": 25,
+    "a": 30,
+    "theta": 4,
+    "r_rel": 10,
 }
 
 
@@ -54,14 +54,14 @@ labels_by_var = {
     "statfem": r"statFEM",
 }
 
-width = 0.10
-N_burn = 10000
+width = 0.20
+N_burn = 00000
 N_filter = 50
 
 fem_types = ["fem", "bfem", "rmfem", "statfem"]
 h_range = [0.2, 0.1, 0.05]
 std_corruption = 1e-4
-seed = 0
+seed = "0-20"
 
 dfs = []
 for fem_type in fem_types:

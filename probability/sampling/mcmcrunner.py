@@ -11,7 +11,7 @@ from probability.univariate import (
     Gaussian as UVGaussian,
 )
 
-__all__ = ["MCMCRunner"]
+__all__ = ["MCMCRunner", "IndependenceSampler"]
 
 
 class MCMCRunner:
@@ -283,3 +283,95 @@ class MCMCRunner:
             os.remove(self.checkpoint)
             print("Removed checkpoint")
             print("")
+
+
+class IndependenceSampler:
+    def __init__(
+        self,
+        *,
+        target,
+        proposal,
+        n_sample,
+        n_burn,
+        start_value=None,
+        seed=None,
+        recompute_logpdf=False,
+        return_info=False,
+    ):
+        assert isinstance(target, Distribution)
+        assert isinstance(proposal, Distribution)
+        self.target = target
+        self.proposal = proposal
+
+        self.n_sample = n_sample
+        self.n_burn = n_burn
+        if start_value is None:
+            self.start_value = np.zeros(len(self.target))
+        else:
+            self.start_value = start_value
+        self._rng = np.random.default_rng(seed)
+        self.recompute_logpdf = recompute_logpdf
+        self.return_info = return_info
+
+        self.print_interval = 100
+
+    def __call__(self):
+        start = 0
+        xi = self.start_value
+        logpdf = self.target.calc_logpdf(xi)
+        g = self.proposal.calc_logpdf(xi)
+
+        self.samples = np.zeros((self.n_sample + 1, len(self.target)))
+        self.samples[0] = xi
+
+        if self.return_info:
+            self.logpdfs = np.zeros((self.n_sample + 1))
+            self.logpdfs[0] = logpdf
+        else:
+            self.logpdfs = None
+
+        accept_rate = 0.0
+
+        for i in range(start + 1, self.n_sample + 1):
+            xi_prop = self.proposal.calc_sample(self._rng)
+
+            if self.recompute_logpdf:
+                logpdf = self.target.calc_logpdf(xi)
+
+            logpdf_prop = self.target.calc_logpdf(xi_prop)
+            g_prop = self.proposal.calc_logpdf(xi_prop)
+
+            logalpha = logpdf_prop - logpdf + g - g_prop
+
+            if logalpha < 0:
+                if self._rng.uniform() < np.exp(logalpha):
+                    accept = True
+                else:
+                    accept = False
+            else:
+                accept = True
+
+            if accept:
+                xi = xi_prop
+                logpdf = logpdf_prop
+                g = g_prop
+                accept_rate += 1 / self.print_interval
+
+            self.samples[i] = xi
+
+            if self.return_info:
+                self.logpdfs[i] = logpdf
+
+            if i % self.print_interval == 0:
+                print("MCMC sample {} of {}".format(i, self.n_sample))
+                print(xi)
+                print(logpdf)
+                print("Accept rate:", accept_rate)
+                print("")
+                accept_rate = 0.0
+
+        if self.return_info:
+            info = {"loglikelihood": self.logpdfs}
+            return self.samples, info
+        else:
+            return self.samples

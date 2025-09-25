@@ -19,7 +19,7 @@ from experiments.reproduction.inverse.three_point_hole.meshing import (
 )
 from experiments.reproduction.inverse.three_point_hole.props import get_fem_props
 
-__all__ = ["get_rwm_fem_target"]
+__all__ = ["rejection_func", "get_rwm_fem_target"]
 
 
 def rejection_func(params):
@@ -29,7 +29,11 @@ def rejection_func(params):
     iso_corners = np.array([[-1.0, -1.0], [1.0, -1.0], [-1.0, 1.0], [1.0, 1.0]])
     corner_coords += (0.5 * a * iso_corners) @ R.T
 
-    if np.any(corner_coords[:, 0] < 0.0):
+    if r_rel < 0.0:
+        return True
+    elif r_rel > 0.5:
+        return True
+    elif np.any(corner_coords[:, 0] < 0.0):
         return True
     elif np.any(corner_coords[:, 0] > 5.0):
         return True
