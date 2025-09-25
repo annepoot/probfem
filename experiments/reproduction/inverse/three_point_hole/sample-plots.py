@@ -60,14 +60,20 @@ refs_by_var = {
     "r": 0.1,
 }
 
-N_filter = 200
-N_start = 10000
-N_end = 20000
+seed = "0-20"
+
+if isinstance(seed, int):
+    N_filter = 200
+    N_start = 10000
+    N_end = 20000
+elif isinstance(seed, str):
+    N_filter = 200
+    N_start = 50
+    N_end = 10000
 
 fem_types = ["fem", "bfem", "rmfem", "statfem"]
-h_range = [0.2, 0.1, 0.05]
+h_range = [0.20, 0.10, 0.05]
 std_corruption = 1e-4
-seed = 0
 
 for fem_type in fem_types:
 

@@ -4,8 +4,10 @@ import pandas as pd
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
-from probability.sampling import MCMCRunner
-from probability.multivariate import Gaussian
+from probability.sampling import MCMCRunner, IndependenceSampler
+from probability.multivariate import Gaussian, Mixture, EmpiricalMixture
+from util.io import read_csv_from
+
 from experiments.reproduction.inverse.pullout_bar.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
@@ -44,7 +46,7 @@ tempering = linear_tempering
 std_corruption = 1e-3
 n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
 
-seed = 0
+seed = "0-20"
 write_output = True
 
 for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
@@ -133,19 +135,70 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
         else:
             raise ValueError
 
-        start_value = target.prior.calc_mean()
-        proposal = Gaussian(start_value, target.prior.calc_cov())
-        mcmc = MCMCRunner(
-            target=target,
-            proposal=proposal,
-            n_sample=n_sample,
-            n_burn=n_burn,
-            start_value=start_value,
-            seed=np.random.default_rng(seed),
-            tempering=tempering,
-            recompute_logpdf=recompute_logpdf,
-            return_info=True,
-        )
+        if isinstance(seed, int):
+            rng = np.random.default_rng(seed)
+            start_value = target.prior.calc_mean()
+            proposal = Gaussian(start_value, target.prior.calc_cov())
+
+            mcmc = MCMCRunner(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample,
+                n_burn=n_burn,
+                start_value=start_value,
+                seed=rng,
+                tempering=tempering,
+                recompute_logpdf=recompute_logpdf,
+                return_info=True,
+            )
+
+        elif isinstance(seed, str):
+            start, end = [int(i) for i in seed.split("-")]
+            ensemble = []
+
+            for i in range(start, end):
+                fname_df = "samples-{}_seed-{}.csv".format(fem_type, i)
+                fname_df = os.path.join("output", fname_df)
+
+                df = read_csv_from(fname_df, "log_E,log_k")
+                df = df[df["sample"] >= n_burn]
+                df = df[df["n_elem"] == n_elem]
+                df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
+
+                if fem_type == "statfem":
+                    columns = ["log_E", "log_k", "log_rho", "log_l_d", "log_sigma_d"]
+                else:
+                    columns = ["log_E", "log_k"]
+
+                df = df[columns]
+
+                widths = np.max(df, axis=0) - np.min(df, axis=0)
+                stds = 0.05 * widths
+                covariance = np.diag(stds**2)
+                ensemble.append(EmpiricalMixture(df, covariance))
+
+            proposal = Mixture(ensemble)
+
+            # skip burn-in phase
+            rng = np.random.default_rng(end)
+            start_value = proposal.calc_sample(rng)
+            n_sample = n_sample - n_burn
+            n_burn = 0
+            tempering = None
+
+            mcmc = IndependenceSampler(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample - n_burn,
+                n_burn=0,
+                start_value=start_value,
+                seed=rng,
+                recompute_logpdf=recompute_logpdf,
+                return_info=True,
+            )
+        else:
+            assert False
+
         samples, info = mcmc()
 
         if write_output:

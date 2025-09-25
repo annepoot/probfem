@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from scipy.stats import multivariate_normal
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -28,9 +27,9 @@ labels_by_var = {
 }
 
 width = 1.0
-N_burn = 10000
+N_burn = 25
 N_filter = 50
-seed = 0
+seed = "0-20"
 
 plt.rc("text", usetex=True)  # use latex for text
 plt.rcParams["font.family"] = "serif"
