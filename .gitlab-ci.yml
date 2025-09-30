@@ -1,13 +1,11 @@
-image: annepoot/myjive:latest
+image: annepoot/probfem:latest
 
 stages:
   - test
 
-test_code:
+test:
   stage: test
   script:
-    - echo "Installing environment"
-    - conda env create -f ENVIRONMENT.yml
     - source $(conda info --base)/etc/profile.d/conda.sh
     - conda activate probfem
     - echo "Compiling C++ code"
