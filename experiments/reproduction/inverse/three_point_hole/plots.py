@@ -8,7 +8,7 @@ import seaborn as sns
 import pandas as pd
 
 from probability.multivariate import Gaussian
-from util.io import read_csv_from
+from util.io import read_csv_from, unique_filename
 
 plt.rc("text", usetex=True)  # use latex for text
 plt.rcParams["font.family"] = "serif"
@@ -118,14 +118,22 @@ def get_hole_patch(x, y, a, theta, r, ax):
     return patch
 
 
-def sample_plot(df):
-    colors = dict(zip([0.20, 0.10, 0.05], sns.color_palette("rocket_r", n_colors=8)[1::2]))
+def sample_plot(df, save=False):
+    colors = dict(zip([0.20, 0.15, 0.10, 0.08, 0.05, 0.02, 0.01], sns.color_palette("rocket_r", n_colors=8)[1:]))
     h_range = np.array(df["h"].drop_duplicates())
 
     # Create figure and axis
-    fig, axs = plt.subplots(ncols=len(h_range))
+    n_plot = len(h_range)
 
-    for h, ax in zip(h_range, axs):
+    if not save:
+        fig, axs = plt.subplots(ncols=n_plot, figsize=(6.4 * n_plot, 4.8))
+
+    for i, h in enumerate(h_range):
+        if save:
+            fig, ax = plt.subplots()
+        else:
+            ax = axs[i]
+
         c = colors[h]
         df_h = df[df["h"] == h]
 
@@ -140,7 +148,7 @@ def sample_plot(df):
             linewidth=1.0,
         )
         ax.add_patch(rect)
-    
+
         # Create a rounded rectanglepatch
         for x, y in zip([0.5, 2.5, 4.5], [0.0, 1.1, 0.0]):
             support = FancyBboxPatch(
@@ -161,19 +169,19 @@ def sample_plot(df):
             hole_patch.set_alpha(0.5)
             hole_patch.set_linewidth(0.5)
             ax.add_patch(hole_patch)
-    
+
         x_ref = refs_by_var["x"]
         y_ref = refs_by_var["y"]
         a_ref = refs_by_var["a"]
         theta_ref = refs_by_var["theta"]
         r_ref = refs_by_var["r"]
-    
+
         ref_patch = get_hole_patch(x_ref, y_ref, a_ref, theta_ref, r_ref, ax)
         ref_patch.set_edgecolor("black")
         ref_patch.set_alpha(1.0)
         ref_patch.set_linewidth(1.0)
         ax.add_patch(ref_patch)
-    
+
         # Set limits and aspect ratio
         pad = 0.01
         ax.set_xlim(0.0 - pad, 2.52)
@@ -182,10 +190,16 @@ def sample_plot(df):
         ax.axvline(x=2.51, linestyle=(0, (3, 3, 1, 3)), color="black")
         ax.axis("off")
 
-    plt.show()
+        if save:
+            fname = unique_filename("sample-plot.pdf")
+            plt.savefig(fname=fname, bbox_inches="tight")
+            plt.show()
+
+    if not save:
+        plt.show()
 
 
-def marginal_plot(dfs):
+def marginal_plot(dfs, save=False):
     width = 0.20
 
     df_list = []
@@ -198,8 +212,11 @@ def marginal_plot(dfs):
         df = df.melt(id_vars=["h"], value_vars=df.columns.drop("h"))
         df["fem_type"] = fem_type
         df_list.append(df)
-    
+
     df_all = pd.concat(df_list, ignore_index=True)
+    colors = dict(zip([0.20, 0.15, 0.10, 0.08, 0.05, 0.02, 0.01], sns.color_palette("rocket_r", n_colors=8)[1:]))
+    h_range = np.array(df["h"].drop_duplicates())
+    palette = [colors[float(h)] for h in h_range]
 
     g = sns.FacetGrid(
         df_all,
@@ -210,13 +227,12 @@ def marginal_plot(dfs):
         margin_titles=False,
         sharex=False,
         sharey=False,
-        palette=sns.color_palette("rocket_r", n_colors=8)[1::2],
+        palette=palette,
     )
 
     g.map_dataframe(sns.kdeplot, x="value", fill=False)
-    
     g.set_titles("")
-    
+
     for i, var in enumerate(df_all["variable"].drop_duplicates()):
         for j, fem_type in enumerate(dfs.keys()):
             ax = g.axes[j, i]
@@ -248,7 +264,7 @@ def marginal_plot(dfs):
                 ax.set_xlabel(labels_by_var[var])
             else:
                 ax.set_xlabel(None)
-    
+
             if i == 0:
                 ax.set_ylabel(labels_by_var[fem_type])
             else:
@@ -271,4 +287,9 @@ def marginal_plot(dfs):
     ax = g.axes[g.axes.shape[0] // 2, g.axes.shape[1] - 1]
 
     ax.legend(title=r"$h$", bbox_to_anchor=(1.0, 1.0), loc="center left", frameon=False)
+
+    if save:
+        fname = unique_filename("marginal-plot.pdf")
+        plt.savefig(fname=fname, bbox_inches="tight")
+
     plt.show()
