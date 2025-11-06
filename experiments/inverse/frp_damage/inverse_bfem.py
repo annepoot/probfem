@@ -3,6 +3,7 @@ import numpy as np
 from scipy.sparse import diags_array
 
 from probability import TemperedPosterior
+from probability.likelihood import ParametrizedLikelihood
 from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
 from probability.sampling import MCMCRunner
@@ -24,6 +25,9 @@ seed = 0
 
 # options: refined, shifted, flipped
 ref_type = "refined"
+
+# options: mle, hyp
+alpha_type = "hyp"
 
 for seed in range(1):
     if ref_type == "refined":
@@ -68,8 +72,21 @@ for seed in range(1):
     eigenfuncs = U[:, :trunc]
     eigenvalues = s[:trunc]
 
-    kl_cov = SymbolicCovariance(Matrix(diags_array(eigenvalues), name="S"))
-    kl_prior = Gaussian(mean=None, cov=kl_cov)
+    if alpha_type == "mle":
+        mean = np.zeros(trunc)
+        diag = np.zeros(trunc)
+        diag[:trunc] = eigenvalues
+    elif alpha_type == "hyp":
+        mean = np.zeros(trunc + 1)
+        mean[trunc] = np.log(sigma_e)
+        diag = np.zeros(trunc + 1)
+        diag[:trunc] = eigenvalues
+        diag[trunc] = np.log(1e1)
+    else:
+        assert False
+
+    kl_cov = SymbolicCovariance(Matrix(diags_array(diag), name="S"))
+    kl_prior = Gaussian(mean=mean, cov=kl_cov)
 
     #########################
     # get precomputed stuff #
@@ -113,6 +130,7 @@ for seed in range(1):
             operator=operator,
             observations=truth,
             sigma_e=sigma_e,
+            alpha=None,
             obs_ipoints=obs_ipoints,
             ref_ipoints=ref_ipoints,
             obs_distances=obs_distances,
@@ -129,6 +147,7 @@ for seed in range(1):
             operator=operator,
             observations=truth,
             sigma_e=sigma_e,
+            alpha=None,
             obs_ipoints=obs_ipoints,
             ref_ipoints=ref_ipoints,
             hyp_ipoints=hyp_ipoints,
@@ -144,6 +163,18 @@ for seed in range(1):
             ref_backdoor=ref_backdoor,
             hyp_backdoor=hyp_backdoor,
         )
+
+    if alpha_type == "mle":
+        likelihood.alpha = "mle"
+    elif alpha_type == "hyp":
+        likelihood.alpha = 1.0
+        likelihood = ParametrizedLikelihood(
+            likelihood=likelihood,
+            hyperparameters=["alpha"],
+            transforms=[np.exp],
+        )
+    else:
+        assert False
 
     def linear_tempering(i):
         if i < n_burn:
@@ -163,8 +194,9 @@ for seed in range(1):
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
-    fname = "checkpoint_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
-    fname = os.path.join("checkpoints", fname.format(ref_type, h_obs, sigma_e, seed))
+    fname = "checkpoint_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+    fname = os.path.join("checkpoints", fname)
 
     mcmc = MCMCRunner(
         target=target,
@@ -180,10 +212,12 @@ for seed in range(1):
 
     samples, info = mcmc()
 
-    fname = "posterior-samples_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = os.path.join("output", fname.format(ref_type, h_obs, sigma_e, seed))
+    fname = "posterior-samples_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+    fname = os.path.join("output", fname)
     np.save(fname, samples)
 
-    fname = "posterior-logpdfs_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = os.path.join("output", fname.format(ref_type, h_obs, sigma_e, seed))
+    fname = "posterior-logpdfs_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+    fname = os.path.join("output", fname)
     np.save(fname, info["loglikelihood"])

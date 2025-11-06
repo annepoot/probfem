@@ -5,6 +5,7 @@ from scipy.sparse import diags_array
 import itertools
 
 from probability import TemperedPosterior
+from probability.likelihood import ParametrizedLikelihood
 from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
 from probability.sampling import MCMCRunner
@@ -23,24 +24,26 @@ std_pd = 1e-6
 sigma_e = 1e-3
 
 ref_types = ["refined", "shifted", "flipped"]
+alpha_types = ["hyp"]
 hs = [0.100, 0.050, 0.020]
 seeds = range(10)
 
-combis = list(itertools.product(ref_types, hs, seeds))
+combis = list(itertools.product(ref_types, alpha_types, hs, seeds))
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
     job_id = int(sys.argv[2])
-    ref_type, h_obs, seed = combis[run_idx]
+    ref_type, alpha_type, h_obs, seed = combis[run_idx]
 
     print("############")
     print("# SETTINGS #")
     print("############")
-    print("run idx: \t", run_idx)
-    print("job id:  \t", job_id)
-    print("ref type:\t", ref_type)
-    print("h_obs:   \t", h_obs)
-    print("seed:    \t", seed)
+    print("run idx:   \t", run_idx)
+    print("job id:    \t", job_id)
+    print("ref type:  \t", ref_type)
+    print("alpha type:\t", alpha_type)
+    print("h_obs:     \t", h_obs)
+    print("seed:      \t", seed)
     print("")
 
     if ref_type == "refined":
@@ -85,8 +88,21 @@ if __name__ == "__main__":
     eigenfuncs = U[:, :trunc]
     eigenvalues = s[:trunc]
 
-    kl_cov = SymbolicCovariance(Matrix(diags_array(eigenvalues), name="S"))
-    kl_prior = Gaussian(mean=None, cov=kl_cov)
+    if alpha_type == "mle":
+        mean = np.zeros(trunc)
+        diag = np.zeros(trunc)
+        diag[:trunc] = eigenvalues
+    elif alpha_type == "hyp":
+        mean = np.zeros(trunc + 1)
+        mean[trunc] = np.log(sigma_e)
+        diag = np.zeros(trunc + 1)
+        diag[:trunc] = eigenvalues
+        diag[trunc] = np.log(1e1)
+    else:
+        assert False
+
+    kl_cov = SymbolicCovariance(Matrix(diags_array(diag), name="S"))
+    kl_prior = Gaussian(mean=mean, cov=kl_cov)
 
     #########################
     # get precomputed stuff #
@@ -130,6 +146,7 @@ if __name__ == "__main__":
             operator=operator,
             observations=truth,
             sigma_e=sigma_e,
+            alpha=None,
             obs_ipoints=obs_ipoints,
             ref_ipoints=ref_ipoints,
             obs_distances=obs_distances,
@@ -146,6 +163,7 @@ if __name__ == "__main__":
             operator=operator,
             observations=truth,
             sigma_e=sigma_e,
+            alpha=None,
             obs_ipoints=obs_ipoints,
             ref_ipoints=ref_ipoints,
             hyp_ipoints=hyp_ipoints,
@@ -161,6 +179,18 @@ if __name__ == "__main__":
             ref_backdoor=ref_backdoor,
             hyp_backdoor=hyp_backdoor,
         )
+
+    if alpha_type == "mle":
+        likelihood.alpha = "mle"
+    elif alpha_type == "hyp":
+        likelihood.alpha = 1.0
+        likelihood = ParametrizedLikelihood(
+            likelihood=likelihood,
+            hyperparameters=["alpha"],
+            transforms=[np.exp],
+        )
+    else:
+        assert False
 
     def linear_tempering(i):
         if i < n_burn:
@@ -180,8 +210,9 @@ if __name__ == "__main__":
     target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
-    fname = "checkpoint_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
-    fname = os.path.join("checkpoints", fname.format(ref_type, h_obs, sigma_e, seed))
+    fname = "checkpoint_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+    fname = os.path.join("checkpoints", fname)
 
     mcmc = MCMCRunner(
         target=target,
@@ -201,10 +232,12 @@ if __name__ == "__main__":
     outdir = os.path.join("output", str(job_id))
     os.makedirs(outdir, exist_ok=True)
 
-    fname = "posterior-samples_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = os.path.join(outdir, fname.format(ref_type, h_obs, sigma_e, seed))
+    fname = "posterior-samples_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+    fname = os.path.join(outdir, fname)
     np.save(fname, samples)
 
-    fname = "posterior-logpdfs_bfem-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = os.path.join(outdir, fname.format(ref_type, h_obs, sigma_e, seed))
+    fname = "posterior-logpdfs_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+    fname = os.path.join(outdir, fname)
     np.save(fname, info["loglikelihood"])
