@@ -141,6 +141,7 @@ class BFEMLikelihoodHierarchical(Likelihood):
         operator,
         observations,
         sigma_e,
+        alpha,
         obs_ipoints,
         ref_ipoints,
         obs_distances,
@@ -163,6 +164,7 @@ class BFEMLikelihoodHierarchical(Likelihood):
         n_obs = len(self.observations)
         self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
         self.e = Gaussian(np.zeros(n_obs), self.noise)
+        self.alpha = alpha
         self.eigenfuncs = eigenfuncs
         self.obs_egroups = obs_egroups
         self.ref_egroups = ref_egroups
@@ -232,7 +234,13 @@ class BFEMLikelihoodHierarchical(Likelihood):
 
         u_obs = K_obs_inv @ f_obs
         n_obs = len(u_obs)
-        alpha2_mle = f_obs @ u_obs / n_obs
+
+        if isinstance(self.alpha, str):
+            assert self.alpha == "mle"
+            alpha2 = f_obs @ u_obs / n_obs  # mle estimate from shape functions
+        else:
+            assert np.isscalar(self.alpha)
+            alpha2 = self.alpha**2
 
         A_ref = Matrix(self.operator, name="A_ref")
         A_obs = Matrix(self.operator @ Phi_obs, name="A_obs")
@@ -242,7 +250,7 @@ class BFEMLikelihoodHierarchical(Likelihood):
         prior = A_ref @ K_ref_inv @ A_ref.T
         downdate = A_obs @ K_obs_inv @ A_obs.T
         cov = prior.evaluate() - downdate.evaluate()
-        cov *= alpha2_mle
+        cov *= alpha2
         cov += self.e.cov.expr.evaluate()
 
         dist = Gaussian(mean=mean, cov=cov, use_scipy_latent=False)
@@ -258,6 +266,7 @@ class BFEMLikelihoodHeterarchical(Likelihood):
         operator,
         observations,
         sigma_e,
+        alpha,
         obs_ipoints,
         ref_ipoints,
         hyp_ipoints,
@@ -286,6 +295,7 @@ class BFEMLikelihoodHeterarchical(Likelihood):
         n_obs = len(self.observations)
         self.noise = SymbolicCovariance(Matrix(sigma_e**2 * eye_array(n_obs)))
         self.e = Gaussian(np.zeros(n_obs), self.noise)
+        self.alpha = alpha
         self.eigenfuncs = eigenfuncs
         self.obs_egroups = obs_egroups
         self.ref_egroups = ref_egroups
@@ -384,7 +394,13 @@ class BFEMLikelihoodHeterarchical(Likelihood):
 
         u_obs = K_obs_inv @ f_obs
         n_obs = len(u_obs)
-        alpha2_mle = f_obs @ u_obs / n_obs
+
+        if isinstance(self.alpha, str):
+            assert self.alpha == "mle"
+            alpha2 = f_obs @ u_obs / n_obs  # mle estimate from shape functions
+        else:
+            assert np.isscalar(self.alpha)
+            alpha2 = self.alpha**2
 
         A_obs = Matrix(self.operator @ Phi_obs, name="A_obs")
         A_ref = Matrix(self.operator @ Phi_ref, name="A_ref")
@@ -402,7 +418,7 @@ class BFEMLikelihoodHeterarchical(Likelihood):
         downdate = A_null @ K_ref_inv @ K_x @ K_obs_inv @ K_x.T @ K_ref_inv @ A_null.T
 
         cov = prior.evaluate() - downdate.evaluate()
-        cov *= alpha2_mle
+        cov *= alpha2
         cov += self.e.cov.expr.evaluate()
 
         dist = Gaussian(mean=mean, cov=cov, use_scipy_latent=False)
