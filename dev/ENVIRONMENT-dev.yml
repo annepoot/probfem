@@ -18,5 +18,6 @@ dependencies:
   - sympy
   # support packages
   - black
+  - jupyterlab_code_formatter
   - pytest
   - snakeviz
