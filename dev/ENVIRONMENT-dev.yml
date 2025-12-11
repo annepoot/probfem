@@ -19,5 +19,6 @@ dependencies:
   # support packages
   - black
   - jupyterlab_code_formatter
+  - nbdime
   - pytest
   - snakeviz
