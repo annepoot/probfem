@@ -11,6 +11,7 @@ void declareModels ()
 {
   declareDirichletModel();
   declareElasticModel();
+  declareLaplaceModel();
 //  declareLoadDispModel();
   declareNeumannModel();
 //  declareSolidModel();
