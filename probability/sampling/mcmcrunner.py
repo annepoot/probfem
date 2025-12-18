@@ -103,7 +103,17 @@ class MCMCRunner:
             if recompute_logpdf:
                 logpdf = self.target.calc_logpdf(xi)
 
-            logpdf_prop = self.target.calc_logpdf(xi_prop)
+            try:
+                logpdf_prop = self.target.calc_logpdf(xi_prop)
+            except Exception as error:
+                if i < self.n_burn:
+                    print("Exception caught:", error)
+                    print("Still in burn-in phase, continuing MCMC run")
+                    print("Setting logpdf_prop = -inf")
+                    logpdf_prop = -np.inf
+                else:
+                    raise error
+
             logalpha = logpdf_prop - logpdf
 
             if logalpha < 0:
