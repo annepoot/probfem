@@ -103,7 +103,7 @@ def get_fem_props_2d():
                 "laplace": {
                     "type": "Laplace",
                     "elements": "all",
-                    "shape": {"type": "Triangle3", "intScheme": "Gauss1"},
+                    "shape": {"type": "Triangle3", "intScheme": "Gauss3"},
                 },
                 "diri": {
                     "type": "Dirichlet",

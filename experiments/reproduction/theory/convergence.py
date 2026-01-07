@@ -1,5 +1,5 @@
 import numpy as np
-from fem.meshing import     list_bbox_bbox_intersections,    clip_polygons
+from fem.meshing import list_bbox_bbox_intersections, clip_polygons
 from warnings import warn
 
 
@@ -616,3 +616,32 @@ def true_integral_duy_dy_dugy_dy(ay, by):
     # print(quad(integrand, 0.0, 1.0)[0], I(by) - I(ay))
 
     return I(by) - I(ay)
+
+
+##############################
+# strains for postprocessing #
+##############################
+
+
+def calc_strains_per_element(globdat):
+    elems = globdat["elemSet"]
+    nodes = elems.get_nodes()
+    shape = globdat["shape"]
+    dofs = globdat["dofSpace"]
+    dof_types = dofs.get_types()
+    solution = globdat["state0"]
+
+    strains = np.zeros((len(elems), nodes.rank()))
+
+    for ielem, inodes in enumerate(elems):
+        coords = nodes[inodes]
+        idofs = dofs.get_dofs(inodes, dof_types)
+
+        grads, _ = shape.get_shape_gradients(coords)
+        eps = grads @ solution[idofs]
+        eps_mean = np.mean(eps, axis=0)
+        assert np.allclose(eps, eps_mean)
+
+        strains[ielem] = eps_mean
+
+    return strains
