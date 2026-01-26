@@ -4,17 +4,25 @@ import pandas as pd
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
+from probability.sampling import MCMCRunner, IndependenceSampler
+from probability.multivariate import Gaussian, Mixture, EmpiricalMixture
+from util.io import read_csv_from
 
-from fem.meshing import create_hypermesh
-from probability.sampling import MCMCRunner
-from probability.multivariate import Gaussian
-from experiments.reproduction.nonhierarchical.pullout_bar.props import (
+from experiments.reproduction.inverse.pullout_bar.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
     get_rwm_rmfem_target,
     get_rwm_statfem_target,
 )
+
+from fem.meshing import create_hypermesh
+from probability.sampling import MCMCRunner
+from probability.multivariate import Gaussian
 from experiments.reproduction.nonhierarchical.pullout_bar import misc
+from experiments.reproduction.nonhierarchical.pullout_bar.props import (
+     get_rwm_fem_target,
+     get_rwm_bfem_target,
+)
 
 
 def generate_mesh(n_elem):
@@ -45,8 +53,9 @@ n_sample = 20000
 tempering = linear_tempering
 
 std_corruption = 1e-3
-n_elem_range = [1, 2, 4, 8, 16, 32, 64]
+n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
 
+seed = "0-20"
 write_output = True
 
 for fem_type in [
@@ -58,7 +67,8 @@ for fem_type in [
     "bfem-right",
 ]:
     if write_output:
-        fname = os.path.join("output", "samples-{}.csv".format(fem_type))
+        fname = "samples-{}_seed-{}.csv".format(fem_type, seed)
+        fname = os.path.join("output", fname)
         file = open(fname, "w")
 
         current_time = datetime.now().strftime("%Y/%d/%m, %H:%M:%S")
@@ -99,7 +109,7 @@ for fem_type in [
                 sigma_e=sigma_e,
             )
         elif fem_type == "bfem-exact":
-            ref_nodes, ref_elems = generate_mesh(256)
+            ref_nodes, ref_elems = generate_mesh(1024)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
@@ -156,19 +166,66 @@ for fem_type in [
         else:
             raise ValueError
 
-        start_value = target.prior.calc_mean()
-        proposal = Gaussian(start_value, target.prior.calc_cov())
-        mcmc = MCMCRunner(
-            target=target,
-            proposal=proposal,
-            n_sample=n_sample,
-            n_burn=n_burn,
-            start_value=start_value,
-            seed=0,
-            tempering=tempering,
-            recompute_logpdf=recompute_logpdf,
-            return_info=True,
-        )
+        if isinstance(seed, int):
+            rng = np.random.default_rng(seed)
+            start_value = target.prior.calc_mean()
+            proposal = Gaussian(start_value, target.prior.calc_cov())
+
+            mcmc = MCMCRunner(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample,
+                n_burn=n_burn,
+                start_value=start_value,
+                seed=rng,
+                tempering=tempering,
+                recompute_logpdf=recompute_logpdf,
+                return_info=True,
+            )
+
+        elif isinstance(seed, str):
+            start, end = [int(i) for i in seed.split("-")]
+            ensemble = []
+
+            for i in range(start, end):
+                fname_df = "samples-{}_seed-{}.csv".format(fem_type, i)
+                fname_df = os.path.join("output", fname_df)
+
+                df = read_csv_from(fname_df, "log_E,log_k")
+                df = df[df["sample"] >= n_burn]
+                df = df[df["n_elem"] == n_elem]
+                df = df[abs(df["std_corruption"] - std_corruption) < 1e-8]
+
+                columns = ["log_E", "log_k"]
+                df = df[columns]
+
+                widths = np.max(df, axis=0) - np.min(df, axis=0)
+                stds = 0.05 * widths
+                covariance = np.diag(stds**2)
+                ensemble.append(EmpiricalMixture(df, covariance))
+
+            proposal = Mixture(ensemble)
+
+            # skip burn-in phase
+            rng = np.random.default_rng(end)
+            start_value = proposal.calc_sample(rng)
+            n_sample = n_sample - n_burn
+            n_burn = 0
+            tempering = None
+
+            mcmc = IndependenceSampler(
+                target=target,
+                proposal=proposal,
+                n_sample=n_sample - n_burn,
+                n_burn=0,
+                start_value=start_value,
+                seed=rng,
+                recompute_logpdf=recompute_logpdf,
+                return_info=True,
+            )
+        else:
+            assert False
+
         samples, info = mcmc()
 
         if write_output:
