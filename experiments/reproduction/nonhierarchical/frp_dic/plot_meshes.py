@@ -124,20 +124,20 @@ def plot_mesh(mesh1, mesh2=None, *, fname=None):
     plt.show()
 
 
-fname = os.path.join("img", "rve-mesh_h-{:.3f}.pdf".format(h))
+fname = os.path.join("plots", "rve-mesh_h-{:.3f}.pdf".format(h))
 plot_mesh(mesh, fname=fname)
 
-fname = os.path.join("img", "rve-mesh_h-{:.3f}r1.pdf".format(h))
+fname = os.path.join("plots", "rve-mesh_h-{:.3f}r1.pdf".format(h))
 plot_mesh(meshr1, fname=fname)
 
-fname = os.path.join("img", "rve-mesh_h-{:.3f}d1.pdf".format(h))
+fname = os.path.join("plots", "rve-mesh_h-{:.3f}d1.pdf".format(h))
 plot_mesh(mesh, meshd1, fname=fname)
 
-fname = os.path.join("img", "rve-mesh_h-{:.3f}h1.pdf".format(h))
+fname = os.path.join("plots", "rve-mesh_h-{:.3f}h1.pdf".format(h))
 plot_mesh(meshh1, fname=fname)
 
-fname = os.path.join("img", "rve-mesh_h-{:.3f}d2.pdf".format(h))
+fname = os.path.join("plots", "rve-mesh_h-{:.3f}d2.pdf".format(h))
 plot_mesh(mesh, meshd2, fname=fname)
 
-fname = os.path.join("img", "rve-mesh_h-{:.3f}h2.pdf".format(h))
+fname = os.path.join("plots", "rve-mesh_h-{:.3f}h2.pdf".format(h))
 plot_mesh(meshh2, fname=fname)
