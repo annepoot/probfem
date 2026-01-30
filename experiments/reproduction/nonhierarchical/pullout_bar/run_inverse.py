@@ -20,8 +20,8 @@ from probability.sampling import MCMCRunner
 from probability.multivariate import Gaussian
 from experiments.reproduction.nonhierarchical.pullout_bar import misc
 from experiments.reproduction.nonhierarchical.pullout_bar.props import (
-     get_rwm_fem_target,
-     get_rwm_bfem_target,
+    get_rwm_fem_target,
+    get_rwm_bfem_target,
 )
 
 
@@ -53,7 +53,7 @@ n_sample = 20000
 tempering = linear_tempering
 
 std_corruption = 1e-3
-n_elem_range = [1, 2, 4, 8, 16, 32, 64, 128]
+n_elem_range = [1, 2, 4, 8, 16, 32, 64]
 
 seed = "0-20"
 write_output = True
@@ -130,7 +130,9 @@ for fem_type in [
             )
         elif fem_type == "bfem-dual":
             ref_nodes, ref_elems = misc.dual_mesh(elems)
-            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(
+                elems, ref_elems
+            )
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
@@ -142,7 +144,9 @@ for fem_type in [
         elif fem_type == "bfem-left":
             ref_nodes, ref_elems = generate_mesh(n_elem + 1)
             ref_nodes._data[: n_elem + 1, 0] = np.linspace(0, 0.5, n_elem + 1)
-            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(
+                elems, ref_elems
+            )
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
@@ -153,8 +157,12 @@ for fem_type in [
             )
         elif fem_type == "bfem-right":
             ref_nodes, ref_elems = generate_mesh(n_elem + 1)
-            ref_nodes._data[1 : n_elem + 2, 0] = np.linspace(0.5, 1.0, n_elem + 1)
-            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
+            ref_nodes._data[1 : n_elem + 2, 0] = np.linspace(
+                0.5, 1.0, n_elem + 1
+            )
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(
+                elems, ref_elems
+            )
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
