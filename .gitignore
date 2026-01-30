@@ -22,6 +22,7 @@ OBJ/
 *.msh
 *.sif
 *.tar
+*.zip
 
 !experiments/inverse/cantilever_hole/ground-truth.csv
 !experiments/inverse/three_point_hole/ground-truth.csv
