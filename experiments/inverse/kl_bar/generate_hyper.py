@@ -8,7 +8,7 @@ from myjive.fem import XNodeSet, XElementSet
 from props.rwm_fem_hyper_props import get_rwm_fem_hyper_target
 from props.rwm_statfem_hyper_props import get_rwm_statfem_hyper_target
 from props.rwm_bfem_hyper_props import get_rwm_bfem_hyper_target
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 
 
 def generate_mesh(n_elem):
@@ -93,7 +93,7 @@ for fem_type in ["fem", "bfem", "statfem"]:
 
         proposal = deepcopy(target.prior)
         start_value = target.prior.calc_mean()
-        mcmc = MCMCRunner(
+        mcmc = RandomWalkMetropolisSampler(
             target=target,
             proposal=proposal,
             n_sample=n_sample,

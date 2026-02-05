@@ -2,7 +2,7 @@ import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from experiments.inverse.cantilever_hole.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
@@ -101,7 +101,7 @@ for fem_type in ["fem", "bfem", "rmfem"]:
             for dist in proposal.distributions:
                 dist.update_width(0.1 * dist.calc_width())
             start_value = target.prior.calc_mean()
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

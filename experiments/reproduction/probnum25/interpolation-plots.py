@@ -6,7 +6,7 @@ from copy import deepcopy
 from myjive.fem import XNodeSet, XElementSet
 from fem.jive import CJiveRunner
 from fem.meshing import calc_boundary_nodes
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from rmfem.perturbation import calc_perturbed_coords_cpp
 
 from experiments.reproduction.probnum25.props import get_fem_props, get_rwm_fem_target
@@ -59,7 +59,7 @@ def run_inverse(elems):
     target = get_rwm_fem_target(elems=elems, std_corruption=1e-5, sigma_e=1e-5)
     proposal = deepcopy(target.prior)
 
-    mcmc = MCMCRunner(
+    mcmc = RandomWalkMetropolisSampler(
         target=target,
         proposal=proposal,
         n_sample=n_sample,

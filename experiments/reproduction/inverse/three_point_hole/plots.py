@@ -49,6 +49,7 @@ def lims_by_var(width):
 
     return lims_by_var
 
+
 p_lims_by_var = {
     "x": 20,
     "y": 20,
@@ -119,7 +120,12 @@ def get_hole_patch(x, y, a, theta, r, ax):
 
 
 def sample_plot(df, save=False):
-    colors = dict(zip([0.20, 0.15, 0.10, 0.08, 0.05, 0.02, 0.01], sns.color_palette("rocket_r", n_colors=8)[1:]))
+    colors = dict(
+        zip(
+            [0.20, 0.15, 0.10, 0.08, 0.05, 0.02, 0.01],
+            sns.color_palette("rocket_r", n_colors=8)[1:],
+        )
+    )
     h_range = np.array(df["h"].drop_duplicates())
 
     # Create figure and axis
@@ -214,7 +220,12 @@ def marginal_plot(dfs, save=False):
         df_list.append(df)
 
     df_all = pd.concat(df_list, ignore_index=True)
-    colors = dict(zip([0.20, 0.15, 0.10, 0.08, 0.05, 0.02, 0.01], sns.color_palette("rocket_r", n_colors=8)[1:]))
+    colors = dict(
+        zip(
+            [0.20, 0.15, 0.10, 0.08, 0.05, 0.02, 0.01],
+            sns.color_palette("rocket_r", n_colors=8)[1:],
+        )
+    )
     h_range = np.array(df["h"].drop_duplicates())
     palette = [colors[float(h)] for h in h_range]
 

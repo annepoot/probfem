@@ -8,7 +8,7 @@ from probability import TemperedPosterior
 from probability.likelihood import ParametrizedLikelihood
 from probability.multivariate import Gaussian, SymbolicCovariance
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from util.linalg import Matrix
 
 from experiments.inverse.frp_damage import caching
@@ -214,7 +214,7 @@ if __name__ == "__main__":
     fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
     fname = os.path.join("checkpoints", fname)
 
-    mcmc = MCMCRunner(
+    mcmc = RandomWalkMetropolisSampler(
         target=target,
         proposal=proposal,
         n_sample=n_sample,

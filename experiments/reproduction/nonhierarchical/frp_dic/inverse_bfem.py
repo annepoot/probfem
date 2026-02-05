@@ -4,16 +4,16 @@ from scipy.sparse import diags_array
 
 from probability import TemperedPosterior
 from probability.likelihood import ParametrizedLikelihood
-from probability.multivariate import Gaussian, SymbolicCovariance
+from probability.multivariate import Gaussian, SymbolicCovariance, Mixture
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler, MetropolisHastingsSampler
 from util.linalg import Matrix
 
-from experiments.inverse.frp_damage.likelihoods import (
+from experiments.reproduction.nonhierarchical.frp_dic import caching
+from experiments.reproduction.nonhierarchical.frp_dic.likelihoods import (
     BFEMLikelihoodHierarchical,
     BFEMLikelihoodHeterarchical,
 )
-from experiments.inverse.frp_damage import caching
 
 n_burn = 10000
 n_sample = 20000
@@ -21,7 +21,7 @@ std_pd = 1e-6
 
 h_obs = 0.050
 sigma_e = 1e-3
-seed = 0
+seed = "0-10"
 
 # options: refined, shifted, flipped
 ref_type = "refined"
@@ -29,176 +29,180 @@ ref_type = "refined"
 # options: mle, hyp
 alpha_type = "hyp"
 
-for seed in range(1):
-    if ref_type == "refined":
-        h_ref = "{:.3f}r1".format(h_obs)
-    elif ref_type == "shifted":
-        h_ref = "{:.3f}d1".format(h_obs)
-        h_hyp = "{:.3f}h1".format(h_obs)
-    elif ref_type == "flipped":
-        h_ref = "{:.3f}d2".format(h_obs)
-        h_hyp = "{:.3f}h2".format(h_obs)
-    else:
-        assert False
+if ref_type == "refined":
+    h_ref = "{:.3f}r1".format(h_obs)
+elif ref_type == "shifted":
+    h_ref = "{:.3f}d1".format(h_obs)
+    h_hyp = "{:.3f}h1".format(h_obs)
+elif ref_type == "flipped":
+    h_ref = "{:.3f}d2".format(h_obs)
+    h_hyp = "{:.3f}h2".format(h_obs)
+else:
+    assert False
 
-    obs_nodes, obs_elems, obs_egroups = caching.get_or_calc_mesh(h=h_obs)
-    egroup_obs = obs_egroups["matrix"]
-    obs_distances = caching.get_or_calc_distances(egroup=egroup_obs, h=h_obs)
+obs_nodes, obs_elems, obs_egroups = caching.get_or_calc_mesh(h=h_obs)
+egroup_obs = obs_egroups["matrix"]
+obs_distances = caching.get_or_calc_distances(egroup=egroup_obs, h=h_obs)
 
-    if ref_type == "refined":
-        ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
-        egroup_ref = ref_egroups["matrix"]
-        ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
-    else:
-        ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_ref)
-        egroup_ref = ref_egroups["matrix"]
-        ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
-
-        hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_hyp, do_groups=True)
-        hyp_nodes, hyp_elems, hyp_egroups = hyp_mesh
-        egroup_hyp = hyp_egroups["matrix"]
-        hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
-
-    domain = np.linspace(0.0, 0.2, 101)
-
-    inf_prior = GaussianProcess(
-        mean=ZeroMeanFunction(),
-        cov=SquaredExponential(l=0.02, sigma=2.0),
-    )
-
-    U, s, _ = np.linalg.svd(inf_prior.calc_cov(domain, domain))
-
-    trunc = 10
-    eigenfuncs = U[:, :trunc]
-    eigenvalues = s[:trunc]
-
-    if alpha_type == "mle":
-        mean = np.zeros(trunc)
-        diag = np.zeros(trunc)
-        diag[:trunc] = eigenvalues
-    elif alpha_type == "hyp":
-        mean = np.zeros(trunc + 1)
-        mean[trunc] = np.log(sigma_e)
-        diag = np.zeros(trunc + 1)
-        diag[:trunc] = eigenvalues
-        diag[trunc] = np.log(1e1)
-    else:
-        assert False
-
-    kl_cov = SymbolicCovariance(Matrix(diags_array(diag), name="S"))
-    kl_prior = Gaussian(mean=mean, cov=kl_cov)
-
-    #########################
-    # get precomputed stuff #
-    #########################
-
-    obs_ipoints = caching.get_or_calc_ipoints(egroup=egroup_obs, h=h_obs)
-    obs_distances = caching.get_or_calc_distances(egroup=egroup_obs, h=h_obs)
-
-    ref_ipoints = caching.get_or_calc_ipoints(egroup=egroup_ref, h=h_ref)
+if ref_type == "refined":
+    ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_mesh(h=h_ref)
+    egroup_ref = ref_egroups["matrix"]
+    ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
+else:
+    ref_nodes, ref_elems, ref_egroups = caching.get_or_calc_dual_mesh(h=h_ref)
+    egroup_ref = ref_egroups["matrix"]
     ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
 
-    if ref_type != "refined":
-        hyp_ipoints = caching.get_or_calc_ipoints(egroup=egroup_hyp, h=h_hyp)
-        hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
+    hyp_mesh = caching.get_or_calc_hyper_mesh(h=h_hyp, do_groups=True)
+    hyp_nodes, hyp_elems, hyp_egroups = hyp_mesh
+    egroup_hyp = hyp_egroups["matrix"]
+    hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
 
-    obs_backdoor = {}
-    obs_backdoor["xcoord"] = obs_ipoints[:, 0]
-    obs_backdoor["ycoord"] = obs_ipoints[:, 1]
-    obs_backdoor["e"] = np.zeros(obs_ipoints.shape[0])
+domain = np.linspace(0.0, 0.2, 101)
 
-    ref_backdoor = {}
-    ref_backdoor["xcoord"] = ref_ipoints[:, 0]
-    ref_backdoor["ycoord"] = ref_ipoints[:, 1]
-    ref_backdoor["e"] = np.zeros(ref_ipoints.shape[0])
+inf_prior = GaussianProcess(
+    mean=ZeroMeanFunction(),
+    cov=SquaredExponential(l=0.02, sigma=2.0),
+)
 
-    if ref_type != "refined":
-        hyp_backdoor = {}
-        hyp_backdoor["xcoord"] = hyp_ipoints[:, 0]
-        hyp_backdoor["ycoord"] = hyp_ipoints[:, 1]
-        hyp_backdoor["e"] = np.zeros(hyp_ipoints.shape[0])
+U, s, _ = np.linalg.svd(inf_prior.calc_cov(domain, domain))
 
-    if ref_type == "refined":
-        operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
+trunc = 10
+eigenfuncs = U[:, :trunc]
+eigenvalues = s[:trunc]
+
+if alpha_type == "mle":
+    mean = np.zeros(trunc)
+    diag = np.zeros(trunc)
+    diag[:trunc] = eigenvalues
+elif alpha_type == "hyp":
+    mean = np.zeros(trunc + 1)
+    mean[trunc] = np.log(sigma_e)
+    diag = np.zeros(trunc + 1)
+    diag[:trunc] = eigenvalues
+    diag[trunc] = np.log(1e1)
+else:
+    assert False
+
+kl_cov = SymbolicCovariance(Matrix(diags_array(diag), name="S"))
+kl_prior = Gaussian(mean=mean, cov=kl_cov)
+
+#########################
+# get precomputed stuff #
+#########################
+
+obs_ipoints = caching.get_or_calc_ipoints(egroup=egroup_obs, h=h_obs)
+obs_distances = caching.get_or_calc_distances(egroup=egroup_obs, h=h_obs)
+
+ref_ipoints = caching.get_or_calc_ipoints(egroup=egroup_ref, h=h_ref)
+ref_distances = caching.get_or_calc_distances(egroup=egroup_ref, h=h_ref)
+
+if ref_type != "refined":
+    hyp_ipoints = caching.get_or_calc_ipoints(egroup=egroup_hyp, h=h_hyp)
+    hyp_distances = caching.get_or_calc_distances(egroup=egroup_hyp, h=h_hyp)
+
+obs_backdoor = {}
+obs_backdoor["xcoord"] = obs_ipoints[:, 0]
+obs_backdoor["ycoord"] = obs_ipoints[:, 1]
+obs_backdoor["e"] = np.zeros(obs_ipoints.shape[0])
+
+ref_backdoor = {}
+ref_backdoor["xcoord"] = ref_ipoints[:, 0]
+ref_backdoor["ycoord"] = ref_ipoints[:, 1]
+ref_backdoor["e"] = np.zeros(ref_ipoints.shape[0])
+
+if ref_type != "refined":
+    hyp_backdoor = {}
+    hyp_backdoor["xcoord"] = hyp_ipoints[:, 0]
+    hyp_backdoor["ycoord"] = hyp_ipoints[:, 1]
+    hyp_backdoor["e"] = np.zeros(hyp_ipoints.shape[0])
+
+if ref_type == "refined":
+    operator = caching.get_or_calc_dic_operator(elems=ref_elems, h=h_ref)
+else:
+    operator = caching.get_or_calc_dic_operator(elems=hyp_elems, h=h_hyp)
+
+truth = caching.get_or_calc_true_dic_observations(h=0.002)
+
+if ref_type == "refined":
+    likelihood = BFEMLikelihoodHierarchical(
+        operator=operator,
+        observations=truth,
+        sigma_e=sigma_e,
+        alpha=None,
+        obs_ipoints=obs_ipoints,
+        ref_ipoints=ref_ipoints,
+        obs_distances=obs_distances,
+        ref_distances=ref_distances,
+        eigenfuncs=eigenfuncs,
+        domain=domain,
+        obs_egroups=obs_egroups,
+        ref_egroups=ref_egroups,
+        obs_backdoor=obs_backdoor,
+        ref_backdoor=ref_backdoor,
+    )
+else:
+    likelihood = BFEMLikelihoodHeterarchical(
+        operator=operator,
+        observations=truth,
+        sigma_e=sigma_e,
+        alpha=None,
+        obs_ipoints=obs_ipoints,
+        ref_ipoints=ref_ipoints,
+        hyp_ipoints=hyp_ipoints,
+        obs_distances=obs_distances,
+        ref_distances=ref_distances,
+        hyp_distances=hyp_distances,
+        eigenfuncs=eigenfuncs,
+        domain=domain,
+        obs_egroups=obs_egroups,
+        ref_egroups=ref_egroups,
+        hyp_egroups=hyp_egroups,
+        obs_backdoor=obs_backdoor,
+        ref_backdoor=ref_backdoor,
+        hyp_backdoor=hyp_backdoor,
+    )
+
+if alpha_type == "mle":
+    likelihood.alpha = "mle"
+elif alpha_type == "hyp":
+    likelihood.alpha = 1.0
+    likelihood = ParametrizedLikelihood(
+        likelihood=likelihood,
+        hyperparameters=["alpha"],
+        transforms=[np.exp],
+    )
+else:
+    assert False
+
+
+def linear_tempering(i):
+    if i < n_burn:
+        return i / n_burn
     else:
-        operator = caching.get_or_calc_dic_operator(elems=hyp_elems, h=h_hyp)
+        return 1.0
 
-    truth = caching.get_or_calc_true_dic_observations(h=0.002)
 
-    if ref_type == "refined":
-        likelihood = BFEMLikelihoodHierarchical(
-            operator=operator,
-            observations=truth,
-            sigma_e=sigma_e,
-            alpha=None,
-            obs_ipoints=obs_ipoints,
-            ref_ipoints=ref_ipoints,
-            obs_distances=obs_distances,
-            ref_distances=ref_distances,
-            eigenfuncs=eigenfuncs,
-            domain=domain,
-            obs_egroups=obs_egroups,
-            ref_egroups=ref_egroups,
-            obs_backdoor=obs_backdoor,
-            ref_backdoor=ref_backdoor,
-        )
+def stepwise_tempering(i, *, n_step=100):
+    # divide the tempering period into 100 steps
+    if i < n_burn:
+        return ((i * n_step) // n_burn) / n_step
     else:
-        likelihood = BFEMLikelihoodHeterarchical(
-            operator=operator,
-            observations=truth,
-            sigma_e=sigma_e,
-            alpha=None,
-            obs_ipoints=obs_ipoints,
-            ref_ipoints=ref_ipoints,
-            hyp_ipoints=hyp_ipoints,
-            obs_distances=obs_distances,
-            ref_distances=ref_distances,
-            hyp_distances=hyp_distances,
-            eigenfuncs=eigenfuncs,
-            domain=domain,
-            obs_egroups=obs_egroups,
-            ref_egroups=ref_egroups,
-            hyp_egroups=hyp_egroups,
-            obs_backdoor=obs_backdoor,
-            ref_backdoor=ref_backdoor,
-            hyp_backdoor=hyp_backdoor,
-        )
+        return 1.0
 
-    if alpha_type == "mle":
-        likelihood.alpha = "mle"
-    elif alpha_type == "hyp":
-        likelihood.alpha = 1.0
-        likelihood = ParametrizedLikelihood(
-            likelihood=likelihood,
-            hyperparameters=["alpha"],
-            transforms=[np.exp],
-        )
-    else:
-        assert False
 
-    def linear_tempering(i):
-        if i < n_burn:
-            return i / n_burn
-        else:
-            return 1.0
+target = TemperedPosterior(kl_prior, likelihood)
 
-    def stepwise_tempering(i, *, n_step=100):
-        # divide the tempering period into 100 steps
-        if i < n_burn:
-            return ((i * n_step) // n_burn) / n_step
-        else:
-            return 1.0
+fname_cp = "checkpoint_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+fname_cp = fname_cp.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+fname_cp = os.path.join("checkpoints", fname_cp)
 
+if isinstance(seed, int):
     rng = np.random.default_rng(seed)
     start_value = kl_prior.calc_sample(rng)
-    target = TemperedPosterior(kl_prior, likelihood)
     proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
-    fname = "checkpoint_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
-    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
-    fname = os.path.join("checkpoints", fname)
-
-    mcmc = MCMCRunner(
+    mcmc = RandomWalkMetropolisSampler(
         target=target,
         proposal=proposal,
         n_sample=n_sample,
@@ -207,17 +211,62 @@ for seed in range(1):
         seed=rng,
         tempering=stepwise_tempering,
         return_info=True,
-        checkpoint=fname,
+        checkpoint=fname_cp,
     )
 
-    samples, info = mcmc()
+elif isinstance(seed, str):
+    start, end = [int(i) for i in seed.split("-")]
+    ensemble = []
+    sample_list = []
+    cov_list = []
 
-    fname = "posterior-samples_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
-    fname = os.path.join("output", fname)
-    np.save(fname, samples)
+    for i in range(start, end):
+        fname = "posterior-samples_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+        fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, i)
+        fname = os.path.join("output", "bfem", fname)
 
-    fname = "posterior-logpdfs_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
-    fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
-    fname = os.path.join("output", fname)
-    np.save(fname, info["loglikelihood"])
+        samples = np.load(fname)
+        samples = samples[n_burn:]
+
+        sample_list.append(samples)
+
+        sample_mean = np.mean(samples, axis=0)
+        sample_cov = np.cov(samples.T)
+
+        ensemble.append(Gaussian(sample_mean, sample_cov))
+        cov_list.append(sample_cov)
+
+    proposal_ind = Mixture(ensemble)
+    proposal_rw = Gaussian(None, np.mean(cov_list, axis=0))
+
+    # halve burn-in phase
+    rng = np.random.default_rng(end)
+    start_value = proposal_ind.calc_sample(rng)
+
+    mcmc = MetropolisHastingsSampler(
+        target=target,
+        proposal_rw=proposal_rw,
+        proposal_ind=proposal_ind,
+        beta=0.5,
+        n_sample=n_sample // 2,
+        n_burn=n_burn // 2,
+        start_value=start_value,
+        seed=rng,
+        tempering=stepwise_tempering,
+        return_info=True,
+        checkpoint=fname_cp,
+    )
+else:
+    assert False
+
+samples, info = mcmc()
+
+fname = "posterior-samples_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+fname = os.path.join("output", fname)
+np.save(fname, samples)
+
+fname = "posterior-logpdfs_bfem-{}_alpha-{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+fname = fname.format(ref_type, alpha_type, h_obs, sigma_e, seed)
+fname = os.path.join("output", fname)
+np.save(fname, info["loglikelihood"])

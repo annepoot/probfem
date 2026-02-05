@@ -7,8 +7,8 @@ from myjive.fem import Tri3Shape, DofSpace
 from fem.jive import CJiveRunner
 from fem.meshing import read_mesh, write_mesh, create_hypermesh, invert_mesh
 
-from experiments.inverse.frp_damage import params, misc, pod
-from experiments.inverse.frp_damage.props import get_fem_props
+from experiments.reproduction.nonhierarchical.frp_dic import params, misc
+from experiments.reproduction.nonhierarchical.frp_dic.props import get_fem_props
 
 
 def get_cache_folder():
@@ -150,7 +150,7 @@ def get_or_calc_dual_mesh(*, h):
             print("Computing shifted mesh")
             a = params.geometry_params["rve_size"]
             r = params.geometry_params["r_fiber"]
-            misc.create_mesh(fibers=fibers, a=a, r=r, h=h, fname=fname, shift=True)
+            misc.create_mesh(fibers=fibers, a=a, r=r, h=h_orig, fname=fname, shift=True)
         elif dual_type == 2:
             print("Computing flipped mesh")
             orig_mesh = get_or_calc_mesh(h=h_orig)
@@ -545,69 +545,3 @@ def get_or_calc_true_dic_observations(*, h):
         write_cache(path, truth)
 
     return truth
-
-
-def get_or_calc_pod_snapshots(*, h):
-    n_fiber = params.geometry_params["n_fiber"]
-    n_snapshot = params.pod_params["n_snapshot"]
-
-    name = "snapshots"
-    dependencies = {"nsnap": n_snapshot, "h": h, "nfib": n_fiber}
-    path = get_cache_fpath(name, dependencies)
-
-    if is_cached(path):
-        print("Reading snapshots from cache")
-        snapshots = read_cache(path)
-    else:
-        print("Computing snapshots")
-        snapshots = pod.calc_snapshots(n_snapshot=n_snapshot, h=h)
-        print("Writing snapshots to cache")
-        write_cache(path, snapshots)
-
-    return snapshots
-
-
-def get_or_calc_pod_lifting(*, h):
-    n_fiber = params.geometry_params["n_fiber"]
-
-    name = "lifting"
-    dependencies = {"h": h, "nfib": n_fiber}
-    path = get_cache_fpath(name, dependencies)
-
-    if is_cached(path):
-        print("Reading lifting from cache")
-        lifting = read_cache(path)
-    else:
-        print("Computing lifting")
-        lifting = pod.calc_lifting(h=h)
-        print("Writing lifting to cache")
-        write_cache(path, lifting)
-
-    return lifting
-
-
-def get_or_calc_pod_basis(*, h):
-    n_fiber = params.geometry_params["n_fiber"]
-    n_snapshot = params.pod_params["n_snapshot"]
-
-    name = "basis"
-    dependencies = {"nsnap": n_snapshot, "h": h, "nfib": n_fiber}
-    path = get_cache_fpath(name, dependencies)
-
-    if is_cached(path):
-        print("Reading basis from cache")
-        basis = read_cache(path)
-    else:
-        snapshots = get_or_calc_pod_snapshots(h=h)
-        lifting = get_or_calc_pod_lifting(h=h)
-
-        for i in range(snapshots.shape[0]):
-            snapshots[i] -= lifting
-
-        print("Computing basis")
-        basis, d, VT = np.linalg.svd(snapshots.T, full_matrices=False)
-
-        print("Writing basis to cache")
-        write_cache(path, basis)
-
-    return basis

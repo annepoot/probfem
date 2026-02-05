@@ -4,7 +4,7 @@ from copy import deepcopy
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from experiments.inverse.kl_bar.props import (
     get_rwm_fem_target,
     get_rwm_statfem_target,
@@ -167,7 +167,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
 
         proposal = deepcopy(target.prior)
         start_value = target.prior.calc_mean()
-        mcmc = MCMCRunner(
+        mcmc = RandomWalkMetropolisSampler(
             target=target,
             proposal=proposal,
             n_sample=n_sample,

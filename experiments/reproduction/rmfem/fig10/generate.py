@@ -3,7 +3,7 @@ import pandas as pd
 
 from props.mcmc_props import mcmc_props
 from props.rmfem_props import mwmc_props
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from rmfem.rmfemrunner import RMFEMRunner
 
 
@@ -60,7 +60,7 @@ for fem_type in ["fem", "rmfem"]:
             likelihood_props["noise"]["cov"] = std_noise**2 * np.identity(n_obs)
 
             if fem_type == "fem":
-                mcmc = MCMCRunner(**props)
+                mcmc = RandomWalkMetropolisSampler(**props)
                 samples = mcmc()
 
                 df = pd.DataFrame(samples, columns=["xi_1", "xi_2", "xi_3", "xi_4"])

@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
-from probability.sampling import MCMCRunner, IndependenceSampler
+from probability.sampling import RandomWalkMetropolisSampler, IndependenceSampler
 from probability.multivariate import Gaussian, Mixture, EmpiricalMixture
 from util.io import read_csv_from
 
@@ -140,7 +140,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             start_value = target.prior.calc_mean()
             proposal = Gaussian(start_value, target.prior.calc_cov())
 
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

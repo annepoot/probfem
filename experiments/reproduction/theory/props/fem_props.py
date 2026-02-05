@@ -1,4 +1,3 @@
-
 def get_fem_props(dimensionality):
 
     if dimensionality == 1:

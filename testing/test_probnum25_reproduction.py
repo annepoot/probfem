@@ -4,7 +4,7 @@ import pytest
 
 from myjive.fem import XNodeSet, XElementSet
 
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from experiments.reproduction.probnum25.props import (
     get_rwm_fem_target,
     get_rwm_rmfem_target,
@@ -132,7 +132,7 @@ def test_probnum25_reproduction_values():
 
             proposal = deepcopy(target.prior)
             start_value = target.prior.calc_mean()
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

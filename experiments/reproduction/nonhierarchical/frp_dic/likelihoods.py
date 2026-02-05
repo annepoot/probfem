@@ -19,8 +19,8 @@ from probability.process import (
 )
 from util.linalg import Matrix, MatMulChain
 
-from experiments.inverse.frp_damage.props import get_fem_props
-from experiments.inverse.frp_damage import misc, params
+from experiments.reproduction.nonhierarchical.frp_dic.props import get_fem_props
+from experiments.reproduction.nonhierarchical.frp_dic import misc, params
 
 
 class FEMLikelihood(Likelihood):

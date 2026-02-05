@@ -11,7 +11,7 @@
 
 # run with sbatch --array=0-## fem.job
 APPSIF=/home/$USER/probfem.sif
-RUNDIR=/home/$USER/git/probfem/experiments/inverse/frp_damage
+RUNDIR=/home/$USER/git/probfem/experiments/reproduction/nonhierarchical/frp_dic
 
 echo LOADING MODULES ...
 module load 2024r1
