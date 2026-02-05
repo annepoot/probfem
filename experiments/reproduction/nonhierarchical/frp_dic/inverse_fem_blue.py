@@ -5,13 +5,13 @@ from scipy.sparse import diags_array
 import itertools
 
 from probability import TemperedPosterior
-from probability.multivariate import Gaussian, SymbolicCovariance
+from probability.multivariate import Gaussian, SymbolicCovariance, Mixture
 from probability.process import GaussianProcess, ZeroMeanFunction, SquaredExponential
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler, MetropolisHastingsSampler
 from util.linalg import Matrix
 
-from experiments.inverse.frp_damage import caching
-from experiments.inverse.frp_damage.likelihoods import FEMLikelihood
+from experiments.reproduction.nonhierarchical.frp_dic import caching
+from experiments.reproduction.nonhierarchical.frp_dic.likelihoods import FEMLikelihood
 
 n_burn = 10000
 n_sample = 20000
@@ -19,7 +19,8 @@ std_pd = 1e-6
 
 hs = [0.100, 0.050, 0.020, 0.010]
 sigma_es = [1e-2, 1e-3, 1e-4]
-seeds = range(10)
+# seeds = range(10)  # single run
+seeds = ["0-10"]  # single run
 
 combis = list(itertools.product(hs, sigma_es, seeds))
 
@@ -91,25 +92,72 @@ if __name__ == "__main__":
         else:
             return 1.0
 
-    rng = np.random.default_rng(seed)
-    start_value = kl_prior.calc_sample(rng)
     target = TemperedPosterior(kl_prior, likelihood)
-    proposal = Gaussian(None, kl_prior.calc_cov().toarray())
 
-    fname = "checkpoint_fem_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
-    fname = os.path.join("checkpoints", fname.format(h, sigma_e, seed))
+    fname_cp = "checkpoint_fem_h-{:.3f}_noise-{:.0e}_seed-{}.pkl"
+    fname_cp = os.path.join("checkpoints", fname_cp.format(h, sigma_e, seed))
 
-    mcmc = MCMCRunner(
-        target=target,
-        proposal=proposal,
-        n_sample=n_sample,
-        n_burn=n_burn,
-        start_value=start_value,
-        seed=rng,
-        tempering=linear_tempering,
-        return_info=True,
-        checkpoint=fname,
-    )
+    if isinstance(seed, int):
+        rng = np.random.default_rng(seed)
+        start_value = kl_prior.calc_sample(rng)
+        proposal = Gaussian(None, kl_prior.calc_cov().toarray())
+
+        mcmc = RandomWalkMetropolisSampler(
+            target=target,
+            proposal=proposal,
+            n_sample=n_sample,
+            n_burn=n_burn,
+            start_value=start_value,
+            seed=rng,
+            tempering=linear_tempering,
+            return_info=True,
+            checkpoint=fname_cp,
+        )
+
+    elif isinstance(seed, str):
+        start, end = [int(i) for i in seed.split("-")]
+        ensemble = []
+        sample_list = []
+        cov_list = []
+
+        for i in range(start, end):
+            fname = "posterior-samples_{}_h-{:.3f}_noise-{:.0e}_seed-{}.npy"
+            fname = fname.format("fem", h, sigma_e, i)
+            fname = os.path.join("output", "fem", fname)
+
+            samples = np.load(fname)
+            samples = samples[n_burn:]
+
+            sample_list.append(samples)
+
+            sample_mean = np.mean(samples, axis=0)
+            sample_cov = np.cov(samples.T)
+
+            ensemble.append(Gaussian(sample_mean, sample_cov))
+            cov_list.append(sample_cov)
+
+        proposal_ind = Mixture(ensemble)
+        proposal_rw = Gaussian(None, np.mean(cov_list, axis=0))
+
+        # halve burn-in phase
+        rng = np.random.default_rng(end)
+        start_value = proposal_ind.calc_sample(rng)
+
+        mcmc = MetropolisHastingsSampler(
+            target=target,
+            proposal_rw=proposal_rw,
+            proposal_ind=proposal_ind,
+            beta=0.5,
+            n_sample=n_sample // 2,
+            n_burn=n_burn // 2,
+            start_value=start_value,
+            seed=rng,
+            tempering=linear_tempering,
+            return_info=True,
+            checkpoint=fname_cp,
+        )
+    else:
+        assert False
 
     samples, info = mcmc()
 

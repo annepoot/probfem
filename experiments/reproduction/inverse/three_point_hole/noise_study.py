@@ -4,7 +4,7 @@ import pandas as pd
 from copy import deepcopy
 from datetime import datetime
 
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from experiments.reproduction.inverse.three_point_hole.props import get_rwm_fem_target
 
 
@@ -59,7 +59,7 @@ for h in h_range:
             y_prop = proposal.distributions[1]
             x_prop.update_width(y_prop.calc_width())
             start_value = np.array([1.0, 0.4, 0.4, np.pi / 6, 0.25])
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

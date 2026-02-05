@@ -2,8 +2,8 @@ import numpy as np
 from scipy.integrate import quad
 import matplotlib.pyplot as plt
 
-from probability.sampling import MCMCRunner, IndependenceSampler
-from probability.distribution import Distribution, UnivariateDistribution
+from probability.sampling import IndependenceSampler
+from probability.distribution import UnivariateDistribution
 
 from probability.univariate import Gaussian
 from probability.multivariate import Mixture

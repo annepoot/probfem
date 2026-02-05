@@ -5,7 +5,7 @@ from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
 
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from experiments.reproduction.probnum25.props import (
     get_rwm_fem_target,
     get_rwm_rmfem_target,
@@ -17,6 +17,7 @@ n_burn = 10000
 n_sample = 20000
 std_corruption = 1e-5
 n_elem_range = [10, 20, 40]
+
 
 def generate_mesh(n_elem):
     node_coords = np.linspace(0, 1, n_elem + 1).reshape((-1, 1))
@@ -145,7 +146,7 @@ for fem_type in ["fem", "fem-2d", "rmfem", "rmfem-omit", "rmfem-2d"]:
 
         proposal = deepcopy(target.prior)
         start_value = target.prior.calc_mean()
-        mcmc = MCMCRunner(
+        mcmc = RandomWalkMetropolisSampler(
             target=target,
             proposal=proposal,
             n_sample=n_sample,

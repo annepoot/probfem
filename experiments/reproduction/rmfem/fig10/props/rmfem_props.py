@@ -1,9 +1,9 @@
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from .mcmc_props import mcmc_props
 
 
 mwmc_props = {
-    "inner": {"type": MCMCRunner, **mcmc_props},
+    "inner": {"type": RandomWalkMetropolisSampler, **mcmc_props},
     "p": 1,
     "n_sample": 50,
     "seed": 0,

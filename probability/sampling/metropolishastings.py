@@ -1,6 +1,7 @@
 import os
 import numpy as np
 from scipy.sparse import issparse
+from scipy.special import logsumexp
 import pickle
 
 from probability import Distribution, IndependentJoint, RejectConditional
@@ -11,15 +12,21 @@ from probability.univariate import (
     Gaussian as UVGaussian,
 )
 
-__all__ = ["MCMCRunner", "IndependenceSampler"]
+__all__ = [
+    "MetropolisHastingsSampler",
+    "RandomWalkMetropolisSampler",
+    "IndependenceSampler",
+]
 
 
-class MCMCRunner:
+class MetropolisHastingsSampler:
     def __init__(
         self,
         *,
         target,
-        proposal,
+        proposal_rw=None,
+        proposal_ind=None,
+        beta=None,
         n_sample,
         n_burn,
         start_value=None,
@@ -33,9 +40,30 @@ class MCMCRunner:
         checkpoint_interval=1000,
     ):
         assert isinstance(target, Distribution)
-        assert isinstance(proposal, Distribution)
+
+        # assumed structure: (1 - beta) * q_rw + beta * q_ind
+        if proposal_ind is None:
+            # only random walk metropolis
+            assert isinstance(proposal_rw, Distribution)
+            assert beta is None or beta == 0.0
+            self.beta = 0.0
+        elif proposal_rw is None:
+            # only independence sampler
+            assert isinstance(proposal_ind, Distribution)
+            assert beta is None or beta == 1.0
+            self.beta = 1.0
+        else:
+            # mix of the two
+            assert isinstance(proposal_rw, Distribution)
+            assert isinstance(proposal_ind, Distribution)
+            assert 0.0 < beta < 1.0
+            self.beta = beta
+
+        assert 0.0 <= self.beta <= 1.0
+
         self.target = target
-        self.proposal = proposal
+        self.proposal_rw = proposal_rw
+        self.proposal_ind = proposal_ind
 
         self.n_sample = n_sample
         self.n_burn = n_burn
@@ -89,8 +117,17 @@ class MCMCRunner:
         accept_rate = 0.0
 
         for i in range(start + 1, self.n_sample + 1):
-            self.proposal.update_mean(xi)
-            xi_prop = self.proposal.calc_sample(self._rng)
+            if self.beta == 0.0:
+                self.proposal_rw.update_mean(xi)
+                xi_prop = self.proposal_rw.calc_sample(self._rng)
+            elif self.beta == 1.0:
+                xi_prop = self.proposal_ind.calc_sample(self._rng)
+            else:
+                if self._rng.uniform() < self.beta:
+                    xi_prop = self.proposal_ind.calc_sample(self._rng)
+                else:
+                    self.proposal_rw.update_mean(xi)
+                    xi_prop = self.proposal_rw.calc_sample(self._rng)
 
             if self.tempering is not None:
                 old_temp = temp
@@ -114,7 +151,34 @@ class MCMCRunner:
                 else:
                     raise error
 
-            logalpha = logpdf_prop - logpdf
+            if self.beta == 0.0:
+                logalpha = logpdf_prop - logpdf
+            elif self.beta == 1.0:
+                logq_ind = self.proposal_ind.calc_logpdf(xi)
+                logq_ind_prop = self.proposal_ind.calc_logpdf(xi_prop)
+                logalpha = logpdf_prop - logpdf - logq_ind_prop + logq_ind
+            else:
+                logq_ind = self.proposal_ind.calc_logpdf(xi)
+                logq_ind_prop = self.proposal_ind.calc_logpdf(xi_prop)
+
+                self.proposal_rw.update_mean(xi_prop)
+                logq_rw = self.proposal_rw.calc_logpdf(xi)
+                self.proposal_rw.update_mean(xi)
+                logq_rw_prop = self.proposal_rw.calc_logpdf(xi_prop)
+
+                logq_tot = logsumexp(
+                    [
+                        np.log(1 - self.beta) + logq_rw,
+                        np.log(self.beta) + logq_ind,
+                    ]
+                )
+                logq_tot_prop = logsumexp(
+                    [
+                        np.log(1 - self.beta) + logq_rw_prop,
+                        np.log(self.beta) + logq_ind_prop,
+                    ]
+                )
+                logalpha = logpdf_prop - logpdf - logq_tot_prop + logq_tot
 
             if logalpha < 0:
                 if self._rng.uniform() < np.exp(logalpha):
@@ -143,19 +207,20 @@ class MCMCRunner:
                 print("")
 
                 if self.tune and i <= self.n_burn:
-                    if isinstance(self.proposal, MVGaussian):
+                    if self.beta == 0.0 and isinstance(self.proposal_rw, MVGaussian):
                         if accept_rate > 0.1:
                             sample_batch = self.samples[i - self.tune_interval : i]
                             shaping = self._recompute_shaping(sample_batch)
-                            self._shape_proposal(self.proposal, shaping)
+                            self._shape_proposal(self.proposal_rw, shaping)
 
-                    oldscaling = self.scaling
-                    newscaling = self._recompute_scaling(oldscaling, accept_rate)
+                    if self.beta != 1.0:
+                        oldscaling = self.scaling
+                        newscaling = self._recompute_scaling(oldscaling, accept_rate)
 
-                    if not np.isclose(oldscaling, newscaling):
-                        factor = newscaling / oldscaling
-                        self._scale_proposal(self.proposal, factor)
-                        self.scaling = newscaling
+                        if not np.isclose(oldscaling, newscaling):
+                            factor = newscaling / oldscaling
+                            self._scale_proposal(self.proposal_rw, factor)
+                            self.scaling = newscaling
 
                 accept_rate = 0.0
 
@@ -165,7 +230,10 @@ class MCMCRunner:
         self._remove_checkpoint()
 
         if self.return_info:
-            info = {"loglikelihood": self.logpdfs, "temperature": self.temperatures}
+            info = {
+                "loglikelihood": self.logpdfs,
+                "temperature": self.temperatures,
+            }
             return self.samples, info
         else:
             return self.samples
@@ -191,7 +259,7 @@ class MCMCRunner:
 
     def _recompute_shaping(self, samples):
         sample_cov = np.cov(samples.T)
-        prop_cov = self.proposal.calc_cov()
+        prop_cov = self.proposal_rw.calc_cov()
 
         if issparse(prop_cov):
             prop_cov = prop_cov.toarray()
@@ -250,10 +318,13 @@ class MCMCRunner:
             "samples": self.samples,
             "logpdfs": self.logpdfs,
             "temperatures": self.temperatures,
-            "proposal": self.proposal,
+            "proposal_rw": self.proposal_rw,
+            "proposal_ind": self.proposal_ind,
             "scaling": self.scaling,
             "rng": self._rng,
         }
+
+        os.makedirs(os.path.dirname(self.checkpoint), exist_ok=True)
 
         with open(self.checkpoint, "wb") as f:
             pickle.dump(state, f)
@@ -275,7 +346,8 @@ class MCMCRunner:
         self.samples = state["samples"]
         self.logpdfs = state["logpdfs"]
         self.temperatures = state["temperatures"]
-        self.proposal = state["proposal"]
+        self.proposal_rw = state["proposal_rw"]
+        self.proposal_ind = state["proposal_ind"]
         self.scaling = state["scaling"]
         self._rng = state["rng"]
 
@@ -295,7 +367,45 @@ class MCMCRunner:
             print("")
 
 
-class IndependenceSampler:
+class RandomWalkMetropolisSampler(MetropolisHastingsSampler):
+    def __init__(
+        self,
+        *,
+        target,
+        proposal,
+        n_sample,
+        n_burn,
+        start_value=None,
+        seed=None,
+        tune=True,
+        tune_interval=100,
+        tempering=None,
+        recompute_logpdf=False,
+        return_info=False,
+        checkpoint=None,
+        checkpoint_interval=1000,
+    ):
+
+        super().__init__(
+            target=target,
+            proposal_rw=proposal,
+            proposal_ind=None,
+            beta=0.0,
+            n_sample=n_sample,
+            n_burn=n_burn,
+            start_value=start_value,
+            seed=seed,
+            tune=tune,
+            tune_interval=tune_interval,
+            tempering=tempering,
+            recompute_logpdf=recompute_logpdf,
+            return_info=return_info,
+            checkpoint=checkpoint,
+            checkpoint_interval=checkpoint_interval,
+        )
+
+
+class IndependenceSampler(MetropolisHastingsSampler):
     def __init__(
         self,
         *,
@@ -307,81 +417,22 @@ class IndependenceSampler:
         seed=None,
         recompute_logpdf=False,
         return_info=False,
+        checkpoint=None,
+        checkpoint_interval=1000,
     ):
-        assert isinstance(target, Distribution)
-        assert isinstance(proposal, Distribution)
-        self.target = target
-        self.proposal = proposal
 
-        self.n_sample = n_sample
-        self.n_burn = n_burn
-        if start_value is None:
-            self.start_value = np.zeros(len(self.target))
-        else:
-            self.start_value = start_value
-        self._rng = np.random.default_rng(seed)
-        self.recompute_logpdf = recompute_logpdf
-        self.return_info = return_info
-
-        self.print_interval = 100
-
-    def __call__(self):
-        start = 0
-        xi = self.start_value
-        logpdf = self.target.calc_logpdf(xi)
-        g = self.proposal.calc_logpdf(xi)
-
-        self.samples = np.zeros((self.n_sample + 1, len(self.target)))
-        self.samples[0] = xi
-
-        if self.return_info:
-            self.logpdfs = np.zeros((self.n_sample + 1))
-            self.logpdfs[0] = logpdf
-        else:
-            self.logpdfs = None
-
-        accept_rate = 0.0
-
-        for i in range(start + 1, self.n_sample + 1):
-            xi_prop = self.proposal.calc_sample(self._rng)
-
-            if self.recompute_logpdf:
-                logpdf = self.target.calc_logpdf(xi)
-
-            logpdf_prop = self.target.calc_logpdf(xi_prop)
-            g_prop = self.proposal.calc_logpdf(xi_prop)
-
-            logalpha = logpdf_prop - logpdf + g - g_prop
-
-            if logalpha < 0:
-                if self._rng.uniform() < np.exp(logalpha):
-                    accept = True
-                else:
-                    accept = False
-            else:
-                accept = True
-
-            if accept:
-                xi = xi_prop
-                logpdf = logpdf_prop
-                g = g_prop
-                accept_rate += 1 / self.print_interval
-
-            self.samples[i] = xi
-
-            if self.return_info:
-                self.logpdfs[i] = logpdf
-
-            if i % self.print_interval == 0:
-                print("MCMC sample {} of {}".format(i, self.n_sample))
-                print(xi)
-                print(logpdf)
-                print("Accept rate:", accept_rate)
-                print("")
-                accept_rate = 0.0
-
-        if self.return_info:
-            info = {"loglikelihood": self.logpdfs}
-            return self.samples, info
-        else:
-            return self.samples
+        super().__init__(
+            target=target,
+            proposal_rw=None,
+            proposal_ind=proposal,
+            beta=1.0,
+            n_sample=n_sample,
+            n_burn=n_burn,
+            start_value=start_value,
+            seed=seed,
+            tune=False,
+            recompute_logpdf=recompute_logpdf,
+            return_info=return_info,
+            checkpoint=checkpoint,
+            checkpoint_interval=checkpoint_interval,
+        )

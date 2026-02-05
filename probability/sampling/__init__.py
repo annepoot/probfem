@@ -1,1 +1,1 @@
-from .mcmcrunner import *
+from .metropolishastings import *

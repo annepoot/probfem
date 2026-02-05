@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
-from probability.sampling import MCMCRunner, IndependenceSampler
+from probability.sampling import RandomWalkMetropolisSampler, IndependenceSampler
 from probability.multivariate import Gaussian, Mixture, EmpiricalMixture
 from probability.reject import RejectConditional
 from util.io import read_csv_from
@@ -124,7 +124,7 @@ for fem_type in ["fem", "bfem", "rmfem", "statfem"]:
             start_value = target.prior.latent.calc_mean()
             proposal = Gaussian(start_value, target.prior.latent.calc_cov())
 
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

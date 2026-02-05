@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from fem.meshing import mesh_interval_with_line2
-from probability.sampling import MCMCRunner
+from probability.sampling import RandomWalkMetropolisSampler
 from probability.multivariate import Gaussian
 
 
@@ -92,7 +92,7 @@ def test_pullout_reproduction_values():
 
             start_value = target.prior.calc_mean()
             proposal = Gaussian(start_value, target.prior.calc_cov())
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,
@@ -194,7 +194,7 @@ def test_three_point_reproduction_values():
             start_value = target.prior.latent.calc_mean()
             proposal = Gaussian(start_value, target.prior.latent.calc_cov())
 
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

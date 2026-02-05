@@ -4,7 +4,7 @@ from matplotlib.patches import Polygon
 
 from myjive.fem import NodeSet, ElementSet
 
-from experiments.inverse.frp_damage import caching, params
+from experiments.reproduction.nonhierarchical.frp_dic import caching, params
 
 n_fiber = params.geometry_params["n_fiber"]
 h = 0.100

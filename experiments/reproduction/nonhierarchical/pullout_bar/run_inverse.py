@@ -4,22 +4,14 @@ import pandas as pd
 from datetime import datetime
 
 from myjive.fem import XNodeSet, XElementSet
-from probability.sampling import MCMCRunner, IndependenceSampler
+
+from fem.meshing import create_hypermesh
+from probability.sampling import RandomWalkMetropolisSampler, IndependenceSampler
 from probability.multivariate import Gaussian, Mixture, EmpiricalMixture
 from util.io import read_csv_from
 
-from experiments.reproduction.inverse.pullout_bar.props import (
-    get_rwm_fem_target,
-    get_rwm_bfem_target,
-    get_rwm_rmfem_target,
-    get_rwm_statfem_target,
-)
-
-from fem.meshing import create_hypermesh
-from probability.sampling import MCMCRunner
-from probability.multivariate import Gaussian
 from experiments.reproduction.nonhierarchical.pullout_bar import misc
-from experiments.reproduction.nonhierarchical.pullout_bar.props import (
+from experiments.reproduction.inverse.pullout_bar.props import (
     get_rwm_fem_target,
     get_rwm_bfem_target,
 )
@@ -130,9 +122,7 @@ for fem_type in [
             )
         elif fem_type == "bfem-dual":
             ref_nodes, ref_elems = misc.dual_mesh(elems)
-            (hyp_nodes, hyp_elems), mapping = create_hypermesh(
-                elems, ref_elems
-            )
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
@@ -144,9 +134,7 @@ for fem_type in [
         elif fem_type == "bfem-left":
             ref_nodes, ref_elems = generate_mesh(n_elem + 1)
             ref_nodes._data[: n_elem + 1, 0] = np.linspace(0, 0.5, n_elem + 1)
-            (hyp_nodes, hyp_elems), mapping = create_hypermesh(
-                elems, ref_elems
-            )
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
@@ -157,12 +145,8 @@ for fem_type in [
             )
         elif fem_type == "bfem-right":
             ref_nodes, ref_elems = generate_mesh(n_elem + 1)
-            ref_nodes._data[1 : n_elem + 2, 0] = np.linspace(
-                0.5, 1.0, n_elem + 1
-            )
-            (hyp_nodes, hyp_elems), mapping = create_hypermesh(
-                elems, ref_elems
-            )
+            ref_nodes._data[1 : n_elem + 2, 0] = np.linspace(0.5, 1.0, n_elem + 1)
+            (hyp_nodes, hyp_elems), mapping = create_hypermesh(elems, ref_elems)
             target = get_rwm_bfem_target(
                 obs_elems=elems,
                 ref_elems=ref_elems,
@@ -179,7 +163,7 @@ for fem_type in [
             start_value = target.prior.calc_mean()
             proposal = Gaussian(start_value, target.prior.calc_cov())
 
-            mcmc = MCMCRunner(
+            mcmc = RandomWalkMetropolisSampler(
                 target=target,
                 proposal=proposal,
                 n_sample=n_sample,

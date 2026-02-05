@@ -32,11 +32,11 @@ def u_exact(x):
 def exact_plot(n_elems, us):
     u_obs = np.array([u[-1] for u in us])
     e_obs = u_exact(1) - u_obs
-    
+
     xmarkers = np.linspace(0.0, 1.0, 6)
     ymarkers = np.linspace(-0.25, 1.5, 8)
     colors = sns.color_palette("rocket_r", n_colors=8)
-    
+
     plt.figure()
     for i, (n_elem, u) in enumerate(zip(n_elems, us)):
         x = np.linspace(0, 1, n_elem + 1)
@@ -71,22 +71,22 @@ def bfem_plot(ref_dist):
         globdat = ref_dist.globdat
 
     Phi_plot = create_phi_from_globdat(globdat, plot_globdat)
-    plot_dist =  ref_dist @ Phi_plot.T
-    
+    plot_dist = ref_dist @ Phi_plot.T
+
     samples = plot_dist.calc_samples(20, 0)
     mean = plot_dist.calc_mean()
     std = plot_dist.calc_std()
 
     c = sns.color_palette("rocket_r", n_colors=8)[2]
     x_plot = np.linspace(0, 1, len(mean))
-    
+
     xmarkers = np.linspace(0.0, 1.0, 6)
 
     if dist_type == "posterior":
         ymarkers = np.linspace(-1.0, 2.0, 7)
     else:
         ymarkers = np.linspace(-1.5, 1.5, 7)
-    
+
     plt.figure()
     plt.plot(x_plot, mean, color=c)
     plt.plot(x_plot, samples.T, color=c, linewidth=0.5)
@@ -124,11 +124,11 @@ def rmfem_plot(xs, us):
 
     mean = np.mean(u_plots, axis=0)
     std = np.std(u_plots, axis=0)
-    
+
     c = sns.color_palette("rocket_r", n_colors=8)[2]
     xmarkers = np.linspace(0.0, 1.0, 6)
     ymarkers = np.linspace(-1.0, 2.0, 7)
-    
+
     plt.figure()
     plt.plot(x_plot, mean, color=c)
     plt.plot(x_plot, u_plots[:20].T, color=c, linewidth=0.5)
@@ -163,11 +163,13 @@ def scatter_plot(df):
 
     width = 1.0
     n_elem_range = np.array(df["n_elem"].drop_duplicates())
-    colors = dict(zip([1, 2, 4, 8, 16, 32, 64], sns.color_palette("rocket_r", n_colors=8)))
+    colors = dict(
+        zip([1, 2, 4, 8, 16, 32, 64], sns.color_palette("rocket_r", n_colors=8))
+    )
 
     df["n_elem"] = df["n_elem"].astype(str)
     df["h"] = r"\sfrac{1}{" + df["n_elem"] + "}"
-    
+
     rng = np.random.default_rng(0)
     prior_mean = np.log(np.array([1.0, 100.0]))
     prior_cov = 0.1**2 * np.identity(2)

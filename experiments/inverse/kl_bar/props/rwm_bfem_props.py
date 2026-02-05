@@ -13,9 +13,7 @@ from experiments.inverse.kl_bar.props import get_fem_props, get_rwm_fem_target
 __all__ = ["get_rwm_bfem_target"]
 
 
-def get_rwm_bfem_target(
-    *, obs_elems, ref_elems, std_corruption, scale, sigma_e
-):
+def get_rwm_bfem_target(*, obs_elems, ref_elems, std_corruption, scale, sigma_e):
     target = get_rwm_fem_target(
         elems=obs_elems,
         std_corruption=std_corruption,
