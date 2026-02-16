@@ -53,10 +53,13 @@ backdoor["e"] = np.zeros(ipoints.shape[0])
 
 obs_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
 truth = caching.get_or_calc_true_dic_observations(h=0.002)
+noise_rng = np.random.default_rng(42)
+obs_noise = sigma_e * noise_rng.normal(size=len(truth))
+observations = truth + obs_noise
 
 likelihood = FEMLikelihood(
     operator=obs_operator,
-    observations=truth,
+    observations=observations,
     sigma_e=sigma_e,
     ipoints=ipoints,
     distances=distances,

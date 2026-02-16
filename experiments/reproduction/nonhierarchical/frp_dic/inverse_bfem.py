@@ -123,11 +123,14 @@ else:
     operator = caching.get_or_calc_dic_operator(elems=hyp_elems, h=h_hyp)
 
 truth = caching.get_or_calc_true_dic_observations(h=0.002)
+noise_rng = np.random.default_rng(42)
+obs_noise = sigma_e * noise_rng.normal(size=len(truth))
+observations = truth + obs_noise
 
 if ref_type == "refined":
     likelihood = BFEMLikelihoodHierarchical(
         operator=operator,
-        observations=truth,
+        observations=observations,
         sigma_e=sigma_e,
         alpha=None,
         obs_ipoints=obs_ipoints,
@@ -144,7 +147,7 @@ if ref_type == "refined":
 else:
     likelihood = BFEMLikelihoodHeterarchical(
         operator=operator,
-        observations=truth,
+        observations=observations,
         sigma_e=sigma_e,
         alpha=None,
         obs_ipoints=obs_ipoints,
