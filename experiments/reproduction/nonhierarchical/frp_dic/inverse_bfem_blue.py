@@ -21,19 +21,19 @@ n_burn = 10000
 n_sample = 20000
 std_pd = 1e-6
 
-sigma_e = 1e-3
-
 ref_types = ["refined", "shifted", "flipped"]
 alpha_types = ["hyp"]
 hs = [0.100, 0.050, 0.020]
-seeds = range(10)
+sigma_es = [1e-3, 1e-4]
+seeds = range(10)  # single run
+# seeds = ["0-10"]  # meta run
 
-combis = list(itertools.product(ref_types, alpha_types, hs, seeds))
+combis = list(itertools.product(ref_types, alpha_types, hs, sigma_es, seeds))
 
 if __name__ == "__main__":
     run_idx = int(sys.argv[1])
     job_id = int(sys.argv[2])
-    ref_type, alpha_type, h_obs, seed = combis[run_idx]
+    ref_type, alpha_type, h_obs, sigma_e, seed = combis[run_idx]
 
     print("############")
     print("# SETTINGS #")
@@ -43,6 +43,7 @@ if __name__ == "__main__":
     print("ref type:  \t", ref_type)
     print("alpha type:\t", alpha_type)
     print("h_obs:     \t", h_obs)
+    print("sigma_e:   \t", sigma_e)
     print("seed:      \t", seed)
     print("")
 
@@ -140,11 +141,14 @@ if __name__ == "__main__":
         operator = caching.get_or_calc_dic_operator(elems=hyp_elems, h=h_hyp)
 
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
+    noise_rng = np.random.default_rng(42)
+    obs_noise = sigma_e * noise_rng.normal(size=len(truth))
+    observations = truth + obs_noise
 
     if ref_type == "refined":
         likelihood = BFEMLikelihoodHierarchical(
             operator=operator,
-            observations=truth,
+            observations=observations,
             sigma_e=sigma_e,
             alpha=None,
             obs_ipoints=obs_ipoints,
@@ -161,7 +165,7 @@ if __name__ == "__main__":
     else:
         likelihood = BFEMLikelihoodHeterarchical(
             operator=operator,
-            observations=truth,
+            observations=observations,
             sigma_e=sigma_e,
             alpha=None,
             obs_ipoints=obs_ipoints,

@@ -19,8 +19,8 @@ std_pd = 1e-6
 
 hs = [0.100, 0.050, 0.020, 0.010]
 sigma_es = [1e-2, 1e-3, 1e-4]
-# seeds = range(10)  # single run
-seeds = ["0-10"]  # single run
+seeds = range(10)  # single run
+# seeds = ["0-10"]  # meta run
 
 combis = list(itertools.product(hs, sigma_es, seeds))
 
@@ -73,10 +73,13 @@ if __name__ == "__main__":
 
     obs_operator = caching.get_or_calc_dic_operator(elems=elems, h=h)
     truth = caching.get_or_calc_true_dic_observations(h=0.002)
+    noise_rng = np.random.default_rng(42)
+    obs_noise = sigma_e * noise_rng.normal(size=len(truth))
+    observations = truth + obs_noise
 
     likelihood = FEMLikelihood(
         operator=obs_operator,
-        observations=truth,
+        observations=observations,
         sigma_e=sigma_e,
         ipoints=ipoints,
         distances=distances,
