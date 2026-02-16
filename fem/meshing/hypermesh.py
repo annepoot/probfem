@@ -170,13 +170,15 @@ def create_hypermesh(mesh1, mesh2, do_groups=False):
 
 
 def clip_polygons(coords1, coords2, tol=1e-8):
+    tol2 = tol**2
+
     clip = coords1.copy()
 
     A = coords2[-1]
     for B in coords2:
         # Check each point in the clipped polygon
         cross = np.cross(B - A, clip - A)
-        keep = cross > -tol
+        keep = cross > -tol2
 
         # If not all nodes should be kept, perform
         if np.all(np.logical_not(keep)):
@@ -198,14 +200,14 @@ def clip_polygons(coords1, coords2, tol=1e-8):
                             newclip.append(xcoords)
                         else:
                             diff = xcoords - newclip[-1]
-                            if diff @ diff > tol:
+                            if diff @ diff > tol2:
                                 newclip.append(xcoords)
 
                     if len(newclip) == 0:
                         newclip.append(coordscurr)
                     else:
                         diff = coordscurr - newclip[-1]
-                        if diff @ diff > tol:
+                        if diff @ diff > tol2:
                             newclip.append(coordscurr)
 
                 else:
@@ -220,7 +222,7 @@ def clip_polygons(coords1, coords2, tol=1e-8):
                             newclip.append(xcoords)
                         else:
                             diff = xcoords - newclip[-1]
-                            if diff @ diff > tol:
+                            if diff @ diff > tol2:
                                 newclip.append(xcoords)
 
                 keepprev = keepcurr
@@ -230,7 +232,7 @@ def clip_polygons(coords1, coords2, tol=1e-8):
                 return np.zeros((0, 2))
 
             diff = newclip[0] - newclip[-1]
-            if diff @ diff < tol:
+            if diff @ diff < tol2:
                 if len(newclip) <= 3:
                     return np.zeros((0, 2))
                 else:
